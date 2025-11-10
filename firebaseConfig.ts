@@ -15,7 +15,7 @@ import { getFunctions } from "firebase/functions";
 // TODO: החלף את הערכים הבאים בפרטי התצורה של פרויקט ה-Firebase שלך!
 // ================================================================================================
 const firebaseConfig = {
-  apiKey: "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", // <-- החלף כאן!
+  apiKey: process.env.GOOGLE_API_KEY, // <-- החלף כאן!
   authDomain: "your-project-id.firebaseapp.com", // <-- החלף כאן!
   projectId: "your-project-id", // <-- החלף כאן!
   storageBucket: "your-project-id.appspot.com", // <-- החלף כאן!
