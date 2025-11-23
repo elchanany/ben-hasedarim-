@@ -1,0 +1,379 @@
+│   │   │       │   └───test
+│   │   │       ├───src
+│   │   │       │   └───lite
+│   │   │       └───test
+│   │   ├───app-types
+│   │   ├───auth
+│   │   │   ├───cordova
+│   │   │   ├───dist
+│   │   │   │   ├───browser-cjs
+│   │   │   │   │   ├───internal
+│   │   │   │   │   ├───src
+│   │   │   │   │   │   ├───api
+│   │   │   │   │   │   │   ├───account_management
+│   │   │   │   │   │   │   ├───authentication
+│   │   │   │   │   │   │   ├───password_policy
+│   │   │   │   │   │   │   └───project_config
+│   │   │   │   │   │   ├───core
+│   │   │   │   │   │   │   ├───auth
+│   │   │   │   │   │   │   ├───credentials
+│   │   │   │   │   │   │   ├───persistence
+│   │   │   │   │   │   │   ├───providers
+│   │   │   │   │   │   │   ├───strategies
+│   │   │   │   │   │   │   ├───user
+│   │   │   │   │   │   │   └───util
+│   │   │   │   │   │   ├───mfa
+│   │   │   │   │   │   ├───model
+│   │   │   │   │   │   ├───platform_browser
+│   │   │   │   │   │   │   ├───iframe
+│   │   │   │   │   │   │   ├───messagechannel
+│   │   │   │   │   │   │   └───persistence
+│   │   │   │   │   │   ├───platform_cordova
+│   │   │   │   │   │   │   └───popup_redirect
+│   │   │   │   │   │   └───platform_node
+│   │   │   │   │   └───test
+│   │   │   │   │       ├───helpers
+│   │   │   │   │       │   ├───api
+│   │   │   │   │       │   └───integration
+│   │   │   │   │       └───integration
+│   │   │   │   │           └───webdriver
+│   │   │   │   │               └───util
+│   │   │   │   ├───cordova
+│   │   │   │   │   ├───internal
+│   │   │   │   │   ├───src
+│   │   │   │   │   │   ├───api
+│   │   │   │   │   │   │   ├───account_management
+│   │   │   │   │   │   │   ├───authentication
+│   │   │   │   │   │   │   ├───password_policy
+│   │   │   │   │   │   │   └───project_config
+│   │   │   │   │   │   ├───core
+│   │   │   │   │   │   │   ├───auth
+│   │   │   │   │   │   │   ├───credentials
+│   │   │   │   │   │   │   ├───persistence
+│   │   │   │   │   │   │   ├───providers
+│   │   │   │   │   │   │   ├───strategies
+│   │   │   │   │   │   │   ├───user
+│   │   │   │   │   │   │   └───util
+│   │   │   │   │   │   ├───mfa
+│   │   │   │   │   │   ├───model
+│   │   │   │   │   │   ├───platform_browser
+│   │   │   │   │   │   │   ├───iframe
+│   │   │   │   │   │   │   ├───messagechannel
+│   │   │   │   │   │   │   └───persistence
+│   │   │   │   │   │   ├───platform_cordova
+│   │   │   │   │   │       └───popup_redirect
+│   │   │   │   │   │   └───platform_node
+│   │   │   │   │   └───test
+│   │   │   │   │       ├───helpers
+│   │   │   │   │       │   ├───api
+│   │   │   │   │       │   └───integration
+│   │   │   │   │       └───integration
+│   │   │   │   │           └───webdriver
+│   │   │   │   │               └───util
+│   │   │   │   ├───esm
+│   │   │   │   │   ├───internal
+│   │   │   │   │   ├───src
+│   │   │   │   │   │   ├───api
+│   │   │   │   │   │   │   ├───account_management
+│   │   │   │   │   │   │   ├───authentication
+│   │   │   │   │   │   │   ├───password_policy
+│   │   │   │   │   │   │   └───project_config
+│   │   │   │   │   │   ├───core
+│   │   │   │   │   │   │   ├───auth
+│   │   │   │   │   │   │   ├───credentials
+│   │   │   │   │   │   │   ├───persistence
+│   │   │   │   │   │   │   ├───providers
+│   │   │   │   │   │   │   ├───strategies
+│   │   │   │   │   │   │   ├───user
+│   │   │   │   │   │   │   └───util
+│   │   │   │   │   │   ├───mfa
+│   │   │   │   │   │   ├───model
+│   │   │   │   │   │   ├───platform_browser
+│   │   │   │   │   │   │   ├───iframe
+│   │   │   │   │   │   │   └───persistence
+│   │   │   │   │   │   ├───platform_cordova
+│   │   │   │   │   │   │   └───popup_redirect
+│   │   │   │   │   │   └───platform_node
+│   │   │   │   │   └───test
+│   │   │   │   │       ├───helpers
+│   │   │   │   │       │   ├───api
+│   │   │   │   │       │   └───integration
+│   │   │   │   │       └───integration
+│   │   │   │   │           └───webdriver
+│   │   │   │   │               └───util
+│   │   │   │   ├───internal
+│   │   │   │   ├───node
+│   │   │   │   │   ├───src
+│   │   │   │   │   │   ├───api
+│   │   │   │   │   │   │   ├───account_management
+│   │   │   │   │   │   │   ├───authentication
+│   │   │   │   │   │   │   ├───password_policy
+│   │   │   │   │   │   │   └───project_config
+│   │   │   │   │   │   ├───core
+│   │   │   │   │   │   │   ├───auth
+│   │   │   │   │   │   │   ├───credentials
+│   │   │   │   │   │   │   ├───persistence
+│   │   │   │   │   │   │   ├───providers
+│   │   │   │   │   │   │   ├───strategies
+│   │   │   │   │   │   │   ├───user
+│   │   │   │   │   │   │   └───util
+│   │   │   │   │   │   ├───model
+│   │   │   │   │   │   ├───platform_browser
+│   │   │   │   │   │   │   ├───iframe
+│   │   │   │   │   │   │   └───persistence
+│   │   │   │   │   │   └───platform_cordova
+│   │   │   │   │   │       └───popup_redirect
+│   │   │   │   │   └───test
+│   │   │   │   │       ├───helpers
+│   │   │   │   │       │   ├───api
+│   │   │   │   │       │   └───integration
+│   │   │   │   │       └───integration
+│   │   │   │   │           └───webdriver
+│   │   │   │   │               └───util
+│   │   │   │   ├───node-esm
+│   │   │   │   │   ├───internal
+│   │   │   │   │   ├───src
+│   │   │   │   │   │   ├───api
+│   │   │   │   │   │   │   ├───account_management
+│   │   │   │   │   │   │   ├───authentication
+│   │   │   │   │   │   │   ├───password_policy
+│   │   │   │   │   │   │   └───project_config
+│   │   │   │   │   │   ├───core
+│   │   │   │   │   │   │   ├───auth
+│   │   │   │   │   │   │   ├───credentials
+│   │   │   │   │   │   │   ├───persistence
+│   │   │   │   │   │   │   ├───providers
+│   │   │   │   │   │   │   ├───strategies
+│   │   │   │   │   │   │   ├───user
+│   │   │   │   │   │   │   └───util
+│   │   │   │   │   │   ├───model
+│   │   │   │   │   │   ├───platform_browser
+│   │   │   │   │   │   │   ├───iframe
+│   │   │   │   │   │   │   └───persistence
+│   │   │   │   │   │   └───platform_cordova
+│   │   │   │   │   │       └───popup_redirect
+│   │   │   │   │   └───test
+│   │   │   │   │       ├───helpers
+│   │   │   │   │       │   ├───api
+│   │   │   │   │       │   └───integration
+│   │   │   │   │       └───integration
+│   │   │   │   │           └───webdriver
+│   │   │   │   │               └───util
+│   │   │   │   ├───rn
+│   │   │   │   │   ├───src
+│   │   │   │   │   │   ├───api
+│   │   │   │   │   │   │   ├───account_management
+│   │   │   │   │   │   │   ├───authentication
+│   │   │   │   │   │   │   ├───password_policy
+│   │   │   │   │   │   │   └───project_config
+│   │   │   │   │   │   ├───core
+│   │   │   │   │   │   │   ├───auth
+│   │   │   │   │   │   │   ├───credentials
+│   │   │   │   │   │   │   ├───persistence
+│   │   │   │   │   │   │   ├───providers
+│   │   │   │   │   │   │   ├───strategies
+│   │   │   │   │   │   │   ├───user
+│   │   │   │   │   │   │   └───util
+│   │   │   │   │   │   ├───model
+│   │   │   │   │   │   ├───platform_browser
+│   │   │   │   │   │   │   ├───iframe
+│   │   │   │   │   │   │   └───persistence
+│   │   │   │   │   │   └───platform_cordova
+│   │   │   │   │       └───popup_redirect
+│   │   │   │   └───test
+│   │   │   │       ├───helpers
+│   │   │   │       │   ├───api
+│   │   │   │       │   └───integration
+│   │   │   │       └───integration
+│   │   │   │           └───webdriver
+│   │   │   │               └───util
+│   │   │   ├───src
+│   │   │   │   ├───api
+│   │   │   │   │   ├───account_management
+│   │   │   │   │   ├───authentication
+│   │   │   │   │   ├───password_policy
+│   │   │   │   │   └───project_config
+│   │   │   │   ├───core
+│   │   │   │   │   ├───auth
+│   │   │   │   │   ├───credentials
+│   │   │   │   │   ├───persistence
+│   │   │   │   │   ├───providers
+│   │   │   │   │   ├───strategies
+│   │   │   │   │   ├───user
+│   │   │   │   │   └───util
+│   │   │   │   ├───model
+│   │   │   │   ├───platform_browser
+│   │   │   │   │   ├───iframe
+│   │   │   │   │   └───persistence
+│   │   │   │   └───platform_cordova
+│   │   │   │       └───popup_redirect
+│   │   │   ├───test
+│   │   │   │   ├───helpers
+│   │   │   │   │   ├───api
+│   │   │   │   │   └───integration
+│   │   │   │   └───integration
+│   │   │   │       └───webdriver
+│   │   │   │           └───util
+│   │   │   ├───web-extension-cjs
+│   │   │   │   │   ├───src
+│   │   │   │   │   │   ├───api
+│   │   │   │   │   │   │   ├───account_management
+│   │   │   │   │   │   │   ├───authentication
+│   │   │   │   │   │   │   ├───password_policy
+│   │   │   │   │   │   │   └───project_config
+│   │   │   │   │   │   ├───core
+│   │   │   │   │   │   │   ├───auth
+│   │   │   │   │   │   │   ├───credentials
+│   │   │   │   │   │   │   ├───persistence
+│   │   │   │   │   │   │   ├───providers
+│   │   │   │   │   │   │   ├───strategies
+│   │   │   │   │   │   │   ├───user
+│   │   │   │   │   │   │   └───util
+│   │   │   │   │   │   ├───model
+│   │   │   │   │   │   ├───platform_browser
+│   │   │   │   │   │   │   ├───iframe
+│   │   │   │   │   │   │   └───persistence
+│   │   │   │   │   │   └───platform_cordova
+│   │   │   │   │   │       └───popup_redirect
+│   │   │   │   │   └───test
+│   │   │   │   │       ├───helpers
+│   │   │   │   │       │   ├───api
+│   │   │   │   │       │   └───integration
+│   │   │   │   │       └───integration
+│   │   │   │   │           └───webdriver
+│   │   │   │   │               └───util
+│   │   │   │   └───web-extension-esm
+│   │   │   │       ├───src
+│   │   │   │       │   ├───api
+│   │   │   │       │   │   ├───account_management
+│   │   │   │       │   │   ├───authentication
+│   │   │   │       │   │   ├───password_policy
+│   │   │   │       │   │   └───project_config
+│   │   │   │       │   ├───core
+│   │   │   │       │   │   ├───auth
+│   │   │   │       │   │   ├───credentials
+│   │   │   │       │   │   ├───persistence
+│   │   │   │       │   │   ├───providers
+│   │   │   │       │   │   ├───strategies
+│   │   │   │       │   │   ├───user
+│   │   │   │       │   │   └───util
+│   │   │   │       │   ├───model
+│   │   │   │       │   ├───platform_browser
+│   │   │   │       │   │   ├───iframe
+│   │   │   │       │   │   └───persistence
+│   │   │   │       │   └───platform_cordova
+│   │   │   │       │       └───popup_redirect
+│   │   │   │       └───test
+│   │   │   │           ├───helpers
+│   │   │   │           │   ├───api
+│   │   │   │           │   └───integration
+│   │   │   │           └───integration
+│   │   │   │               └───webdriver
+│   │   │   │                   └───util
+│   │   │   ├───internal
+│   │   │   └───web-extension
+│   │   ├───auth-compat
+│   │   │   └───dist
+│   │   │       ├───auth-compat
+│   │   │       │   ├───scripts
+│   │   │       │   ├───src
+│   │   │       │   └───test
+│   │   │       │       ├───helpers
+│   │   │       │       └───integration
+│   │   │       │           └───flows
+│   │   │       └───esm
+│   │   │           └───auth-compat
+│   │   │               ├───scripts
+│   │   │               ├───src
+│   │   │               └───test
+│   │   │                   ├───helpers
+│   │   │                   └───integration
+│   │   │                       └───flows
+│   │   ├───auth-interop-types
+│   │   ├───auth-types
+│   │   ├───component
+│   │   │   └───dist
+│   │   │       ├───esm
+│   │   │       │   ├───src
+│   │   │       │   └───test
+│   │   │       ├───src
+│   │   │       └───test
+│   │   ├───data-connect
+│   │   │   └───dist
+│   │   │       ├───node-esm
+│   │   │       │   └───src
+│   │   │       │       ├───api
+│   │   │       │       ├───core
+│   │   │       │       ├───network
+│   │   │       │       │   └───transport
+│   │   │       │       └───util
+│   │   │       └───src
+│   │   │           ├───api
+│   │   │           ├───core
+│   │   │           ├───network
+│   │   │           │   └───transport
+│   │   │           └───util
+│   │   ├───database
+│   │   │   └───dist
+│   │   │       ├───node-esm
+│   │   │       │   ├───src
+│   │   │       │   │   ├───api
+│   │   │       │   │   ├───core
+│   │   │       │   │   │   ├───operation
+│   │   │       │   │   │   ├───snap
+│   │   │       │   │   │   │   └───indexes
+│   │   │       │   │   │   ├───stats
+│   │   │       │   │   │   ├───storage
+│   │   │       │   │   │   ├───util
+│   │   │       │   │   │   │   └───libs
+│   │   │       │   │   │   └───view
+│   │   │       │   │   │       └───filter
+│   │   │       │   │   ├───internal
+│   │   │       │   │   └───realtime
+│   │   │       │   │       └───polling
+│   │   │       │   └───test
+│   │   │       │       └───helpers
+│   │   │       ├───src
+│   │   │       │   ├───api
+│   │   │       │   ├───core
+│   │   │       │   │   ├───operation
+│   │   │       │   │   ├───snap
+│   │   │       │   │   │   └───indexes
+│   │   │       │   │   ├───stats
+│   │   │       │   │   ├───storage
+│   │   │       │   │   ├───util
+│   │   │       │   │   │   └───libs
+│   │   │       │   │   └───view
+│   │   │       │   │       └───filter
+│   │   │       │   ├───internal
+│   │   │       │   └───realtime
+│   │   │       │       └───polling
+│   │   │       └───test
+│   │   │           └───helpers
+│   │   ├───database-compat
+│   │   │   ├───dist
+│   │   │   │   ├───database-compat
+│   │   │   │   │   ├───src
+│   │   │   │   │   │   ├───api
+│   │   │   │   │   │   └───util
+│   │   │   │   │   └───test
+│   │   │   │   │       ├───browser
+│   │   │   │   │       └───helpers
+│   │   │   │   └───node-esm
+│   │   │   │       └───database-compat
+│   │   │   │           ├───src
+│   │   │   │           │   ├───api
+│   │   │   │           │   └───util
+│   │   │   │           └───test
+│   │   │   │               ├───browser
+│   │   │   │               └───helpers
+│   │   │   └───standalone
+│   │   ├───database-types
+│   │   ├───firestore
+│   │   │   ├───dist
+│   │   │   │   ├───firestore
+│   │   │   │   │   └───src
+│   │   │   │   └───lite
+│   │   │   └───lite
+│   │   ├───firestore-compat
+│   │   │   └───...
