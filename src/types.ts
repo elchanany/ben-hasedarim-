@@ -1,14 +1,22 @@
+// src/types.ts
 
 export interface User {
-  id: string; // Firebase Auth UID
-  fullName: string;
+  id: string; // Firebase Auth UID matches this
+  fullName: string; // Mapped from displayName
   phone: string;
   email: string;
+  
+  // שדות נוספים שנדרשים ללוגיקה של האתר
+  role?: 'user' | 'moderator' | 'admin' | 'support';
+  datePreference?: 'hebrew' | 'gregorian'; // נוסף: עבור תצוגת תאריכים
+  isEmployer?: boolean; // נוסף: האם המשתמש הוא מעסיק
+  createdAt?: string; // נוסף: תאריך הרשמה
+
+  // שדות קיימים
   whatsapp?: string;
   contactPreference?: ContactPreference; 
-  role?: 'user' | 'moderator' | 'admin' | 'support'; // Add user role
-  isBlocked?: boolean; // For blocking user access
-  canChat?: boolean; // For disabling chat for a user
+  isBlocked?: boolean; 
+  canChat?: boolean; 
 }
 
 export interface ContactPreference {
@@ -29,7 +37,6 @@ export enum PaymentType {
   GLOBAL = 'גלובלי',
 }
 export type PaymentTypeFilter = PaymentType | 'both' | '';
-
 
 export interface JobSuitability {
   men: boolean;
@@ -59,46 +66,36 @@ export interface PreferredContactMethods {
 }
 
 export interface Job {
-  id: string; // Document ID in Firestore
+  id: string; 
   title: string;
   area: string; 
-  
   dateType: JobDateType;
   specificDate?: string; 
-
   estimatedDurationHours?: number;
   estimatedDurationIsFlexible?: boolean;
-  
   startTime?: string; 
   difficulty: JobDifficulty;
-  
   paymentType: PaymentType;
   hourlyRate?: number;
   globalPayment?: number;
-
   paymentMethod?: PaymentMethod;
   paymentDueDate?: string; 
-
   numberOfPeopleNeeded?: number;
-  
   specialRequirements?: string;
   suitability: JobSuitability;
   description: string;
-  
   contactInfoSource: 'currentUser' | 'other' | 'anonymous';
   contactDisplayName: string; 
   contactPhone?: string;
   contactWhatsapp?: string;
   contactEmail?: string;
   preferredContactMethods: PreferredContactMethods;
-
   postedBy: JobPosterInfo; 
-  postedDate: string; // ISO string (consider Firebase Timestamp for Firestore)
+  postedDate: string; 
   views: number;
   contactAttempts: number;
-  isFlagged?: boolean; // For admin/moderator to mark as problematic
-  flagReason?: string; // Reason for flagging
-  // Consider adding status: 'active', 'expired', 'filled' for better querying
+  isFlagged?: boolean; 
+  flagReason?: string; 
 }
 
 export interface City {
@@ -109,14 +106,14 @@ export interface City {
 export type NotificationType = 'job_alert_match' | 'system_update'; 
 
 export interface Notification {
-  id: string; // Document ID in Firestore
+  id: string; 
   userId: string;
   type: NotificationType;
   title: string;
   message: string;
   link?: string; 
   isRead: boolean;
-  createdAt: string; // ISO string (consider Firebase Timestamp)
+  createdAt: string; 
 }
 
 export interface JobAlertDeliveryMethods {
@@ -127,73 +124,59 @@ export interface JobAlertDeliveryMethods {
 }
 
 export interface JobAlertPreference {
-  id: string; // Document ID in Firestore
+  id: string; 
   userId: string;
   name: string; 
-  
   location?: string;
   difficulty?: JobDifficulty | '';
-  
   dateType?: JobDateType | '';
   specificDateStart?: string | null;
   specificDateEnd?: string | null;
-
   minEstimatedDurationHours?: string;
   maxEstimatedDurationHours?: string;
   filterDurationFlexible?: 'yes' | 'no' | 'any';
-
   paymentKind?: 'any' | PaymentType.HOURLY | PaymentType.GLOBAL;
   minHourlyRate?: string; 
   maxHourlyRate?: string;
   minGlobalPayment?: string;
   maxGlobalPayment?: string;
   selectedPaymentMethods?: Set<PaymentMethod>; 
-
   minPeopleNeeded?: string;
   maxPeopleNeeded?: string;
   suitabilityFor?: 'any' | 'men' | 'women' | 'general';
   minAge?: string;
   maxAge?: string;
-
   frequency: 'daily' | 'instant' | 'weekly'; 
   notificationDays: number[]; 
   doNotDisturbHours?: { 
     start: string; 
     end: string;   
   };
-
   deliveryMethods: JobAlertDeliveryMethods;
   alertEmail?: string; 
   alertWhatsappPhone?: string; 
   alertTzintukPhone?: string; 
-
-
   isActive: boolean;
   lastChecked?: string; 
 }
-
 
 export interface JobSearchFilters {
   term: string;
   location: string;
   difficulty: JobDifficulty | '';
   sortBy: string; 
-
   dateType: JobDateType | '';
   specificDateStart: string | null;
   specificDateEnd: string | null;
-
   minEstimatedDurationHours: string;
   maxEstimatedDurationHours: string;
   filterDurationFlexible: 'yes' | 'no' | 'any';
-
   paymentKind: 'any' | PaymentType.HOURLY | PaymentType.GLOBAL;
   minHourlyRate: string;
   maxHourlyRate: string;
   minGlobalPayment: string;
   maxGlobalPayment: string;
   selectedPaymentMethods: Set<PaymentMethod>;
-
   minPeopleNeeded: string;
   maxPeopleNeeded: string;
   suitabilityFor: 'any' | 'men' | 'women' | 'general';
@@ -212,17 +195,17 @@ export interface ChatParticipantInfo {
 }
 
 export interface ChatMessage {
-  id: string; // Document ID in Firestore
+  id: string; 
   threadId: string;
   senderId: string;
   text: string;
-  timestamp: string; // ISO string (consider Firebase Timestamp)
+  timestamp: string; 
   isRead: boolean;
-  readAt?: string; // ISO string (consider Firebase Timestamp)
+  readAt?: string; 
 }
 
 export interface ChatThread {
-  id: string; // Document ID in Firestore
+  id: string; 
   jobId?: string; 
   jobTitle?: string; 
   participantIds: string[]; 
@@ -233,6 +216,6 @@ export interface ChatThread {
     senderId: string;
   } | null;
   unreadMessages: Record<string, number>; 
-  createdAt: string; // ISO string (consider Firebase Timestamp)
-  updatedAt: string; // ISO string (consider Firebase Timestamp)
+  createdAt: string; 
+  updatedAt: string; 
 }
