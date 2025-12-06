@@ -17,17 +17,17 @@ interface NavLinkProps {
 
 const NavLink: React.FC<NavLinkProps> = ({ to, label, icon, setCurrentPageProp, currentPage, className, badgeCount, params }) => {
   const isActive = to === currentPage;
-  
+
   // Special check for notifications tab: if current page is notifications and tab matches, or if no tab specified and it's just notifications page
-  const isNotificationsActive = 
-    to === 'notifications' && 
+  const isNotificationsActive =
+    to === 'notifications' &&
     currentPage === 'notifications' &&
     // Check if the current hash's tab param matches the link's tab param OR if the link has no tab param (general notifications link)
     (params?.tab ? params.tab === (window.location.hash.includes('tab=') ? new URLSearchParams(window.location.hash.split('?')[1]).get('tab') : 'alerts') : true);
 
 
   const finalIsActive = (to === 'notifications') ? isNotificationsActive : isActive;
-  const activeStyle = 'bg-blue-700 text-white'; 
+  const activeStyle = 'bg-blue-700 text-white';
   const inactiveStyle = 'text-gray-200 hover:bg-blue-600 hover:text-white'; // Enhanced hover
 
   return (
@@ -41,7 +41,7 @@ const NavLink: React.FC<NavLinkProps> = ({ to, label, icon, setCurrentPageProp, 
       <span>{label}</span>
       {typeof badgeCount === 'number' && badgeCount > 0 && (
         <span
-          className="absolute top-0.5 right-0.5 transform translate-x-1/4 -translate-y-1/4 min-w-[1.2rem] h-[1.2rem] p-0.5 bg-red-500 text-white text-xs leading-none font-sans font-semibold rounded-full flex items-center justify-center shadow-md"
+          className="absolute -top-1 -right-1 min-w-[1.2rem] h-[1.2rem] p-0.5 bg-red-600 text-white text-xs leading-none font-sans font-semibold rounded-full flex items-center justify-center shadow-md border-2 border-royal-blue"
           aria-label={`${badgeCount} התראות והודעות חדשות`}
         >
           {badgeCount > 9 ? '9+' : badgeCount}
@@ -52,7 +52,7 @@ const NavLink: React.FC<NavLinkProps> = ({ to, label, icon, setCurrentPageProp, 
 };
 
 const pageDisplayNames: Record<Page, string> = {
-  home: 'אתר העבודות הזמניות של הציבור החרדי', 
+  home: 'אתר העבודות הזמניות של הציבור החרדי',
   login: 'התחברות',
   register: 'הרשמה',
   postJob: 'פרסום עבודה',
@@ -60,7 +60,7 @@ const pageDisplayNames: Record<Page, string> = {
   profile: 'אזור אישי',
   searchResults: 'חיפוש עבודות',
   admin: 'לוח מנהל',
-  notifications: 'התראות והודעות', 
+  notifications: 'התראות והודעות',
   chatThread: 'שיחה פעילה',
   createJobAlert: 'יצירת התראת עבודה חדשה' // Added
 };
@@ -78,7 +78,7 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
     setCurrentPage('home');
     setMobileMenuOpen(false);
   };
-  
+
   const createNavLinkProps = (to: Page, label: string, icon?: React.ReactNode, navParams?: Record<string, any>, additionalClassName?: string) => ({
     to,
     label,
@@ -96,26 +96,26 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
     <>
       <NavLink {...createNavLinkProps('home', 'דף הבית', <BriefcaseIcon className="w-5 h-5" />)} />
       <NavLink {...createNavLinkProps('searchResults', 'חיפוש עבודות', <SearchIcon className="w-5 h-5" />)} />
-      <NavLink 
+      <NavLink
         {...createNavLinkProps(
-            'postJob', 
-            'פרסום עבודה', 
-            <PlusCircleIcon className="w-5 h-5" />, 
-            undefined, 
-            `bg-deep-pink hover:bg-pink-700 text-white ${currentPage === 'postJob' ? 'ring-2 ring-white/70' : ''}`
-        )} 
+          'postJob',
+          'פרסום עבודה',
+          <PlusCircleIcon className="w-5 h-5" />,
+          undefined,
+          `bg-deep-pink hover:bg-pink-700 text-white ${currentPage === 'postJob' ? 'ring-2 ring-white/70' : ''}`
+        )}
       />
     </>
   );
 
   const authLinks = (
     <>
-      <NavLink 
+      <NavLink
         {...createNavLinkProps(
-            'notifications', 
-            "התראות והודעות", 
-            <BellIcon className="w-5 h-5" />,
-            undefined 
+          'notifications',
+          "התראות והודעות",
+          <BellIcon className="w-5 h-5" />,
+          undefined
         )}
         badgeCount={user ? totalUnreadCount : 0}
       />
@@ -133,14 +133,14 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
       ) : (
         <>
           <NavLink {...createNavLinkProps('login', 'התחברות', <LoginIcon className="w-5 h-5" />)} />
-          <NavLink 
+          <NavLink
             {...createNavLinkProps(
-                'register', 
-                'הרשמה', 
-                undefined, 
-                undefined,
-                `bg-light-pink hover:bg-pink-300 text-royal-blue ${currentPage === 'register' ? 'ring-2 ring-royal-blue/70' : ''}`
-            )} 
+              'register',
+              'הרשמה',
+              undefined,
+              undefined,
+              `bg-light-pink hover:bg-pink-300 text-royal-blue ${currentPage === 'register' ? 'ring-2 ring-royal-blue/70' : ''}`
+            )}
           />
         </>
       )}
@@ -169,14 +169,14 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
           </div>
           <div className="hidden md:flex items-center space-x-1 rtl:space-x-reverse" role="navigation" aria-label="ניווט ראשי - דסקטופ">
             {navLinks}
-            <div className="w-px h-6 bg-gray-500/50 mx-1" aria-hidden="true"></div> 
+            <div className="w-px h-6 bg-gray-500/50 mx-1" aria-hidden="true"></div>
             {authLinks}
           </div>
           <div className="md:hidden flex items-center">
             <button
-              onClick={() => {setCurrentPage('notifications'); setMobileMenuOpen(false);}}
+              onClick={() => { setCurrentPage('notifications'); setMobileMenuOpen(false); }}
               className={`relative p-2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus-ring-color
-                          ${currentPage ==='notifications' ? 'text-white bg-blue-700' : 'text-gray-300 hover:text-white hover:bg-royal-blue/70'}`}
+                          ${currentPage === 'notifications' ? 'text-white bg-blue-700' : 'text-gray-300 hover:text-white hover:bg-royal-blue/70'}`}
               aria-label="התראות והודעות"
             >
               <BellIcon className="h-6 w-6" />
@@ -213,7 +213,7 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
         <div className="md:hidden" id="mobile-menu">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 flex flex-col items-stretch" role="menu" aria-orientation="vertical" aria-labelledby="mobile-menu-button">
             {navLinks}
-            <hr className="border-gray-600 w-full my-2" aria-hidden="true"/>
+            <hr className="border-gray-600 w-full my-2" aria-hidden="true" />
             {authLinks}
           </div>
         </div>

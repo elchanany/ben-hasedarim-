@@ -1,24 +1,25 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useContext } from 'react';
- 
+
 import {
   gregorianISOToHebrewDateParts,
   hebrewDatePartsToGregorianISO,
   getHebrewMonthsForYear,
   gregSourceToHebrewString,
   getTodayGregorianISO,
-  getDaysInHebrewMonth
+  getDaysInHebrewMonth,
+  gematriya,
+  formatGregorianString
 } from '../utils/dateConverter';
 import { Modal } from './Modal';
 import { Button } from './Button';
 import { Select } from './Select';
 import { AuthContext } from '../contexts/AuthContext';
-import { formatGregorianString } from '../../utils/dateConverter';
 
 interface HebrewDatePickerProps {
   label?: string;
-  value: string | null; 
+  value: string | null;
   onChange: (gregorianISO: string | null) => void;
   error?: string;
   id?: string;
@@ -29,14 +30,14 @@ interface HebrewDatePickerProps {
 }
 
 const HEBREW_WEEKDAY_SHORT_NAMES = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
-const DEFAULT_LABEL_CLASS = 'block text-sm font-medium text-dark-text mb-1 text-right'; 
+const DEFAULT_LABEL_CLASS = 'block text-sm font-medium text-dark-text mb-1 text-right';
 
 export const HebrewDatePicker: React.FC<HebrewDatePickerProps> = ({
   label,
   value,
   onChange,
   error,
-  id = 'hebrew-date-picker', 
+  id = 'hebrew-date-picker',
   required,
   inputClassName = '',
   containerClassName = 'mb-4',
@@ -93,7 +94,7 @@ export const HebrewDatePicker: React.FC<HebrewDatePickerProps> = ({
     setIsOpen(false);
   };
 
-  const handleQuickSelect = (offset: 0 | 1 | 2) => { 
+  const handleQuickSelect = (offset: 0 | 1 | 2) => {
     const targetJsDate = new Date();
     targetJsDate.setDate(targetJsDate.getDate() + offset);
 
@@ -116,30 +117,30 @@ export const HebrewDatePicker: React.FC<HebrewDatePickerProps> = ({
   const changeMonth = (delta: number) => {
     let newMonth = displayMonth;
     let newYear = displayYear;
-    
-    const currentYearMonths = getHebrewMonthsForYear(newYear); 
+
+    const currentYearMonths = getHebrewMonthsForYear(newYear);
     let currentMonthIndex = currentYearMonths.findIndex(m => m.value === newMonth);
 
     if (currentMonthIndex === -1 && currentYearMonths.length > 0) {
-        currentMonthIndex = 0;
-        newMonth = currentYearMonths[0].value;
+      currentMonthIndex = 0;
+      newMonth = currentYearMonths[0].value;
     }
 
     if (delta > 0) {
-        if (currentMonthIndex < currentYearMonths.length - 1) {
-            newMonth = currentYearMonths[currentMonthIndex + 1].value;
-        } else {
-            newYear++;
-            newMonth = getHebrewMonthsForYear(newYear)[0].value;
-        }
+      if (currentMonthIndex < currentYearMonths.length - 1) {
+        newMonth = currentYearMonths[currentMonthIndex + 1].value;
+      } else {
+        newYear++;
+        newMonth = getHebrewMonthsForYear(newYear)[0].value;
+      }
     } else {
-        if (currentMonthIndex > 0) {
-            newMonth = currentYearMonths[currentMonthIndex - 1].value;
-        } else {
-            newYear--;
-            const prevYearMonths = getHebrewMonthsForYear(newYear);
-            newMonth = prevYearMonths[prevYearMonths.length - 1].value;
-        }
+      if (currentMonthIndex > 0) {
+        newMonth = currentYearMonths[currentMonthIndex - 1].value;
+      } else {
+        newYear--;
+        const prevYearMonths = getHebrewMonthsForYear(newYear);
+        newMonth = prevYearMonths[prevYearMonths.length - 1].value;
+      }
     }
     setDisplayMonth(newMonth);
     setDisplayYear(newYear);
@@ -166,7 +167,7 @@ export const HebrewDatePicker: React.FC<HebrewDatePickerProps> = ({
 
     const todayJs = new Date();
     todayJs.setHours(0, 0, 0, 0);
-    
+
     const currentDisplayMonthName = getHebrewMonthsForYear(displayYear).find(m => m.value === displayMonth)?.name || '';
 
 
@@ -180,7 +181,7 @@ export const HebrewDatePicker: React.FC<HebrewDatePickerProps> = ({
           // חישוב תאריך גרגוריאני (קירוב)
           const currentCellJsDate = hebrewDatePartsToGregorianISO(day, displayMonth, displayYear);
           const jsDate = currentCellJsDate ? new Date(currentCellJsDate) : new Date();
-          jsDate.setHours(0,0,0,0);
+          jsDate.setHours(0, 0, 0, 0);
 
           const isPast = jsDate < todayJs;
           const isSelected = selectedParts?.day === day && selectedParts?.month === displayMonth && selectedParts?.year === displayYear;
@@ -192,7 +193,7 @@ export const HebrewDatePicker: React.FC<HebrewDatePickerProps> = ({
           if (isPast) {
             dayClass += " text-gray-400 cursor-not-allowed";
             if (isSelected) {
-                dayClass += " bg-gray-200";
+              dayClass += " bg-gray-200";
             }
           } else {
             dayClass += " text-dark-text cursor-pointer hover:bg-light-blue transition-colors";
@@ -205,14 +206,14 @@ export const HebrewDatePicker: React.FC<HebrewDatePickerProps> = ({
 
           return (
             <div
-                key={day}
-                className={dayClass}
-                onClick={() => !isPast && handleDayClickInGrid(day)}
-                aria-disabled={isPast}
-                role="button"
-                tabIndex={isPast ? -1 : 0}
-                aria-label={`בחר ${gematriya(day)} ${currentDisplayMonthName} ${gematriya(displayYear)} ${isToday ? '(היום)' : ''} ${isPast ? '(לא זמין)' : ''}`}
-                title={isToday ? 'היום' : undefined}
+              key={day}
+              className={dayClass}
+              onClick={() => !isPast && handleDayClickInGrid(day)}
+              aria-disabled={isPast}
+              role="button"
+              tabIndex={isPast ? -1 : 0}
+              aria-label={`בחר ${gematriya(day)} ${currentDisplayMonthName} ${gematriya(displayYear)} ${isToday ? '(היום)' : ''} ${isPast ? '(לא זמין)' : ''}`}
+              title={isToday ? 'היום' : undefined}
             >
               {gematriya(day)}
             </div>
@@ -250,7 +251,7 @@ export const HebrewDatePicker: React.FC<HebrewDatePickerProps> = ({
     const label = mode === 'gregorian' ? formatGregorianString(tentativeSelectedGregorianISO) : gregSourceToHebrewString(tentativeSelectedGregorianISO);
     return `קבע: ${label}${relative ? ` (${relative})` : ''}`;
   })();
-  
+
   const modalTitleId = `${id}-modal-title`;
 
   return (
@@ -276,11 +277,11 @@ export const HebrewDatePicker: React.FC<HebrewDatePickerProps> = ({
       />
       {error && <p id={`${id}-error-desc`} className="mt-1 text-xs text-red-600 text-right" role="alert">{error}</p>}
 
-      <Modal 
-        isOpen={isOpen} 
-        onClose={() => setIsOpen(false)} 
-        title={mode === 'gregorian' ? 'בחירת תאריך לועזי' : 'בחירת תאריך עברי'} 
-        titleId={modalTitleId} 
+      <Modal
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        title={mode === 'gregorian' ? 'בחירת תאריך לועזי' : 'בחירת תאריך עברי'}
+        titleId={modalTitleId}
         size="lg"
         headerActions={
           <div className="flex items-center gap-2">
@@ -328,18 +329,18 @@ export const HebrewDatePicker: React.FC<HebrewDatePickerProps> = ({
           )}
           <div className="mt-4 pt-4 border-t space-y-3">
             <div className="flex justify-center space-x-2 rtl:space-x-reverse">
-                <Button variant="outline" size="sm" onClick={() => handleQuickSelect(0)}>היום</Button>
-                <Button variant="outline" size="sm" onClick={() => handleQuickSelect(1)}>מחר</Button>
-                <Button variant="outline" size="sm" onClick={() => handleQuickSelect(2)}>מחרתיים</Button>
+              <Button variant="outline" size="sm" onClick={() => handleQuickSelect(0)}>היום</Button>
+              <Button variant="outline" size="sm" onClick={() => handleQuickSelect(1)}>מחר</Button>
+              <Button variant="outline" size="sm" onClick={() => handleQuickSelect(2)}>מחרתיים</Button>
             </div>
             <Button
-                variant="primary"
-                onClick={handleConfirmSelection}
-                disabled={!tentativeSelectedGregorianISO}
-                className="w-full"
-                aria-label={confirmButtonText}
+              variant="primary"
+              onClick={handleConfirmSelection}
+              disabled={!tentativeSelectedGregorianISO}
+              className="w-full"
+              aria-label={confirmButtonText}
             >
-                {confirmButtonText}
+              {confirmButtonText}
             </Button>
           </div>
         </div>

@@ -1,19 +1,20 @@
 import React, { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import type { DateDisplayPreference } from '../../utils/dateConverter';
-import { User } from '../../types';
-import type { RegisterData } from '../../services/authService'; // Type is compatible
-import * as notificationService from '../../services/notificationService'; // Mock only
-import { USE_FIREBASE_BACKEND } from '../../config';
+import type { DateDisplayPreference } from '../utils/dateConverter';
+import { User } from '../types';
+import type { RegisterData } from '../services/authService'; // Type is compatible
+import * as notificationService from '@/services/notificationService';
+import { USE_FIREBASE_BACKEND } from '../config';
 
 // Conditionally import services
-import * as MockAuthService from '../../services/authService';
-import * as FirebaseAuthService from '../services/authService';
-import * as MockChatService from '../../services/chatService';
-import * as FirebaseChatService from '../services/chatService';
+import * as MockAuthService from '@/services/mock/authService';
+import * as FirebaseAuthService from '@/services/authService';
+import * as MockChatService from '@/services/mock/chatService';
+import * as FirebaseChatService from '@/services/chatService';
 
 // Firebase specific imports - only used if USE_FIREBASE_BACKEND is true
 import { onAuthStateChanged } from "firebase/auth";
-import { auth as firebaseAuth } from '../firebaseConfig';
+import { auth as firebaseAuth, db } from '@/lib/firebase';
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 
 const AuthService = USE_FIREBASE_BACKEND ? FirebaseAuthService : MockAuthService;
 const chatService = USE_FIREBASE_BACKEND ? FirebaseChatService : MockChatService;
@@ -25,9 +26,9 @@ export interface AuthContextType {
   logout: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   sendPasswordResetEmail: (email: string) => Promise<void>;
-  updateUserContext: (updatedUser: User) => Promise<void>; 
+  updateUserContext: (updatedUser: User) => Promise<void>;
   loadingAuth: boolean;
-  totalUnreadCount: number; 
+  totalUnreadCount: number;
   refreshTotalUnreadCount: () => Promise<void>;
   datePreference: DateDisplayPreference;
   setDatePreference: (pref: DateDisplayPreference) => void;
@@ -47,7 +48,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const saved = localStorage.getItem('datePreference');
     return (saved === 'gregorian' || saved === 'hebrew') ? (saved as DateDisplayPreference) : 'hebrew';
   });
- 
+
   const setDatePreference = (pref: DateDisplayPreference) => {
     setDatePreferenceState(pref);
     localStorage.setItem('datePreference', pref);
@@ -63,20 +64,69 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
+  // Setup real-time listeners for unread counts
+  useEffect(() => {
+    if (!user?.id || !USE_FIREBASE_BACKEND) return;
+
+    // 1. Listen for unread chat messages
+    const threadsCol = collection(db, 'chatThreads');
+    const qChats = query(threadsCol, where("participantIds", "array-contains", user.id));
+
+    const unsubscribeChats = onSnapshot(qChats, (snapshot) => {
+      let chatUnread = 0;
+      snapshot.forEach(doc => {
+        const thread = doc.data() as any;
+        if (thread.unreadMessages && thread.unreadMessages[user.id]) {
+          chatUnread += thread.unreadMessages[user.id];
+        }
+      });
+      // We need to combine this with system notifications count. 
+      // Since we can't easily sync two independent listeners into one state without infinite loops or race conditions,
+      // we'll store them in refs or separate state if needed. But for simplicity, let's fetch system notifications here too
+      // OR better: Have 2 separate states for counts and sum them. A ref is good for the "other" count.
+      // Actually, let's set a state for chatUnread.
+      setChatUnreadCount(chatUnread);
+    }, (error) => {
+      console.error("Error in chat listener:", error);
+    });
+
+    // 2. Listen for unread system notifications (assuming specific collection structure)
+    // Note: If notifications are in a subcollection 'notifications' under user, we listen there.
+    const notificationsCol = collection(db, 'users', user.id, 'notifications');
+    const qNotifs = query(notificationsCol, where("isRead", "==", false));
+
+    const unsubscribeNotifs = onSnapshot(qNotifs, (snapshot) => {
+      setSystemUnreadCount(snapshot.size);
+    }, (error) => {
+      if (error.code !== 'permission-denied') { // Ignore initial permission errors if any
+        console.error("Error in notification listener:", error);
+      }
+    });
+
+    return () => {
+      unsubscribeChats();
+      unsubscribeNotifs();
+    };
+  }, [user?.id]);
+
+  // Combine counts
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
+  const [systemUnreadCount, setSystemUnreadCount] = useState(0);
+
+  useEffect(() => {
+    setTotalUnreadCount(chatUnreadCount + systemUnreadCount);
+  }, [chatUnreadCount, systemUnreadCount]);
+
   const refreshTotalUnreadCount = useCallback(async (currentUserId?: string) => {
+    // This function is kept for manual refresh if needed, but listeners should handle it.
+    // We can leave it empty or force a re-fetch if listeners fail, but listeners are robust.
+    // For now, let's make it a no-op or just log, as listeners drive the state.
+    // Actually, other components call this, so we should keep it compatible.
+    // But since we use listeners, manual refresh isn't needed for the counts.
+    // However, generating new matches still needs to happen.
     const userIdToUse = currentUserId || user?.id;
     if (userIdToUse) {
-      try {
-        await notificationService.generateJobAlertMatches(userIdToUse);
-        const systemAlertsUnread = await notificationService.getUnreadNotificationCount(userIdToUse);
-        const chatMessagesUnread = await chatService.getTotalUnreadMessagesCount(userIdToUse); 
-        setTotalUnreadCount(systemAlertsUnread + chatMessagesUnread); 
-      } catch (error) {
-        console.error("Error updating total unread count:", error);
-        setTotalUnreadCount(0);
-      }
-    } else {
-      setTotalUnreadCount(0);
+      await notificationService.generateJobAlertMatches(userIdToUse);
     }
   }, [user?.id]);
 
@@ -84,56 +134,53 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLoadingAuth(true);
 
     if (USE_FIREBASE_BACKEND) {
-        const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
-            if (firebaseUser) {
-                try {
-                    const userProfile = await FirebaseAuthService.getUserProfile(firebaseUser.uid);
-                    if (userProfile) {
-                        if (userProfile.isBlocked) {
-                            await FirebaseAuthService.logout();
-                            setUser(null);
-                        } else {
-                            setUser(userProfile);
-                        }
-                    } else {
-                        // Create a profile if it doesn't exist (e.g., for Google Sign-In)
-                        const newProfile = await FirebaseAuthService.updateUserProfile(firebaseUser.uid, {
-                            email: firebaseUser.email || "", 
-                            fullName: firebaseUser.displayName || "משתמש חדש"
-                        });
-                        setUser(newProfile);
-                    }
-                } catch (error) {
-                    console.error("Error fetching user profile:", error);
-                    setUser(null);
-                }
+      const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
+        if (firebaseUser) {
+          try {
+            const userProfile = await FirebaseAuthService.getUserProfile(firebaseUser.uid);
+            if (userProfile) {
+              if (userProfile.isBlocked) {
+                await FirebaseAuthService.logout();
+                setUser(null);
+              } else {
+                setUser(userProfile);
+              }
             } else {
-                setUser(null);
+              // Create a profile if it doesn't exist (e.g., for Google Sign-In or race condition)
+              const newProfile = await FirebaseAuthService.fetchUserProfileFromFirestore(firebaseUser);
+              setUser(newProfile);
             }
-            setLoadingAuth(false);
-        });
-        return () => unsubscribe();
+          } catch (error) {
+            console.error("Error fetching user profile:", error);
+            setUser(null);
+          }
+        } else {
+          setUser(null);
+        }
+        setLoadingAuth(false);
+      });
+      return () => unsubscribe();
     } else {
-        const loadMockUser = async () => {
-            try {
-                const currentUser = await MockAuthService.getCurrentUser();
-                setUser(currentUser);
-            } catch (error) {
-                console.error("Error fetching mock user:", error);
-                setUser(null);
-            } finally {
-                setLoadingAuth(false);
-            }
-        };
-        loadMockUser();
+      const loadMockUser = async () => {
+        try {
+          const currentUser = await MockAuthService.getCurrentUser();
+          setUser(currentUser);
+        } catch (error) {
+          console.error("Error fetching mock user:", error);
+          setUser(null);
+        } finally {
+          setLoadingAuth(false);
+        }
+      };
+      loadMockUser();
     }
   }, []); // Intentionally empty to run once on mount
 
   useEffect(() => {
     if (user?.id && !loadingAuth) {
-        refreshTotalUnreadCount(user.id);
-        const intervalId = window.setInterval(() => refreshTotalUnreadCount(user.id), 30000); 
-        return () => window.clearInterval(intervalId);
+      refreshTotalUnreadCount(user.id);
+      const intervalId = window.setInterval(() => refreshTotalUnreadCount(user.id), 30000);
+      return () => window.clearInterval(intervalId);
     }
   }, [user?.id, loadingAuth, refreshTotalUnreadCount]);
 
@@ -158,30 +205,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await AuthService.logout();
     if (!USE_FIREBASE_BACKEND) setUser(null);
   };
-  
+
   const sendPasswordResetEmail = async (email: string) => {
     await AuthService.sendPasswordReset(email);
   };
 
   const updateUserContext = async (updatedUserData: User) => {
     setUser(updatedUserData);
-    await refreshTotalUnreadCount(updatedUserData.id); 
+    await refreshTotalUnreadCount(updatedUserData.id);
   };
 
   return (
     <AuthContext.Provider value={{
-        user,
-        login,
-        register,
-        logout,
-        signInWithGoogle,
-        sendPasswordResetEmail,
-        updateUserContext,
-        loadingAuth,
-        totalUnreadCount,
-        refreshTotalUnreadCount,
-        datePreference,
-        setDatePreference
+      user,
+      login,
+      register,
+      logout,
+      signInWithGoogle,
+      sendPasswordResetEmail,
+      updateUserContext,
+      loadingAuth,
+      totalUnreadCount,
+      refreshTotalUnreadCount,
+      datePreference,
+      setDatePreference
     }}>
       {children}
     </AuthContext.Provider>

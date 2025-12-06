@@ -1,12 +1,12 @@
 
 import React from 'react';
 import { ChatMessage } from '../types';
-import { CheckCircleIcon, DoubleCheckIcon } from './icons'; 
+import { CheckCircleIcon, DoubleCheckIcon } from './icons';
 
 interface ChatMessageBubbleProps {
   message: ChatMessage;
   isSender: boolean;
-  participantDisplayName: string; 
+  participantDisplayName: string;
 }
 
 export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({ message, isSender, participantDisplayName }) => {
@@ -20,13 +20,13 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({ message, i
   };
 
   const ReadReceipt: React.FC<{ isRead?: boolean, readAt?: string }> = ({ isRead, readAt }) => {
-    if (!isSender) return null; 
+    if (!isSender) return null;
 
     if (isRead || readAt) { // Consider it read if either is true
-      return <DoubleCheckIcon className="w-4 h-4 text-light-blue ml-1 rtl:mr-1 rtl:ml-0" aria-label="ההודעה נקראה"/>;
+      return <DoubleCheckIcon className="w-4 h-4 text-blue-500 ml-1 rtl:mr-1 rtl:ml-0" aria-label="ההודעה נקראה" />;
     }
     // Default to single tick for sent but not yet confirmed read.
-    return <CheckCircleIcon className="w-4 h-4 text-gray-400 ml-1 rtl:mr-1 rtl:ml-0" aria-label="ההודעה נשלחה"/>;
+    return <CheckCircleIcon className="w-4 h-4 text-gray-400 ml-1 rtl:mr-1 rtl:ml-0" aria-label="ההודעה נשלחה" />;
   };
 
 

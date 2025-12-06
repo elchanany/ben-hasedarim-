@@ -1,17 +1,17 @@
 // src/types.ts
 
 export interface User {
-  id: string; // Firebase Auth UID matches this
-  fullName: string; // Mapped from displayName
+  id: string; // Firebase Auth UID
+  fullName: string;
   phone: string;
   email: string;
   
-  // שדות נוספים שנדרשים ללוגיקה של האתר
+  // שדות חדשים שחסרים לך וגורמים לאדום:
   role?: 'user' | 'moderator' | 'admin' | 'support';
-  datePreference?: 'hebrew' | 'gregorian'; // נוסף: עבור תצוגת תאריכים
-  isEmployer?: boolean; // נוסף: האם המשתמש הוא מעסיק
-  createdAt?: string; // נוסף: תאריך הרשמה
-
+  datePreference?: 'hebrew' | 'gregorian';
+  isEmployer?: boolean;
+  createdAt?: string;
+  
   // שדות קיימים
   whatsapp?: string;
   contactPreference?: ContactPreference; 

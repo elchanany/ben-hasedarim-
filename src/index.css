@@ -1,0 +1,476 @@
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+/* Custom CSS Variables */
+:root {
+  --color-royal-blue: #0A2463;
+  --color-deep-pink: #D81E5B;
+  --color-light-blue: #A9D6E5;
+  --color-light-pink: #FFCAD4;
+  --color-neutral-gray: #F8F9FA;
+  --color-dark-text: #212529;
+  --color-medium-text: #495057;
+  --color-yellow-50: #FFFBEB;
+  --color-yellow-100: #FEF3C7;
+  --color-yellow-300: #FDE68A;
+  --color-yellow-400: #FACC15;
+
+  --body-bg-color-var: var(--color-neutral-gray);
+  --body-text-color-var: var(--color-dark-text);
+  --link-color-var: var(--color-royal-blue);
+  --link-hover-color-var: var(--color-deep-pink);
+  --border-color-var: #d1d5db;
+  --button-bg-color-var: var(--color-royal-blue);
+  --button-text-color-var: #ffffff;
+  --focus-ring-color-var: var(--color-royal-blue);
+  --font-scale: 1;
+}
+
+/* Base styles */
+body {
+  font-family: 'Assistant', 'Arial', sans-serif;
+  background-color: var(--body-bg-color-var);
+  color: var(--body-text-color-var);
+  font-size: calc(1rem * var(--font-scale));
+  line-height: calc(1.5 * var(--font-scale));
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+html.font-scale-medium {
+  --font-scale: 1.1;
+}
+
+html.font-scale-large {
+  --font-scale: 1.2;
+}
+
+html.font-scale-xlarge {
+  --font-scale: 1.3;
+}
+
+/* High Contrast Theme */
+html.high-contrast {
+  --body-bg-color-var: black;
+  --body-text-color-var: yellow;
+  --link-color-var: cyan;
+  --link-hover-color-var: magenta;
+  --border-color-var: yellow;
+  --button-bg-color-var: yellow;
+  --button-text-color-var: black;
+  --focus-ring-color-var: #FFFF00;
+
+  --hc-bg-color-var: black;
+  --hc-text-color-var: yellow;
+  --hc-link-color-var: cyan;
+  --hc-link-hover-color-var: magenta;
+  --hc-border-color-var: yellow;
+  --hc-button-bg-color-var: yellow;
+  --hc-button-text-color-var: black;
+
+  --color-royal-blue: var(--hc-link-color-var);
+  --color-deep-pink: var(--hc-link-hover-color-var);
+  --color-light-blue: var(--hc-link-color-var);
+  --color-light-pink: var(--hc-link-hover-color-var);
+  --color-neutral-gray: var(--hc-bg-color-var);
+  --color-dark-text: var(--hc-text-color-var);
+  --color-medium-text: var(--hc-text-color-var);
+  --color-yellow-50: var(--hc-bg-color-var);
+  --color-yellow-100: var(--hc-bg-color-var);
+  --color-yellow-300: var(--hc-border-color-var);
+  --color-yellow-400: var(--hc-button-bg-color-var);
+}
+
+html.high-contrast body,
+html.high-contrast .bg-white,
+html.high-contrast .bg-neutral-gray,
+html.high-contrast .bg-light-blue\/20,
+html.high-contrast .bg-light-blue\/30,
+html.high-contrast .bg-light-blue\/60,
+html.high-contrast .bg-gray-50,
+html.high-contrast .bg-green-50,
+html.high-contrast .bg-yellow-50,
+html.high-contrast .bg-yellow-50\/70,
+html.high-contrast .bg-red-100,
+html.high-contrast .bg-blue-100,
+html.high-contrast .bg-gray-200,
+html.high-contrast .bg-light-pink\/40,
+html.high-contrast .bg-neutral-gray\/30,
+html.high-contrast .bg-gray-100 {
+  background-color: var(--hc-bg-color-var) !important;
+  color: var(--hc-text-color-var) !important;
+}
+
+html.high-contrast a,
+html.high-contrast button.text-royal-blue,
+html.high-contrast .text-royal-blue,
+html.high-contrast .text-deep-pink,
+html.high-contrast .text-blue-700,
+html.high-contrast .text-green-700,
+html.high-contrast .text-red-700,
+html.high-contrast .text-yellow-700,
+html.high-contrast .text-blue-600,
+html.high-contrast .text-gray-500 {
+  color: var(--hc-link-color-var) !important;
+}
+
+html.high-contrast a:hover,
+html.high-contrast button.text-royal-blue:hover,
+html.high-contrast .text-royal-blue:hover,
+html.high-contrast .text-deep-pink:hover,
+html.high-contrast .text-blue-700:hover {
+  color: var(--hc-link-hover-color-var) !important;
+}
+
+html.high-contrast .border,
+html.high-contrast .border-gray-200,
+html.high-contrast .border-gray-300,
+html.high-contrast .border-royal-blue\/20,
+html.high-contrast .border-royal-blue\/30,
+html.high-contrast .border-pink-200,
+html.high-contrast .border-yellow-300,
+html.high-contrast .border-green-200,
+html.high-contrast .border-green-300,
+html.high-contrast .border-royal-blue\/40,
+html.high-contrast .border-royal-blue\/50,
+html.high-contrast .border-orange-400,
+html.high-contrast .border-orange-300 {
+  border-color: var(--hc-border-color-var) !important;
+}
+
+html.high-contrast .text-gray-700,
+html.high-contrast .text-dark-text,
+html.high-contrast .text-medium-text,
+html.high-contrast .text-gray-800,
+html.high-contrast .text-gray-600,
+html.high-contrast .text-gray-400,
+html.high-contrast .text-yellow-900,
+html.high-contrast .text-yellow-800,
+html.high-contrast .text-gray-300,
+html.high-contrast .text-indigo-600,
+html.high-contrast .text-amber-600,
+html.high-contrast .text-teal-600,
+html.high-contrast .text-emerald-600,
+html.high-contrast .text-red-600 {
+  color: var(--hc-text-color-var) !important;
+}
+
+html.high-contrast .placeholder-gray-500::placeholder,
+html.high-contrast .placeholder-medium-text::placeholder,
+html.high-contrast input::placeholder,
+html.high-contrast textarea::placeholder {
+  color: var(--hc-link-color-var) !important;
+  opacity: 0.8;
+}
+
+html.high-contrast input,
+html.high-contrast textarea,
+html.high-contrast select {
+  background-color: var(--hc-bg-color-var) !important;
+  color: var(--hc-text-color-var) !important;
+  border-color: var(--hc-border-color-var) !important;
+}
+
+html.high-contrast .shadow-lg,
+html.high-contrast .shadow-xl,
+html.high-contrast .shadow-2xl,
+html.high-contrast .shadow-md,
+html.high-contrast .shadow-sm,
+html.high-contrast .shadow {
+  box-shadow: 0 0 0 1px var(--hc-border-color-var) !important;
+}
+
+html.high-contrast .bg-royal-blue,
+html.high-contrast .bg-deep-pink,
+html.high-contrast .bg-red-600,
+html.high-contrast .bg-blue-700,
+html.high-contrast .bg-blue-800,
+html.high-contrast .bg-pink-700,
+html.high-contrast .bg-gray-300,
+html.high-contrast .bg-orange-100 {
+  background-color: var(--hc-button-bg-color-var) !important;
+}
+
+html.high-contrast .text-white {
+  color: var(--hc-button-text-color-var) !important;
+}
+
+html.high-contrast .text-light-blue,
+html.high-contrast .text-light-pink {
+  color: var(--hc-link-color-var) !important;
+}
+
+html.high-contrast svg.text-royal-blue,
+html.high-contrast svg.text-deep-pink,
+html.high-contrast svg.text-red-500,
+html.high-contrast svg.text-green-500,
+html.high-contrast svg.text-yellow-700,
+html.high-contrast svg.text-gray-400,
+html.high-contrast svg.text-light-blue,
+html.high-contrast svg.text-blue-700,
+html.high-contrast .text-emerald-600,
+html.high-contrast .text-indigo-600,
+html.high-contrast .text-amber-600,
+html.high-contrast .text-teal-600 {
+  stroke: var(--hc-link-color-var) !important;
+  fill: var(--hc-link-color-var) !important;
+}
+
+html.high-contrast .peer-checked\\:bg-royal-blue {
+  background-color: var(--hc-button-bg-color-var) !important;
+}
+
+/* Highlight Links */
+html.highlight-links a:not([role="button"]),
+html.highlight-links button.text-royal-blue,
+html.highlight-links button.text-deep-pink,
+html.highlight-links button[class*="text-blue-"],
+html.highlight-links button[class*="text-pink-"],
+html.highlight-links .hover\\:text-deep-pink {
+  background-color: var(--color-yellow-300, #FDE68A) !important;
+  color: black !important;
+  text-decoration: underline !important;
+  font-weight: bold !important;
+  outline: 2px solid black !important;
+  padding: 0.1em 0.2em;
+  border-radius: 0.125rem;
+}
+
+html.highlight-links .text-royal-blue:not(button),
+html.highlight-links .text-deep-pink:not(button) {
+  text-decoration: underline !important;
+  font-weight: bold !important;
+}
+
+html.high-contrast.highlight-links a:not([role="button"]),
+html.high-contrast.highlight-links button.text-royal-blue,
+html.high-contrast.highlight-links button.text-deep-pink,
+html.high-contrast.highlight-links button[class*="text-blue-"],
+html.high-contrast.highlight-links button[class*="text-pink-"],
+html.high-contrast.highlight-links .hover\\:text-deep-pink {
+  background-color: var(--hc-link-color-var, cyan) !important;
+  color: var(--hc-bg-color-var, black) !important;
+  outline-color: var(--hc-text-color-var, yellow) !important;
+}
+
+/* Highlight Headings */
+html.highlight-headings h1,
+html.highlight-headings h2,
+html.highlight-headings h3,
+html.highlight-headings h4,
+html.highlight-headings h5,
+html.highlight-headings h6 {
+  background-color: var(--color-yellow-100, #FEF3C7) !important;
+  border: 1px solid var(--color-yellow-300, #FDE68A) !important;
+  padding: 0.2em 0.4em !important;
+  border-radius: 0.25rem !important;
+  color: var(--color-dark-text, #212529) !important;
+}
+
+html.high-contrast.highlight-headings h1,
+html.high-contrast.highlight-headings h2,
+html.high-contrast.highlight-headings h3,
+html.high-contrast.highlight-headings h4,
+html.high-contrast.highlight-headings h5,
+html.high-contrast.highlight-headings h6 {
+  background-color: var(--hc-button-bg-color-var, yellow) !important;
+  border: 1px solid var(--hc-border-color-var, yellow) !important;
+  color: var(--hc-button-text-color-var, black) !important;
+}
+
+/* Grayscale Mode */
+html.grayscale-mode body {
+  filter: grayscale(100%);
+}
+
+html.grayscale-mode .accessibility-widget-button,
+html.grayscale-mode .accessibility-panel {
+  filter: none !important;
+}
+
+/* Accessible Font */
+html.font-accessible body,
+html.font-accessible input,
+html.font-accessible textarea,
+html.font-accessible select,
+html.font-accessible button {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol" !important;
+}
+
+/* Accessibility Widget Styles */
+.accessibility-widget-button {
+  position: fixed !important;
+  bottom: 20px !important;
+  left: 20px !important;
+  z-index: 9998 !important;
+  background-color: var(--button-bg-color-var);
+  color: var(--button-text-color-var);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  border: 1px solid var(--body-bg-color-var);
+}
+
+html.high-contrast .accessibility-widget-button {
+  background-color: var(--hc-button-bg-color-var) !important;
+  color: var(--hc-button-text-color-var) !important;
+  border-color: var(--hc-border-color-var) !important;
+}
+
+html.high-contrast .accessibility-widget-button svg {
+  stroke: var(--hc-button-text-color-var) !important;
+  fill: var(--hc-button-text-color-var) !important;
+}
+
+.accessibility-panel {
+  position: fixed;
+  bottom: 80px;
+  left: 20px;
+  z-index: 9999;
+  background-color: var(--body-bg-color-var);
+  color: var(--body-text-color-var);
+  border: 2px solid var(--border-color-var);
+  border-radius: 8px;
+  width: 280px;
+  max-width: calc(100vw - 40px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+html.high-contrast .accessibility-panel {
+  background-color: var(--hc-bg-color-var) !important;
+  color: var(--hc-text-color-var) !important;
+  border-color: var(--hc-border-color-var) !important;
+}
+
+html.high-contrast .accessibility-panel button:not(.active-acc-toggle) {
+  background-color: var(--hc-button-bg-color-var) !important;
+  color: var(--hc-button-text-color-var) !important;
+  border: 1px solid var(--hc-border-color-var) !important;
+}
+
+html.high-contrast .accessibility-panel button.active-acc-toggle {
+  background-color: var(--hc-link-color-var) !important;
+  color: var(--hc-bg-color-var) !important;
+  border: 1px solid var(--hc-link-hover-color-var) !important;
+}
+
+.accessibility-panel button {
+  padding: 8px 12px;
+  border-radius: 6px;
+  background-color: #f3f4f6;
+  border: 1px solid var(--border-color-var);
+  color: var(--body-text-color-var);
+  text-align: right;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+
+html:not(.high-contrast) .accessibility-panel button:hover {
+  background-color: var(--color-light-blue);
+  border-color: var(--color-royal-blue);
+}
+
+html:not(.high-contrast) .accessibility-panel button.active-acc-toggle {
+  background-color: var(--button-bg-color-var);
+  color: var(--button-text-color-var);
+  font-weight: bold;
+  border-color: var(--button-bg-color-var);
+}
+
+html.high-contrast .accessibility-panel hr {
+  border-color: var(--hc-border-color-var);
+}
+
+/* Base Utility Classes (Minimal Set to Support Legacy Styles) */
+.visually-hidden {
+  position: absolute !important;
+  height: 1px;
+  width: 1px;
+  overflow: hidden;
+  clip: rect(1px, 1px, 1px, 1px);
+  white-space: nowrap;
+}
+
+.visually-hidden:focus {
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  overflow: visible !important;
+  clip: auto !important;
+  white-space: normal !important;
+}
+
+/* Animations */
+@keyframes fade-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(-50px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes modal-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

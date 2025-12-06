@@ -3,8 +3,7 @@ import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import type { PageProps } from '../App';
 import { useAuth } from '../hooks/useAuth';
-import { LoginIcon, GoogleIcon, MailIcon } from '../components/icons';
-import { Modal } from '../components/Modal';
+import { LoginIcon, GoogleIcon } from '../components/icons';
 
 interface LoginPageProps extends PageProps {
   message?: string;
@@ -16,15 +15,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, message })
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  
-  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
-  const [resetEmail, setResetEmail] = useState('');
-  const [resetMessage, setResetMessage] = useState('');
-  const [isResetLoading, setIsResetLoading] = useState(false);
-  const forgotPasswordModalTitleId = "forgot-password-modal-title";
-
-
-  const { login, signInWithGoogle, sendPasswordResetEmail } = useAuth();
+  const { login, signInWithGoogle } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,52 +44,30 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, message })
     }
   };
 
-  const handleForgotPasswordRequest = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setResetMessage('');
-    setError(''); // Clear main login error
-    if (!resetEmail) {
-      setResetMessage('אנא הזן כתובת אימייל.');
-      return;
-    }
-    setIsResetLoading(true);
-    try {
-      await sendPasswordResetEmail(resetEmail);
-      setResetMessage('אם קיים חשבון המשויך לכתובת אימייל זו, נשלח אליו קישור לאיפוס סיסמה. אנא בדוק את תיבת הדואר הנכנס שלך (וגם את תיקיית הספאם).');
-      setResetEmail(''); // Clear email field on success
-    } catch (err: any) {
-      setResetMessage(err.message || 'אירעה שגיאה בשליחת הבקשה. נסה שוב.');
-    } finally {
-      setIsResetLoading(false);
-    }
-  };
-
-
   return (
     <div className="min-h-[calc(100vh-250px)] flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 sm:p-10 rounded-xl shadow-2xl">
+      <div className="max-w-md w-full space-y-8 bg-light-blue/10 p-8 sm:p-10 rounded-xl shadow-2xl border border-light-blue/20">
         <div className="text-center">
-            <LoginIcon className="mx-auto h-12 w-auto text-royal-blue" aria-hidden="true"/>
+            <LoginIcon className="mx-auto h-12 w-auto text-royal-blue"/>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-royal-blue">
             התחברות לחשבון
           </h2>
-          <p className="mt-2 text-center text-sm text-medium-text">
+          <p className="mt-2 text-center text-sm text-gray-600">
             או{' '}
-            <button onClick={() => setCurrentPage('register')} className="font-medium text-deep-pink hover:text-pink-700 focus:outline-none focus-visible:underline">
+            <button onClick={() => setCurrentPage('register')} className="font-medium text-deep-pink hover:text-pink-700">
               צור חשבון חדש
             </button>
           </p>
         </div>
-        {message && <p className="text-center text-sm text-blue-700 bg-blue-50 p-4 rounded-lg border border-blue-200" role="status">{message}</p>}
-        {error && <p id="login-error-summary" className="text-center text-sm text-red-700 bg-red-50 p-4 rounded-lg border border-red-200" role="alert" aria-live="assertive">{error}</p>}
+        {message && <p className="text-center text-sm text-blue-600 bg-blue-100 p-3 rounded-md">{message}</p>}
+        {error && <p className="text-center text-sm text-red-600 bg-red-100 p-3 rounded-md">{error}</p>}
         
         <div className="space-y-6">
           <button
             type="button"
             onClick={handleGoogleSignIn}
-            disabled={isGoogleLoading || isLoading || isResetLoading}
-            className="w-full flex justify-center items-center py-2.5 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-dark-text hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-royal-blue disabled:opacity-50"
-            aria-label="התחבר באמצעות חשבון גוגל"
+            disabled={isGoogleLoading || isLoading}
+            className="w-full flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-royal-blue disabled:opacity-50"
           >
             <GoogleIcon className="w-5 h-5 mr-2 rtl:ml-2 rtl:mr-0" />
             {isGoogleLoading ? 'מתחבר עם Google...' : 'התחבר עם Google'}
@@ -109,11 +78,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, message })
               <div className="w-full border-t border-gray-300"></div>
             </div>
             <div className="relative flex justify-center">
-              <span className="px-2 bg-white text-sm text-medium-text">או המשך עם אימייל</span>
+              <span className="px-2 bg-white text-sm text-gray-500">או המשך עם אימייל</span>
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6" aria-describedby={error ? "login-error-summary" : undefined}>
+          <form onSubmit={handleSubmit} className="space-y-6">
             <Input
               id="email-login"
               name="email"
@@ -124,8 +93,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, message })
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="your@email.com"
-              errorId="email-login-error"
-              disabled={isLoading || isGoogleLoading || isResetLoading}
             />
             <Input
               id="password-login"
@@ -137,71 +104,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, message })
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="********"
-              errorId="password-login-error"
-              disabled={isLoading || isGoogleLoading || isResetLoading}
             />
 
-            <div className="text-sm text-right">
-              <button 
-                type="button" 
-                onClick={() => { 
-                    setResetMessage(''); 
-                    setShowForgotPasswordModal(true);
-                }} 
-                className="font-medium text-royal-blue hover:text-deep-pink focus:outline-none focus-visible:underline"
-                disabled={isLoading || isGoogleLoading || isResetLoading}
-              >
-                שכחתי סיסמה
-              </button>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center justify-end w-full">
+              </div>
             </div>
 
             <div>
-              <Button type="submit" variant="primary" size="lg" className="w-full" isLoading={isLoading} disabled={isGoogleLoading || isResetLoading}>
+              <Button type="submit" variant="primary" size="lg" className="w-full" isLoading={isLoading} disabled={isGoogleLoading}>
                 {isLoading ? 'מתחבר...' : 'התחבר'}
               </Button>
             </div>
           </form>
         </div>
       </div>
-
-      <Modal 
-        isOpen={showForgotPasswordModal} 
-        onClose={() => setShowForgotPasswordModal(false)} 
-        title="איפוס סיסמה"
-        titleId={forgotPasswordModalTitleId}
-        size="sm"
-      >
-        <form onSubmit={handleForgotPasswordRequest} className="space-y-4 p-1">
-            <p className="text-sm text-medium-text text-right">
-                הזן את כתובת האימייל שלך למטה, ואם קיים חשבון המשויך אליה, נשלח לך קישור לאיפוס הסיסמה.
-            </p>
-            <Input
-                id="reset-email"
-                name="reset-email"
-                type="email"
-                autoComplete="email"
-                required
-                label="כתובת אימייל לאיפוס"
-                value={resetEmail}
-                onChange={(e) => setResetEmail(e.target.value)}
-                placeholder="your@email.com"
-                errorId="reset-email-error"
-                disabled={isResetLoading}
-            />
-            {resetMessage && (
-              <p 
-                className={`text-sm text-center p-2.5 rounded-md ${resetMessage.includes('נשלח') || resetMessage.includes('sent') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`} 
-                role={resetMessage.includes('נשלח') || resetMessage.includes('sent') ? 'status' : 'alert'} 
-                aria-live="polite"
-              >
-                {resetMessage}
-              </p>
-            )}
-            <Button type="submit" variant="secondary" size="md" className="w-full" isLoading={isResetLoading} icon={<MailIcon className="w-5 h-5"/>}>
-                {isResetLoading ? 'שולח...' : 'שלח לינק לאיפוס'}
-            </Button>
-        </form>
-      </Modal>
     </div>
   );
 };

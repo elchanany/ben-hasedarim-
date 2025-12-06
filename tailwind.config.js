@@ -2,7 +2,7 @@
 export default {
   content: [
     "./index.html",
-    "./**/*.{js,ts,jsx,tsx}",
+    "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {
@@ -10,17 +10,17 @@ export default {
         'assistant': ['Assistant', 'Arial', 'sans-serif']
       },
       colors: {
-        'royal-blue': '#0A2463',
-        'deep-pink': '#D81E5B',
-        'light-blue': '#A9D6E5',
-        'light-pink': '#FFCAD4',
-        'neutral-gray': '#F8F9FA',
-        'dark-text': '#212529',
-        'medium-text': '#495057',
-        'yellow-50': '#FFFBEB',
-        'yellow-100': '#FEF3C7',
-        'yellow-300': '#FDE68A',
-        'yellow-400': '#FACC15',
+        'royal-blue': 'var(--color-royal-blue, #0A2463)',
+        'deep-pink': 'var(--color-deep-pink, #D81E5B)',
+        'light-blue': 'var(--color-light-blue, #A9D6E5)',
+        'light-pink': 'var(--color-light-pink, #FFCAD4)',
+        'neutral-gray': 'var(--color-neutral-gray, #F8F9FA)',
+        'dark-text': 'var(--color-dark-text, #212529)',
+        'medium-text': 'var(--color-medium-text, #495057)',
+        'yellow-50': 'var(--color-yellow-50, #FFFBEB)',
+        'yellow-100': 'var(--color-yellow-100, #FEF3C7)',
+        'yellow-300': 'var(--color-yellow-300, #FDE68A)',
+        'yellow-400': 'var(--color-yellow-400, #FACC15)',
       },
       animation: {
         'fade-in-down': 'fade-in-down 0.5s ease-out forwards',
@@ -47,7 +47,7 @@ export default {
           'to': { opacity: '1', transform: 'translateX(0)' }
         },
         'modal-appear': {
-          'from': { opacity: '0', transform: 'scale(0.95)'},
+          'from': { opacity: '0', transform: 'scale(0.95)' },
           'to': {
             opacity: '1',
             transform: 'scale(1)'

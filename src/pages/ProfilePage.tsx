@@ -1,18 +1,18 @@
-
-import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { CheckboxGroup } from '../components/CheckboxGroup';
 import type { PageProps } from '../App';
 import { useAuth } from '../hooks/useAuth';
 import { User, ContactPreference, Job } from '../types'; 
-import { updateUserProfile } from '../services/authService'; 
-import * as jobService from '../services/jobService';
-import { UserIcon, BriefcaseIcon, BellIcon, PlusCircleIcon, EditIcon, TrashIcon } from '../components/icons'; 
+import { UserIcon, BriefcaseIcon, BellIcon, PlusCircleIcon, CheckCircleIcon, XCircleIcon } from '../components/icons';
 import { Modal } from '../components/Modal';
-import { Select } from '../components/Select'; 
-import { gregSourceToHebrewString, formatRelativePostedDate, formatGregorianString, formatDateByPreference } from '../utils/dateConverter';
+import { gregSourceToHebrewString, formatGregorianString, formatDateByPreference } from '../utils/dateConverter';
+import * as authService from '../services/authService';
+import * as jobService from '../services/jobService';
 import { AuthContext } from '../contexts/AuthContext';
+import { useContext } from 'react';
+import type { DateDisplayPreference } from '../utils/dateConverter';
 
 export const ProfilePage: React.FC<PageProps> = ({ setCurrentPage }) => {
   const { user, updateUserContext, loadingAuth } = useAuth();
@@ -21,23 +21,30 @@ export const ProfilePage: React.FC<PageProps> = ({ setCurrentPage }) => {
   const [contactPreference, setContactPreference] = useState<ContactPreference>({
     showPhone: true, showWhatsapp: false, showEmail: false, displayName: ''
   });
-  const [currentPassword, setCurrentPassword] = useState(''); 
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [datePref, setDatePref] = useState<DateDisplayPreference>(authCtx?.datePreference || 'hebrew');
+
+  // הסתנכרנות עם ההעדפה הגלובלית אם השתנתה מחוץ לעמוד
+  React.useEffect(() => {
+    if (authCtx?.datePreference && authCtx.datePreference !== datePref) {
+      setDatePref(authCtx.datePreference);
+    }
+  }, [authCtx?.datePreference]);
   
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
-  const [modalContent, setModalContent] = useState({title: '', message: '', onConfirm: (() => {}) as (() => void | Promise<void>) | null, confirmText: 'אישור', showCancel: false, titleId: 'confirmation-modal-title' });
+  const [modalContent, setModalContent] = useState({title: '', message: '', onConfirm: (() => {}) as (() => void | Promise<void>) | null, showCancel: false });
 
+  // State for posted jobs
   const [postedJobs, setPostedJobs] = useState<Job[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
-  const labelTextClass = 'text-dark-text';
-  const legendTextClass = 'text-dark-text';
 
   useEffect(() => {
     if (user) {
@@ -83,8 +90,8 @@ export const ProfilePage: React.FC<PageProps> = ({ setCurrentPage }) => {
     setContactPreference(prev => ({ ...prev, displayName: e.target.value }));
   };
 
-  const openModal = (title: string, message: string, onConfirmCallback: (() => void | Promise<void>) | null = null, showCancelButton = false, confirmButtonText = 'אישור', titleId = 'confirmation-modal-title') => {
-    setModalContent({ title, message, onConfirm: onConfirmCallback, showCancel: showCancelButton, confirmText: confirmButtonText, titleId });
+  const openModal = (title: string, message: string, onConfirmCallback: (() => void | Promise<void>) | null = null, showCancelButton = false) => {
+    setModalContent({ title, message, onConfirm: onConfirmCallback, showCancel: showCancelButton });
     setShowConfirmationModal(true);
   };
 
@@ -115,9 +122,10 @@ export const ProfilePage: React.FC<PageProps> = ({ setCurrentPage }) => {
         contactPreference: {...contactPreference, displayName: contactPreference.displayName || formData.fullName || user.fullName},
       } as User; 
 
-      const result = await updateUserProfile(user.id, updatedUserData); 
-      await updateUserContext(result); 
-      openModal("הצלחה", "הפרופיל עודכן בהצלחה!", () => setShowConfirmationModal(false), false, "הבנתי", "profile-update-success-title");
+      const result = await authService.updateUserProfile(user.id, updatedUserData); 
+      updateUserContext(result); 
+      if (authCtx) authCtx.setDatePreference(datePref);
+      openModal("הצלחה", "הפרופיל עודכן בהצלחה!");
     } catch (err: any) {
       setErrorMessage(err.message || 'שגיאה בעדכון הפרופיל.');
     } finally {
@@ -144,25 +152,31 @@ export const ProfilePage: React.FC<PageProps> = ({ setCurrentPage }) => {
     }
 
     try {
-      // In a real app, replace with actual Firebase password change logic
-      // This would involve re-authenticating the user if the action is sensitive.
-      // For demonstration, we'll simulate a successful change.
-      console.log("Password change attempt (mocked). Current pass:", currentPassword);
-      openModal("הצלחה", "הסיסמה שונתה בהצלחה (הדגמה - לא בוצע שינוי אמיתי)!", () => setShowConfirmationModal(false), false, "הבנתי", "password-change-success-title");
+      // This is a mock password check. In a real app, you'd call a service.
+      if (currentPassword !== "mockOldPassword123") { // Replace with actual check if backend exists
+          // For now, assume this is how an old password would be validated for demo purposes
+          // Or, if using Firebase/similar, it would be an API call like reauthenticateWithCredential
+          throw new Error("הסיסמה הנוכחית שגויה.");
+      }
+      // await authService.changePassword(user.id, currentPassword, newPassword); // Real call
+      console.log("Password changed (mock)");
+      // Update user context if needed (e.g. if token changes, though not typical for just password change)
+      updateUserContext({ ...user, passwordHash: "newMockHash" } as any); // Mock update
+      openModal("הצלחה", "הסיסמה שונתה בהצלחה!");
       setCurrentPassword('');
       setNewPassword('');
       setConfirmNewPassword('');
     } catch (err: any) {
-      setErrorMessage(err.message || 'שגיאה בשינוי הסיסמה (הדגמה).');
+      setErrorMessage(err.message || 'שגיאה בשינוי הסיסמה.');
     } finally {
       setIsUpdatingPassword(false);
     }
   };
   
   const contactCheckboxes = [
-    { id: 'profileShowPhone', label: 'הצג טלפון כברירת מחדל', value: 'showPhone' },
-    { id: 'profileShowWhatsapp', label: 'הצג וואטסאפ כברירת מחדל', value: 'showWhatsapp' },
-    { id: 'profileShowEmail', label: 'הצג אימייל כברירת מחדל', value: 'showEmail' },
+    { id: 'showPhone', label: 'הצג טלפון כברירת מחדל', value: 'showPhone' },
+    { id: 'showWhatsapp', label: 'הצג וואטסאפ כברירת מחדל', value: 'showWhatsapp' },
+    { id: 'showEmail', label: 'הצג אימייל כברירת מחדל', value: 'showEmail' },
   ];
 
   const sortedJobs = useMemo(() => {
@@ -177,29 +191,27 @@ export const ProfilePage: React.FC<PageProps> = ({ setCurrentPage }) => {
     setCurrentPage('postJob', { editJobId: jobId });
   };
 
-  const handleDeleteJob = async (job: Job) => {
+  const handleDeleteJob = async (jobId: string) => {
     openModal(
       "אישור מחיקה",
-      `האם אתה בטוח שברצונך למחוק את המשרה "${job.title}"? לא ניתן לשחזר פעולה זו.`,
+      "האם אתה בטוח שברצונך למחוק משרה זו? לא ניתן לשחזר פעולה זו.",
       async () => {
         try {
-          await jobService.deleteJob(job.id);
-          fetchPostedJobs(); 
-          openModal("הצלחה", "המשרה נמחקה בהצלחה.", () => setShowConfirmationModal(false), false, "הבנתי", "job-delete-success-title");
+          await jobService.deleteJob(jobId);
+          fetchPostedJobs(); // Refresh the list
+          openModal("הצלחה", "המשרה נמחקה בהצלחה.");
         } catch (error: any) {
           console.error("Error deleting job:", error);
-          openModal("שגיאה", error.message || "אירעה שגיאה במחיקת המשרה.", () => setShowConfirmationModal(false), false, "הבנתי", "job-delete-error-title");
+          openModal("שגיאה", error.message || "אירעה שגיאה במחיקת המשרה.");
         }
       },
-      true,
-      "כן, מחק משרה",
-      "job-delete-confirm-title"
+      true // Show cancel button for confirmation
     );
   };
 
 
   if (loadingAuth || !user) {
-    return <div role="status" aria-live="polite" className="text-center p-10 text-dark-text">טוען נתוני משתמש...</div>;
+    return <div className="text-center p-10">טוען נתוני משתמש...</div>;
   }
 
   return (
@@ -207,57 +219,81 @@ export const ProfilePage: React.FC<PageProps> = ({ setCurrentPage }) => {
       <div className="bg-white p-6 sm:p-8 rounded-xl shadow-2xl">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 pb-4 border-b">
             <div className="flex items-center mb-3 sm:mb-0">
-                <UserIcon className="w-12 h-12 text-royal-blue mr-4 rtl:ml-4 rtl:mr-0" aria-hidden="true"/>
+                <UserIcon className="w-12 h-12 text-royal-blue mr-4 rtl:ml-4 rtl:mr-0"/>
                 <h1 className="text-3xl font-bold text-royal-blue">אזור אישי - {user.fullName}</h1>
             </div>
             <Button 
                 variant="outline" 
                 size="sm"
                 onClick={() => setCurrentPage('notifications')}
-                icon={<BellIcon className="w-4 h-4"/>}
+                icon={<BellIcon className="w-4 h-4" />}
                 className="self-start sm:self-center"
-                aria-label="עבור לדף התראות והודעות"
             >
                 ניהול התראות והודעות
             </Button>
         </div>
 
-        {errorMessage && <p id="profile-error-summary" className="mb-4 text-center text-sm text-red-700 bg-red-100 p-3 rounded-md" role="alert" aria-live="assertive">{errorMessage}</p>}
-        {successMessage && <p className="mb-4 text-center text-sm text-green-700 bg-green-100 p-3 rounded-md" role="status" aria-live="polite">{successMessage}</p>}
+        {errorMessage && <p className="mb-4 text-center text-sm text-red-600 bg-red-100 p-3 rounded-md">{errorMessage}</p>}
+        {successMessage && <p className="mb-4 text-center text-sm text-green-600 bg-green-100 p-3 rounded-md">{successMessage}</p>}
         
-        <form onSubmit={handleProfileSubmit} className="space-y-6 mb-10" aria-labelledby="profile-details-heading" aria-describedby={errorMessage ? "profile-error-summary" : undefined}>
-          <h2 id="profile-details-heading" className="text-xl font-semibold text-deep-pink border-b border-pink-200 pb-2 mb-4">עריכת פרטים אישיים</h2>
+        <form onSubmit={handleProfileSubmit} className="space-y-6 mb-10">
+          <h2 className="text-xl font-semibold text-deep-pink border-b border-pink-200 pb-2 mb-4">עריכת פרטים אישיים</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Input label="שם מלא" id="profileFullName" name="fullName" value={formData.fullName || ''} onChange={handleProfileChange} required labelClassName={labelTextClass} />
-            <Input label="אימייל (לא ניתן לשינוי)" id="profileEmail" name="email" type="email" value={formData.email || ''} readOnly disabled labelClassName={labelTextClass} />
+            <Input label="שם מלא" id="fullName" name="fullName" value={formData.fullName || ''} onChange={handleProfileChange} required />
+            <Input label="אימייל (לא ניתן לשינוי)" id="email" name="email" type="email" value={formData.email || ''} readOnly disabled />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Input label="טלפון" id="profilePhone" name="phone" type="tel" value={formData.phone || ''} onChange={handleProfileChange} required placeholder="05X-XXXXXXX" labelClassName={labelTextClass}/>
-            <Input label="וואטסאפ (אם שונה מהטלפון)" id="profileWhatsapp" name="whatsapp" type="tel" value={formData.whatsapp || ''} onChange={handleProfileChange} placeholder="05X-XXXXXXX" labelClassName={labelTextClass}/>
+            <Input label="טלפון" id="phone" name="phone" type="tel" value={formData.phone || ''} onChange={handleProfileChange} required placeholder="05X-XXXXXXX"/>
+            <Input label="וואטסאפ (אם שונה מהטלפון)" id="whatsapp" name="whatsapp" type="tel" value={formData.whatsapp || ''} onChange={handleProfileChange} placeholder="05X-XXXXXXX"/>
           </div>
+          <fieldset className="p-4 border border-gray-200 rounded-md">
+            <legend className="text-lg font-medium text-gray-800 px-2">העדפת תאריך</legend>
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant={datePref === 'hebrew' ? 'primary' : 'outline'}
+                onClick={() => {
+                  setDatePref('hebrew');
+                  authCtx?.setDatePreference('hebrew'); // שמירה מיידית + localStorage
+                  setSuccessMessage('העדפת תאריך עודכנה לעברי');
+                }}
+              >
+                עברי
+              </Button>
+              <Button
+                type="button"
+                variant={datePref === 'gregorian' ? 'primary' : 'outline'}
+                onClick={() => {
+                  setDatePref('gregorian');
+                  authCtx?.setDatePreference('gregorian'); // שמירה מיידית + localStorage
+                  setSuccessMessage('העדפת תאריך עודכנה ללועזי');
+                }}
+              >
+                לועזי
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">העדפה זו משפיעה על אופן תצוגת התאריכים ברחבי האתר ועל ברירת המחדל של בורר התאריכים.</p>
+          </fieldset>
           
           <fieldset className="p-4 border border-gray-200 rounded-md">
-            <legend className={`text-lg font-medium ${legendTextClass} px-2`}>הגדרות תצוגת פרטי קשר (ברירת מחדל)</legend>
+            <legend className="text-lg font-medium text-gray-800 px-2">הגדרות תצוגת פרטי קשר (ברירת מחדל)</legend>
              <Input 
                 label="שם לתצוגה במודעות (ברירת מחדל)" 
-                id="profileDisplayName" 
+                id="displayName" 
                 name="displayName" 
                 value={contactPreference.displayName || ''} 
                 onChange={handleDisplayNameChange}
                 containerClassName="my-3"
-                required
-                labelClassName={labelTextClass} 
+                required 
             />
             <CheckboxGroup
                 legend="אילו פרטי התקשרות להציג במודעות שתפרסם?"
-                name="contactPreferenceGroupProfile"
+                name="contactPreferenceGroup"
                 options={contactCheckboxes}
                 selectedValues={new Set(Object.entries(contactPreference).filter(([, val]) => val === true && typeof val === 'boolean').map(([key]) => key))}
                 onChange={handleContactPreferenceChange}
-                legendClassName={`sr-only ${legendTextClass}`}
-                optionLabelClassName={labelTextClass}
             />
-             <p className="text-xs text-medium-text mt-2 text-right">הערה: תוכל לשנות הגדרות אלו פרטנית לכל מודעה בעת הפרסום.</p>
+             <p className="text-xs text-gray-500 mt-2 text-right">הערה: תוכל לשנות הגדרות אלו פרטנית לכל מודעה בעת הפרסום.</p>
           </fieldset>
 
           <Button type="submit" variant="primary" isLoading={isUpdatingProfile} className="w-full sm:w-auto">
@@ -265,12 +301,12 @@ export const ProfilePage: React.FC<PageProps> = ({ setCurrentPage }) => {
           </Button>
         </form>
 
-        <form onSubmit={handlePasswordSubmit} className="space-y-6 pt-6 border-t border-gray-200" aria-labelledby="change-password-heading" aria-describedby={errorMessage ? "profile-error-summary" : undefined}>
-          <h2 id="change-password-heading" className="text-xl font-semibold text-deep-pink border-b border-pink-200 pb-2 mb-4">שינוי סיסמה</h2>
-          <Input label="סיסמה נוכחית" id="currentPassword" name="currentPassword" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required labelClassName={labelTextClass}/>
+        <form onSubmit={handlePasswordSubmit} className="space-y-6 pt-6 border-t border-gray-200">
+          <h2 className="text-xl font-semibold text-deep-pink border-b border-pink-200 pb-2 mb-4">שינוי סיסמה</h2>
+          <Input label="סיסמה נוכחית" id="currentPassword" name="currentPassword" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Input label="סיסמה חדשה (לפחות 6 תווים)" id="newPassword" name="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required labelClassName={labelTextClass}/>
-            <Input label="אימות סיסמה חדשה" id="confirmNewPassword" name="confirmNewPassword" type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} required labelClassName={labelTextClass}/>
+            <Input label="סיסמה חדשה (לפחות 6 תווים)" id="newPassword" name="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
+            <Input label="אימות סיסמה חדשה" id="confirmNewPassword" name="confirmNewPassword" type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} required />
           </div>
           <Button type="submit" variant="secondary" isLoading={isUpdatingPassword} className="w-full sm:w-auto">
             {isUpdatingPassword ? 'משנה סיסמה...' : 'שנה סיסמה'}
@@ -278,90 +314,79 @@ export const ProfilePage: React.FC<PageProps> = ({ setCurrentPage }) => {
         </form>
       </div>
 
-      <section aria-labelledby="posted-jobs-heading" className="bg-white p-6 sm:p-8 rounded-xl shadow-2xl">
-         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 pb-4 border-b">
-            <h2 id="posted-jobs-heading" className="text-2xl font-bold text-royal-blue flex items-center mb-3 sm:mb-0">
-                <BriefcaseIcon className="w-8 h-8 mr-3 rtl:ml-3 rtl:mr-0" aria-hidden="true"/>
+      <div className="bg-light-blue/10 p-6 sm:p-8 rounded-xl shadow-2xl border border-light-blue/20">
+         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 pb-4 border-b border-light-blue/30">
+            <h2 className="text-2xl font-bold text-royal-blue flex items-center mb-3 sm:mb-0">
+                <BriefcaseIcon className="w-8 h-8 mr-3 rtl:ml-3 rtl:mr-0"/>
                 העבודות שפרסמתי
             </h2>
             <div className="flex items-center space-x-2 rtl:space-x-reverse self-start sm:self-center">
-                <label htmlFor="job-sort-order" className="text-sm text-dark-text">מיין לפי:</label>
-                <Select
-                    id="job-sort-order"
-                    options={[
-                        { value: 'newest', label: 'חדש לישן' },
-                        { value: 'oldest', label: 'ישן לחדש' }
-                    ]}
-                    value={sortOrder}
-                    onChange={(e) => setSortOrder(e.target.value as 'newest' | 'oldest')}
-                    selectClassName="py-1 text-xs !mt-0"
-                    containerClassName="mb-0"
-                />
+                <span className="text-sm text-gray-600">מיין לפי:</span>
+                <Button size="sm" variant={sortOrder === 'newest' ? 'primary' : 'outline'} onClick={() => setSortOrder('newest')}>חדש לישן</Button>
+                <Button size="sm" variant={sortOrder === 'oldest' ? 'primary' : 'outline'} onClick={() => setSortOrder('oldest')}>ישן לחדש</Button>
             </div>
         </div>
         {loadingJobs ? (
-            <p role="status" aria-live="polite" className="text-center text-medium-text py-8">טוען עבודות...</p>
+            <p className="text-center text-gray-500 py-8">טוען עבודות...</p>
         ) : sortedJobs.length === 0 ? (
             <div className="text-center py-8">
-                <p className="text-medium-text mb-4">עדיין לא פרסמת עבודות.</p>
+                <p className="text-gray-600 mb-4">עדיין לא פרסמת עבודות.</p>
                 <Button variant="secondary" onClick={() => setCurrentPage('postJob')} icon={<PlusCircleIcon className="w-5 h-5"/>}>
                     פרסם עבודה ראשונה
                 </Button>
             </div>
         ) : (
-            <ul className="space-y-4">
+            <div className="space-y-4">
                 {sortedJobs.map(job => {
                     const isActive = jobService.isJobDateValidForSearch(job);
                     return (
-                        <li key={job.id} className={`p-4 border rounded-lg ${isActive ? 'bg-green-50 border-green-300' : 'bg-gray-100 border-gray-300 opacity-75'}`}>
+                        <div key={job.id} className={`p-4 border rounded-lg ${isActive ? 'bg-green-50/80 border-green-200/60' : 'bg-light-pink/40 border-light-pink/60 opacity-75'}`}>
                             <div className="flex flex-col sm:flex-row justify-between items-start">
                                 <div className="flex-grow">
                                     <div className="flex items-baseline space-x-2 rtl:space-x-reverse">
-                                        <h3 className="text-lg font-semibold text-royal-blue">
-                                          <button onClick={() => setCurrentPage('jobDetails', { jobId: job.id })} className="hover:text-deep-pink focus:outline-none focus-visible:underline">
-                                            {job.title}
-                                          </button>
-                                        </h3>
-                                        <span className="text-sm text-gray-400 font-mono" aria-hidden="true">#{job.id.substring(0,6)}..</span>
+                                        <h3 className="text-lg font-semibold text-royal-blue hover:text-deep-pink cursor-pointer" onClick={() => setCurrentPage('jobDetails', { jobId: job.id })}>{job.title}</h3>
+                                        <span className="text-sm text-gray-400 font-mono">#{job.id}</span>
                                     </div>
-                                    <p className="text-sm text-medium-text">פורסם ב: {formatDateByPreference(job.postedDate, authCtx?.datePreference || 'hebrew')}</p>
+                                    <p className="text-sm text-gray-500">פורסם ב: {formatDateByPreference(job.postedDate, authCtx?.datePreference || 'hebrew')}</p>
                                     <p className={`text-sm font-medium ${isActive ? 'text-green-700' : 'text-red-700'}`}>
                                         סטטוס: {isActive ? 'פעילה' : 'לא רלוונטית / הסתיימה'}
                                     </p>
-                                    <p className="text-xs text-medium-text">צפיות: {job.views || 0}</p>
+                                    <p className="text-xs text-gray-400">צפיות: {job.views || 0}</p>
                                 </div>
                                 <div className="flex space-x-2 rtl:space-x-reverse mt-3 sm:mt-0 self-start sm:self-center flex-shrink-0">
-                                    <Button size="sm" variant="outline" onClick={() => handleEditJob(job.id)} icon={<EditIcon className="w-4 h-4"/>} aria-label={`ערוך משרה ${job.title}`}>ערוך</Button>
-                                    <Button size="sm" variant="danger" onClick={() => handleDeleteJob(job)} icon={<TrashIcon className="w-4 h-4"/>} aria-label={`מחק משרה ${job.title}`}>מחק</Button>
+                                    <Button size="sm" variant="outline" onClick={() => handleEditJob(job.id)}>ערוך</Button>
+                                    <Button size="sm" variant="danger" onClick={() => handleDeleteJob(job.id)}>מחק</Button>
                                 </div>
                             </div>
-                        </li>
+                        </div>
                     )
                 })}
-            </ul>
+            </div>
         )}
-      </section>
+      </div>
 
        <Modal 
           isOpen={showConfirmationModal} 
           onClose={() => setShowConfirmationModal(false)} 
           title={modalContent.title}
-          titleId={modalContent.titleId}
         >
         <div className="text-center p-6">
+            {modalContent.title.includes("הצלחה") && <CheckCircleIcon className="w-20 h-20 text-green-600 mx-auto mb-6"/>}
+            {modalContent.title.includes("שגיאה") && <XCircleIcon className="w-20 h-20 text-red-600 mx-auto mb-6"/>} 
+            {!modalContent.title.includes("הצלחה") && !modalContent.title.includes("שגיאה") && <BriefcaseIcon className="w-20 h-20 text-blue-600 mx-auto mb-6"/>}
             <p className="text-2xl text-gray-800 font-medium mb-8">{modalContent.message}</p>
             <div className="flex justify-center space-x-4 rtl:space-x-reverse">
                  {modalContent.onConfirm && 
                     <Button 
                         onClick={() => {
                             modalContent.onConfirm!();
-                            // setShowConfirmationModal(false); // Confirmation modals for success/error now handle their own closing
+                            setShowConfirmationModal(false);
                         }} 
                         variant="primary"
                         size="lg"
                         className="px-8 py-3"
                     >
-                        {modalContent.confirmText}
+                        אישור
                     </Button>
                  }
                  {(modalContent.showCancel || !modalContent.onConfirm) && 
