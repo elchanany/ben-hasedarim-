@@ -156,7 +156,7 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
         <div className="flex items-center justify-between h-20">
           <div className="flex items-center">
             <button onClick={() => setCurrentPage('home')} className="flex-shrink-0 flex items-center text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus-ring-color rounded-md" aria-label="דף הבית, בין הסדורים">
-              <img src="/assets/logo.svg" alt="" className="h-16 w-16 rounded-xl shadow-lg" aria-hidden="true" /> {/* Alt can be empty as button has aria-label */}
+              <img src="/assets/logo.svg" alt="" className="h-20 w-20 rounded-xl shadow-lg" aria-hidden="true" /> {/* Alt can be empty as button has aria-label */}
               <span className="font-bold text-lg md:text-xl ml-5 rtl:mr-5 rtl:ml-0">
                 {siteName}
                 {currentPage === 'home' ? (
