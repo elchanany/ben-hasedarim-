@@ -131,6 +131,10 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
   const [loadingAlerts, setLoadingAlerts] = useState(true);
   const [loadingChatThreads, setLoadingChatThreads] = useState(true);
 
+  // Modal State
+  const [selectedSystemNotification, setSelectedSystemNotification] = useState<Notification | null>(null);
+  const [showSystemNotificationModal, setShowSystemNotificationModal] = useState(false);
+
   const fetchSystemNotifications = useCallback(async () => {
     if (user) {
       setLoadingSystemNotifications(true);
@@ -345,11 +349,15 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
                         <p className={`text-sm ${notif.isRead ? 'text-gray-600' : 'text-gray-800'}`}>{notif.message}</p>
                         <p className="text-xs text-gray-400 mt-1">{formatRelativePostedDate(notif.createdAt, authCtx?.datePreference || 'hebrew')}</p>
                       </div>
-                      <div className="flex-shrink-0 ml-3 rtl:mr-3 rtl:ml-0 space-x-6 rtl:space-x-reverse self-center">
+                      <div className="flex-shrink-0 ml-3 rtl:mr-3 rtl:ml-0 flex flex-col sm:flex-row gap-2 self-center">
                         {!notif.isRead && (
                           <Button onClick={() => handleMarkAsRead(notif.id)} variant="outline" size="sm" className="!px-3 !py-1.5">קראתי</Button>
                         )}
-                        {notif.link && (
+                        {notif.type === 'system_update' ? (
+                          <Button onClick={() => { setSelectedSystemNotification(notif); setShowSystemNotificationModal(true); if (!notif.isRead) handleMarkAsRead(notif.id); }} variant="secondary" size="sm" className="!px-3 !py-1.5 bg-royal-blue text-white hover:bg-blue-700">
+                            צפה
+                          </Button>
+                        ) : notif.link && (
                           <Button onClick={() => { if (notif.link?.startsWith('#/')) { window.location.hash = notif.link; } else if (notif.link) { window.open(notif.link, '_blank'); } if (!notif.isRead) handleMarkAsRead(notif.id); }} variant="secondary" size="sm" className="!px-3 !py-1.5">
                             {notif.type === 'job_alert_match' ? 'צפה במשרה' : 'פתח קישור'}
                           </Button>
@@ -447,6 +455,33 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
           )}
         </div>
       )}
-    </div>
+
+
+      {/* System Notification Modal */}
+      {
+        showSystemNotificationModal && selectedSystemNotification && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
+            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 animate-scale-up border-t-4 border-royal-blue">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-xl font-bold text-royal-blue">{selectedSystemNotification.title}</h3>
+                <button onClick={() => setShowSystemNotificationModal(false)} className="text-gray-400 hover:text-gray-600">
+                  <span className="text-2xl">&times;</span>
+                </button>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-md mb-6 text-gray-800 whitespace-pre-wrap leading-relaxed max-h-[60vh] overflow-y-auto">
+                {selectedSystemNotification.message}
+              </div>
+
+              <div className="flex justify-end pt-2 border-t border-gray-100">
+                <Button onClick={() => setShowSystemNotificationModal(false)} variant="primary" className="min-w-[100px]">
+                  סגור
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+    </div >
   );
 };

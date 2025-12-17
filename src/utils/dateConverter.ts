@@ -384,8 +384,34 @@ export const getHebrewMonthsForYear = (year: number): { value: number, name: str
     return resultMonths;
 };
 
-export const formatJobPostedDateTimeDetails = (isoDateString: string, preference: DateDisplayPreference = 'hebrew'): string => {
-    const jobDate = new Date(isoDateString);
+export const formatJobPostedDateTimeDetails = (isoDateString: any, preference: DateDisplayPreference = 'hebrew'): string => {
+    if (!isoDateString) {
+        return 'תאריך לא זמין';
+    }
+
+    let jobDate: Date;
+    if (typeof isoDateString === 'object' && isoDateString !== null) {
+        // Try different possible properties
+        if ('seconds' in isoDateString) {
+            jobDate = new Date(isoDateString.seconds * 1000);
+        } else if ('_seconds' in isoDateString) {
+            jobDate = new Date(isoDateString._seconds * 1000);
+        } else if (isoDateString.toDate && typeof isoDateString.toDate === 'function') {
+            jobDate = isoDateString.toDate();
+        } else {
+            // Unknown object - likely a placeholder that should have been converted
+            console.warn('[formatJobPostedDateTimeDetails] Unknown timestamp object:', isoDateString);
+            jobDate = new Date();
+        }
+    } else {
+        jobDate = new Date(isoDateString);
+    }
+
+    if (isNaN(jobDate.getTime())) {
+        console.error('[formatJobPostedDateTimeDetails] Invalid date created from:', isoDateString);
+        return 'לאחרונה'; // Return "Recently" instead of "Invalid Date"
+    }
+
     const now = new Date();
 
     const diffInSeconds = Math.floor((now.getTime() - jobDate.getTime()) / 1000);
@@ -422,8 +448,35 @@ export const formatJobPostedDateTimeDetails = (isoDateString: string, preference
     }
 };
 
-export const formatRelativePostedDate = (isoDateString: string, preference: DateDisplayPreference = 'hebrew'): string => {
-    const date = new Date(isoDateString);
+export const formatRelativePostedDate = (isoDateString: any, preference: DateDisplayPreference = 'hebrew'): string => {
+    if (!isoDateString) return '';
+
+    let date: Date;
+
+    // Handle Firestore Timestamp object structure manually if not converted
+    if (typeof isoDateString === 'object' && isoDateString !== null) {
+        // Try different possible properties
+        if ('seconds' in isoDateString) {
+            date = new Date(isoDateString.seconds * 1000);
+        } else if ('_seconds' in isoDateString) {
+            date = new Date(isoDateString._seconds * 1000);
+        } else if (isoDateString.toDate && typeof isoDateString.toDate === 'function') {
+            date = isoDateString.toDate();
+        } else {
+            // Unknown object - likely a placeholder, use current time
+            console.warn('[formatRelativePostedDate] Unknown timestamp object, using current time');
+            date = new Date();
+        }
+    } else {
+        date = new Date(isoDateString);
+    }
+
+    // If invalid date, return empty or fallback
+    if (isNaN(date.getTime())) {
+        console.error('[formatRelativePostedDate] Invalid date from:', isoDateString);
+        return 'לאחרונה'; // Return "Recently" instead of error
+    }
+
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
     const diffInMinutes = Math.floor(diffInSeconds / 60);
@@ -437,12 +490,15 @@ export const formatRelativePostedDate = (isoDateString: string, preference: Date
     } else if (diffInHours < 24) {
         return `לפני ${diffInHours} שעות`;
     } else if (diffInDays === 1) {
-        return "אתמול";
+        const timeStr = date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+        return `אתמול בשעה ${timeStr}`;
     } else if (diffInDays === 2) {
-        return "שלשום";
+        const timeStr = date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+        return `שלשום בשעה ${timeStr}`;
     } else {
-        // Fallback to full date for older posts based on preference
-        return `ב-${formatDateByPreference(date, preference, false)}`;
+        // Use preference for older dates AND INCLUDE TIME
+        const timeStr = date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+        return `ב-${formatDateByPreference(date, preference, false)} בשעה ${timeStr}`;
     }
 };
 

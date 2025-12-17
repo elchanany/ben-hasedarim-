@@ -1,4 +1,5 @@
-
+import { db } from '@/lib/firebase';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, updateDoc } from "firebase/firestore";
 import { Notification, NotificationType, JobAlertPreference, JobDifficulty, Job, PaymentType, JobAlertDeliveryMethods, PaymentMethod, JobDateType } from '../types';
 import * as RealJobService from './jobService';
 import * as MockJobService from './mock/jobService';
@@ -63,14 +64,46 @@ const saveStoredJobAlertPreferences = (userId: string, userPrefs: JobAlertPrefer
 
 // --- Notification Functions (System & Job Alerts) ---
 
-export const getNotifications = (userId: string): Promise<Notification[]> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const notifications = getStoredNotifications(userId);
-      resolve(notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-    }, 200);
-  });
+const NOTIFICATIONS_COLLECTION = 'notifications';
+
+export const sendSystemNotification = async (userId: string, title: string, message: string, link?: string): Promise<void> => {
+  try {
+    await addDoc(collection(db, NOTIFICATIONS_COLLECTION), {
+      userId,
+      type: 'system_update' as NotificationType,
+      title,
+      message,
+      link,
+      isRead: false,
+      createdAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error("Error sending system notification:", error);
+    throw error;
+  }
 };
+
+export const getNotifications = async (userId: string): Promise<Notification[]> => {
+  const localNotifications = getStoredNotifications(userId);
+  try {
+    const q = query(collection(db, 'notifications'), where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+    const remoteNotifications = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
+
+    // Merge and sort
+    const all = [...localNotifications, ...remoteNotifications].filter((n, i, self) =>
+      indexOfString(self, n.id) === i // Dedupe by ID in case of overlap (though IDs should differ)
+    );
+    return all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  } catch (e) {
+    console.error("Error fetching remote notifications", e);
+    return localNotifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+};
+
+function indexOfString(arr: Notification[], id: string) {
+  return arr.findIndex(n => n.id === id);
+}
 
 export const getUnreadNotificationCount = (userId: string): Promise<number> => {
   return new Promise((resolve) => {
@@ -81,7 +114,17 @@ export const getUnreadNotificationCount = (userId: string): Promise<number> => {
   });
 };
 
-export const markNotificationAsRead = (userId: string, notificationId: string): Promise<void> => {
+export const markNotificationAsRead = async (userId: string, notificationId: string): Promise<void> => {
+  // 1. Try to update in Firestore first (if it's a system notification)
+  try {
+    const notifRef = doc(db, 'notifications', notificationId);
+    await updateDoc(notifRef, { isRead: true });
+  } catch (e) {
+    // If it fails (e.g. ID doesn't exist in Firestore because it's local), ignore and try local
+    // console.log("Not a remote notification or error updating:", e);
+  }
+
+  // 2. Update local storage
   return new Promise((resolve) => {
     setTimeout(() => {
       let notifications = getStoredNotifications(userId);

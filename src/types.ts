@@ -5,18 +5,30 @@ export interface User {
   fullName: string;
   phone: string;
   email: string;
-  
+
   // שדות חדשים שחסרים לך וגורמים לאדום:
-  role?: 'user' | 'moderator' | 'admin' | 'support';
+  role?: 'user' | 'moderator' | 'admin' | 'super_admin' | 'support';
   datePreference?: 'hebrew' | 'gregorian';
   isEmployer?: boolean;
   createdAt?: string;
-  
+
   // שדות קיימים
   whatsapp?: string;
-  contactPreference?: ContactPreference; 
-  isBlocked?: boolean; 
-  canChat?: boolean; 
+  contactPreference?: ContactPreference;
+  isBlocked?: boolean;
+  canChat?: boolean;
+  blockedUserIds?: string[];
+  blockReason?: string;
+}
+
+export interface Report {
+  id: string;
+  reporterId: string;
+  reportedEntityId: string;
+  entityType: 'user' | 'job' | 'chat';
+  reason: string;
+  status: 'pending' | 'resolved' | 'dismissed';
+  createdAt: string;
 }
 
 export interface ContactPreference {
@@ -46,8 +58,8 @@ export interface JobSuitability {
 }
 
 export interface JobPosterInfo {
-  id: string; 
-  posterDisplayName: string; 
+  id: string;
+  posterDisplayName: string;
 }
 
 export type JobDateType = 'today' | 'comingWeek' | 'flexibleDate' | 'specificDate';
@@ -62,40 +74,41 @@ export interface PreferredContactMethods {
   phone: boolean;
   whatsapp: boolean;
   email: boolean;
-  allowSiteMessages: boolean; 
+  allowSiteMessages: boolean;
 }
 
 export interface Job {
-  id: string; 
+  id: string;
+  serialNumber?: number; // Auto-incrementing friendly ID
   title: string;
-  area: string; 
+  area: string;
   dateType: JobDateType;
-  specificDate?: string; 
+  specificDate?: string;
   estimatedDurationHours?: number;
   estimatedDurationIsFlexible?: boolean;
-  startTime?: string; 
+  startTime?: string;
   difficulty: JobDifficulty;
   paymentType: PaymentType;
   hourlyRate?: number;
   globalPayment?: number;
   paymentMethod?: PaymentMethod;
-  paymentDueDate?: string; 
+  paymentDueDate?: string;
   numberOfPeopleNeeded?: number;
   specialRequirements?: string;
   suitability: JobSuitability;
   description: string;
   contactInfoSource: 'currentUser' | 'other' | 'anonymous';
-  contactDisplayName: string; 
+  contactDisplayName: string;
   contactPhone?: string;
   contactWhatsapp?: string;
   contactEmail?: string;
   preferredContactMethods: PreferredContactMethods;
-  postedBy: JobPosterInfo; 
-  postedDate: string; 
+  postedBy: JobPosterInfo;
+  postedDate: string;
   views: number;
   contactAttempts: number;
-  isFlagged?: boolean; 
-  flagReason?: string; 
+  isFlagged?: boolean;
+  flagReason?: string;
 }
 
 export interface City {
@@ -103,30 +116,30 @@ export interface City {
   name: string;
 }
 
-export type NotificationType = 'job_alert_match' | 'system_update'; 
+export type NotificationType = 'job_alert_match' | 'system_update';
 
 export interface Notification {
-  id: string; 
+  id: string;
   userId: string;
   type: NotificationType;
   title: string;
   message: string;
-  link?: string; 
+  link?: string;
   isRead: boolean;
-  createdAt: string; 
+  createdAt: string;
 }
 
 export interface JobAlertDeliveryMethods {
-  site: boolean; 
+  site: boolean;
   tzintuk: boolean;
   whatsapp: boolean;
   email: boolean;
 }
 
 export interface JobAlertPreference {
-  id: string; 
+  id: string;
   userId: string;
-  name: string; 
+  name: string;
   location?: string;
   difficulty?: JobDifficulty | '';
   dateType?: JobDateType | '';
@@ -136,35 +149,35 @@ export interface JobAlertPreference {
   maxEstimatedDurationHours?: string;
   filterDurationFlexible?: 'yes' | 'no' | 'any';
   paymentKind?: 'any' | PaymentType.HOURLY | PaymentType.GLOBAL;
-  minHourlyRate?: string; 
+  minHourlyRate?: string;
   maxHourlyRate?: string;
   minGlobalPayment?: string;
   maxGlobalPayment?: string;
-  selectedPaymentMethods?: Set<PaymentMethod>; 
+  selectedPaymentMethods?: Set<PaymentMethod>;
   minPeopleNeeded?: string;
   maxPeopleNeeded?: string;
   suitabilityFor?: 'any' | 'men' | 'women' | 'general';
   minAge?: string;
   maxAge?: string;
-  frequency: 'daily' | 'instant' | 'weekly'; 
-  notificationDays: number[]; 
-  doNotDisturbHours?: { 
-    start: string; 
-    end: string;   
+  frequency: 'daily' | 'instant' | 'weekly';
+  notificationDays: number[];
+  doNotDisturbHours?: {
+    start: string;
+    end: string;
   };
   deliveryMethods: JobAlertDeliveryMethods;
-  alertEmail?: string; 
-  alertWhatsappPhone?: string; 
-  alertTzintukPhone?: string; 
+  alertEmail?: string;
+  alertWhatsappPhone?: string;
+  alertTzintukPhone?: string;
   isActive: boolean;
-  lastChecked?: string; 
+  lastChecked?: string;
 }
 
 export interface JobSearchFilters {
   term: string;
   location: string;
   difficulty: JobDifficulty | '';
-  sortBy: string; 
+  sortBy: string;
   dateType: JobDateType | '';
   specificDateStart: string | null;
   specificDateEnd: string | null;
@@ -195,27 +208,50 @@ export interface ChatParticipantInfo {
 }
 
 export interface ChatMessage {
-  id: string; 
+  id: string;
   threadId: string;
   senderId: string;
   text: string;
-  timestamp: string; 
+  timestamp: string;
   isRead: boolean;
-  readAt?: string; 
+  readAt?: string;
 }
 
 export interface ChatThread {
-  id: string; 
-  jobId?: string; 
-  jobTitle?: string; 
-  participantIds: string[]; 
-  participants: Record<string, ChatParticipantInfo>; 
+  id: string;
+  jobId?: string;
+  jobTitle?: string;
+  participantIds: string[];
+  participants: Record<string, ChatParticipantInfo>;
   lastMessage: {
     text: string;
     timestamp: string;
     senderId: string;
   } | null;
-  unreadMessages: Record<string, number>; 
-  createdAt: string; 
-  updatedAt: string; 
+  unreadMessages: Record<string, number>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  createdAt: any;
+  userId?: string; // Optional: Link to user if logged in
+  status: 'new' | 'read' | 'replied';
+}
+
+export interface AdminLog {
+  id: string;
+  adminId: string;
+  adminName: string;
+  action: 'delete_job' | 'ban_user' | 'unban_user' | 'delete_message' | 'update_role' | 'reply_contact' | 'resolve_report' | 'dismiss_report';
+  targetId: string;
+  targetType: 'job' | 'user' | 'message';
+  reason: string;
+  timestamp: string; // ISO
+  details?: string;
 }

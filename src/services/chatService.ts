@@ -16,14 +16,10 @@ import {
   where,
   serverTimestamp,
   Timestamp,
-  writeBatch, // Added import for writeBatch
+  writeBatch,
   limit,
-  collection,
-  query,
-  where,
   onSnapshot
 } from "firebase/firestore";
-import { db } from '@/lib/firebase';
 
 
 const CHAT_THREADS_COLLECTION = 'chatThreads';
@@ -199,6 +195,12 @@ export const sendMessage = async (
 ): Promise<{ thread: ChatThread, message: ChatMessage }> => {
   if (!text.trim()) {
     throw new Error("Message text cannot be empty.");
+  }
+
+  // CHECK BLOCKING STATUS
+  const receiverProfile = await getUserProfile(receiverId);
+  if (receiverProfile?.blockedUserIds?.includes(senderId)) {
+    throw new Error("הודעה לא נשלחה כי המשתמש חסם אותך");
   }
 
   let thread: ChatThread | undefined;

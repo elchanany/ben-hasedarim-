@@ -44,9 +44,14 @@ const mapDocumentToUser = (firebaseUser: FirebaseAuthUser, data: DocumentData): 
   }
 
   // וידוא תפקיד תקין
-  const role: User['role'] = (['user', 'moderator', 'admin', 'support'].includes(data.role))
+  let role: User['role'] = (['user', 'moderator', 'admin', 'super_admin', 'support'].includes(data.role))
     ? data.role as User['role']
     : 'user';
+
+  // Force super_admin for specific email even if DB differs (extra safety)
+  if (firebaseUser.email === 'eyceyceyc139@gmail.com') {
+    role = 'super_admin';
+  }
 
   // וידוא העדפת תאריך תקינה
   const datePreference: User['datePreference'] = (data.datePreference === 'gregorian')
@@ -100,11 +105,14 @@ export const fetchUserProfileFromFirestore = async (firebaseUser: FirebaseAuthUs
     if (userDoc.exists()) {
       return mapDocumentToUser(firebaseUser, userDoc.data());
     } else {
+      const isSuperAdmin = firebaseUser.email === 'eyceyceyc139@gmail.com';
+      const role = isSuperAdmin ? 'super_admin' : 'user';
+
       const newProfile = {
         email: firebaseUser.email || '',
         fullName: firebaseUser.displayName || 'משתמש חדש',
         createdAt: serverTimestamp(),
-        role: 'user',
+        role: role,
         datePreference: 'hebrew',
         isEmployer: false,
         contactPreference: {
@@ -125,7 +133,7 @@ export const fetchUserProfileFromFirestore = async (firebaseUser: FirebaseAuthUs
         whatsapp: '',
         ...newProfile,
         createdAt: new Date().toISOString(),
-        role: 'user',
+        role: role,
         datePreference: 'hebrew'
       } as User;
     }
@@ -151,11 +159,14 @@ export const register = async (data: RegisterData): Promise<User> => {
     });
   }
 
+  const isSuperAdmin = data.email === 'eyceyceyc139@gmail.com';
+  const role = isSuperAdmin ? 'super_admin' : 'user';
+
   const newProfile = {
     fullName: data.fullName,
     email: data.email,
     phone: data.phone,
-    role: 'user',
+    role: role,
     isEmployer: data.isEmployer || false,
     datePreference: 'hebrew',
     createdAt: serverTimestamp(),

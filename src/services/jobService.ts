@@ -2,22 +2,31 @@ import { Job, JobDifficulty, PaymentType, JobPosterInfo, JobDateType, PaymentMet
 import { db } from '@/lib/firebase'; // Import Firestore instance
 import {
   collection,
-  doc,
   addDoc,
-  getDoc,
-  getDocs,
   updateDoc,
   deleteDoc,
+  doc,
+  getDocs,
+  getDoc,
   query,
   where,
   orderBy,
   limit,
-  serverTimestamp,
+  startAfter,
   Timestamp,
-  writeBatch
-} from "firebase/firestore";
+  serverTimestamp,
+  increment,
+  runTransaction,
+  writeBatch,
+  onSnapshot,
+  Unsubscribe,
+  QuerySnapshot,
+  DocumentSnapshot
+} from 'firebase/firestore';
 import { ISRAELI_CITIES, DEFAULT_USER_DISPLAY_NAME, SortById } from '../constants';
 import { getTodayGregorianISO } from '../utils/dateConverter';
+import * as adminLogService from './adminLogService';
+import { AdminLog } from '../types';
 
 const JOBS_COLLECTION = 'jobs';
 
@@ -25,8 +34,18 @@ const JOBS_COLLECTION = 'jobs';
 const convertTimestamps = (docData: any) => {
   const data = { ...docData };
   for (const key in data) {
+    // Handle Firestore Timestamp instances
     if (data[key] instanceof Timestamp) {
       data[key] = data[key].toDate().toISOString();
+    }
+    // Handle plain objects with seconds/nanoseconds (serialized Timestamps)
+    else if (data[key] && typeof data[key] === 'object' && 'seconds' in data[key]) {
+      data[key] = new Date(data[key].seconds * 1000).toISOString();
+    }
+    // Handle serverTimestamp placeholders that weren't converted by Firestore
+    else if (data[key] && typeof data[key] === 'object' && data[key]._methodName === 'serverTimestamp') {
+      console.warn(`[convertTimestamps] Found serverTimestamp placeholder in field '${key}', replacing with current time`);
+      data[key] = new Date().toISOString();
     }
   }
   return data;
@@ -253,11 +272,11 @@ export const incrementJobContactAttempt = async (jobId: string): Promise<void> =
   }
 };
 
-export const addJob = async (jobData: Omit<Job, 'id' | 'postedDate' | 'views' | 'contactAttempts'>): Promise<Job> => {
+export const addJob = async (jobData: Omit<Job, 'id' | 'postedDate' | 'views' | 'contactAttempts' | 'serialNumber'>): Promise<Job> => {
   try {
     const jobPayload: any = {
       ...jobData,
-      postedDate: serverTimestamp(),
+      postedDate: new Date().toISOString(), // Use actual ISO timestamp instead of placeholder
       views: 0,
       contactAttempts: 0,
       isFlagged: false, // Default for new jobs
@@ -272,8 +291,32 @@ export const addJob = async (jobData: Omit<Job, 'id' | 'postedDate' | 'views' | 
 
     const cleanJobPayload = removeUndefined(jobPayload);
 
-    const docRef = await addDoc(collection(db, JOBS_COLLECTION), cleanJobPayload);
-    return { ...jobPayload, id: docRef.id, postedDate: new Date().toISOString() } as Job;
+    // Use Transaction to get and increment serial number, then write job
+    return await runTransaction(db, async (transaction) => {
+      const counterRef = doc(db, 'counters', 'jobs');
+      const counterSnap = await transaction.get(counterRef);
+
+      let nextSerial = 1000; // Default start
+      if (counterSnap.exists()) {
+        const current = counterSnap.data().current;
+        if (typeof current === 'number') {
+          nextSerial = current + 1;
+        }
+      }
+
+      // Set the serial number on the job
+      cleanJobPayload.serialNumber = nextSerial;
+
+      // Create a new ID for the job
+      const newJobRef = doc(collection(db, JOBS_COLLECTION));
+
+      // Writes
+      transaction.set(counterRef, { current: nextSerial }, { merge: true });
+      transaction.set(newJobRef, cleanJobPayload);
+
+      return { ...cleanJobPayload, id: newJobRef.id, postedDate: new Date().toISOString() } as Job;
+    });
+
   } catch (error) {
     console.error("Error adding job to Firestore:", error);
     throw error;
@@ -325,10 +368,28 @@ export const getJobsByUserId = async (userId: string): Promise<Job[]> => {
   return jobs;
 };
 
-export const deleteJob = async (jobId: string): Promise<void> => {
+export const deleteJob = async (jobId: string, adminLogData?: Omit<AdminLog, 'id' | 'timestamp'>): Promise<void> => {
   // Security for this action MUST be handled by Firestore Security Rules (admin/moderator or owner only)
-  const jobRef = doc(db, JOBS_COLLECTION, jobId);
-  await deleteDoc(jobRef);
+  try {
+    const jobRef = doc(db, JOBS_COLLECTION, jobId);
+
+    // If admin log data provided, we might want to fetch job data first for "details" if not already provided
+    if (adminLogData && !adminLogData.details) {
+      const snap = await getDoc(jobRef);
+      if (snap.exists()) {
+        adminLogData.details = JSON.stringify(snap.data());
+      }
+    }
+
+    await deleteDoc(jobRef);
+
+    if (adminLogData) {
+      await adminLogService.logAction(adminLogData);
+    }
+  } catch (error) {
+    console.error("Error deleting job:", error);
+    throw error;
+  }
 };
 
 export const flagJobAdmin = async (jobId: string, reason: string, flag: boolean): Promise<void> => {

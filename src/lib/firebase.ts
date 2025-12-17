@@ -3,7 +3,7 @@ import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getFunctions } from "firebase/functions";
-// import { getAnalytics } from "firebase/analytics";
+// import { getAnalytics } from "firebase/analytics"; // Removed static import to prevent AdBlocker crash
 
 // הגדרות הקונפיגורציה - משתמשות במשתני הסביבה
 const firebaseConfig = {
@@ -25,7 +25,22 @@ export const googleProvider = new GoogleAuthProvider();
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const functions = getFunctions(app);
-// export const analytics = getAnalytics(app);
+
+let analytics: any = null;
+
+export const initAnalytics = async () => {
+  if (typeof window !== 'undefined' && !analytics) {
+    try {
+      // Use dynamic import so the app doesn't crash if adblocker blocks this file
+      const { getAnalytics } = await import("firebase/analytics");
+      analytics = getAnalytics(app);
+      console.log("Firebase Analytics initialized");
+    } catch (e) {
+      console.error("Firebase Analytics initialization failed (likely blocked by adblocker)", e);
+    }
+  }
+  return analytics;
+};
 
 export { app };
 

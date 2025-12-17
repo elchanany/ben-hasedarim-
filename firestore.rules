@@ -1,0 +1,69 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper Functions
+    function isLoggedIn() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      let role = getUserData().role;
+      return role == 'admin' || role == 'super_admin';
+    }
+    
+    function isSuperAdmin() {
+      return getUserData().role == 'super_admin';
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read: if isLoggedIn();
+      allow create: if isLoggedIn() && isOwner(userId);
+      // Allow users to update their own profile
+      // Allow Admins to update block status
+      // Allow Super Admins to update roles
+      allow update: if isLoggedIn() && (
+        isOwner(userId) || 
+        isAdmin()
+      );
+    }
+    
+    // Jobs Collection
+    match /jobs/{jobId} {
+      allow read: if true;
+      allow create: if isLoggedIn();
+      allow update, delete: if isLoggedIn() && (
+        resource.data.postedBy.id == request.auth.uid || 
+        isAdmin()
+      );
+    }
+    
+    // Reports Collection
+    match /reports/{reportId} {
+      allow create: if isLoggedIn();
+      allow read, update: if isLoggedIn() && isAdmin();
+    }
+    
+    // Chat Threads
+    match /chats/{threadId} {
+      allow create: if isLoggedIn();
+      allow read: if isLoggedIn() && request.auth.uid in resource.data.participantIds;
+      allow update: if isLoggedIn() && request.auth.uid in resource.data.participantIds;
+      
+      // Chat Messages
+      match /messages/{messageId} {
+        allow read, create: if isLoggedIn();
+        // Ideally should check if parent thread has user as participant
+      }
+    }
+  }
+}

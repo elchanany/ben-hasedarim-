@@ -4,14 +4,17 @@ import { Button } from '../components/Button';
 import type { PageProps } from '../App';
 import { useAuth } from '../hooks/useAuth';
 import { Modal } from '../components/Modal';
-import { 
-    BriefcaseIcon, UserIcon, PlusCircleIcon, SearchIcon, ClockIcon, UsersIcon, CashIcon, 
-    PhoneIcon, MailIcon, ChatBubbleLeftEllipsisIcon, MapPinIcon, CalendarDaysIcon, EyeIcon,
-    ArrowTopRightOnSquareIcon, LoginIcon, EditIcon, TrashIcon, ChartBarIcon
+import {
+  BriefcaseIcon, UserIcon, PlusCircleIcon, SearchIcon, ClockIcon, UsersIcon, CashIcon,
+  PhoneIcon, MailIcon, ChatBubbleLeftEllipsisIcon, MapPinIcon, CalendarDaysIcon, EyeIcon,
+  ArrowTopRightOnSquareIcon, LoginIcon, EditIcon, TrashIcon, ChartBarIcon
 } from '../components/icons';
 import { gregSourceToHebrewString, getTodayGregorianISO, formatJobPostedDateTimeDetails, formatGregorianString, formatDateByPreference } from '../utils/dateConverter';
 import * as jobService from '../services/jobService';
 import * as chatService from '../services/chatService';
+import * as reportService from '../services/reportService';
+import { ReportModal } from '../components/ReportModal';
+import { TimeAgo } from '../components/TimeAgo';
 import { useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 
@@ -19,11 +22,11 @@ interface JobDetailsPageProps extends PageProps {
   jobId: string;
 }
 
-const DetailItem: React.FC<{ 
-  icon: React.ReactNode; 
-  label: string; 
-  value: React.ReactNode; 
-  className?: string; 
+const DetailItem: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+  className?: string;
   animationType?: 'money' | 'clock' | 'calendar' | 'star' | 'default';
   onClick?: () => void;
 }> = ({ icon, label, value, className, animationType = 'default', onClick }) => {
@@ -39,7 +42,7 @@ const DetailItem: React.FC<{
 
   const getAnimationClasses = () => {
     if (!isAnimating) return '';
-    
+
     switch (animationType) {
       case 'money':
         return 'animate-bounce animate-pulse';
@@ -55,7 +58,7 @@ const DetailItem: React.FC<{
   };
 
   return (
-    <div 
+    <div
       className={`p-4 rounded-lg shadow-sm border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:shadow-md transition-all duration-300 hover:scale-[1.02] transform cursor-pointer ${className} ${getAnimationClasses()}`}
       onClick={handleClick}
     >
@@ -67,9 +70,9 @@ const DetailItem: React.FC<{
           <h3 className="text-sm font-semibold text-gray-600 mb-1">{label}</h3>
           <p className="text-lg font-medium text-dark-text">{value}</p>
         </div>
+      </div>
     </div>
-  </div>
-);
+  );
 };
 
 // FIX: Added export to the component to resolve the module resolution error in App.tsx.
@@ -83,6 +86,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
   const [showContactModal, setShowContactModal] = useState(false);
   const [showContactDetails, setShowContactDetails] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const contactModalTitleId = `contact-modal-title-${jobId}`;
   const deleteModalTitleId = `delete-confirm-modal-title-${jobId}`;
@@ -115,12 +119,12 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
       if (!job) {
         return;
       }
-      
+
       // רק אם המשתמש הוא המפרסם, לא נספור
       if (user && user.id === job.postedBy.id) {
         return;
       }
-      
+
       const viewedJobsKey = 'viewedJobs';
       const viewedJobs = JSON.parse(sessionStorage.getItem(viewedJobsKey) || '[]');
       if (!viewedJobs.includes(jobId) && !hasIncrementedView.current) {
@@ -141,36 +145,36 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
 
   const handleContactClick = () => {
     if (!user) {
-        setCurrentPage('login', { message: 'עליך להתחבר כדי לראות פרטי יצירת קשר.' });
-        return;
+      setCurrentPage('login', { message: 'עליך להתחבר כדי לראות פרטי יצירת קשר.' });
+      return;
     }
     setShowContactModal(true);
-    if(job) {
-        jobService.incrementJobContactAttempt(job.id);
+    if (job) {
+      jobService.incrementJobContactAttempt(job.id);
     }
   };
-  
+
   const handleStartChat = async () => {
     if (!user || !job) return;
 
     if (user.id === job.postedBy.id) {
-        alert("אינך יכול/ה להתחיל שיחה דרך מערכת ההודעות על משרה שפרסמת.");
-        return;
+      alert("אינך יכול/ה להתחיל שיחה דרך מערכת ההודעות על משרה שפרסמת.");
+      return;
     }
-    
+
     try {
-        const thread = await chatService.getOrCreateChatThread(user.id, job.postedBy.id, job.id, job.title);
-        setCurrentPage('chatThread', {
-            threadId: thread.id,
-            otherParticipantName: job.postedBy.posterDisplayName,
-            jobTitle: job.title,
-            jobId: job.id,
-        });
+      const thread = await chatService.getOrCreateChatThread(user.id, job.postedBy.id, job.id, job.title);
+      setCurrentPage('chatThread', {
+        threadId: thread.id,
+        otherParticipantName: job.postedBy.posterDisplayName,
+        jobTitle: job.title,
+        jobId: job.id,
+      });
     } catch (err) {
-        console.error("Error starting chat:", err);
-        setError("שגיאה ביצירת שיחה חדשה.");
+      console.error("Error starting chat:", err);
+      setError("שגיאה ביצירת שיחה חדשה.");
     }
-};
+  };
 
   const handleEditJob = () => {
     setCurrentPage('postJob', { editJobId: jobId });
@@ -192,9 +196,39 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
     } finally {
       setIsDeleting(false);
     }
-};
+  };
+
+  const handleAdminDelete = async () => {
+    if (!window.confirm("האם אתה בטוח שברצונך למחוק משרה זו כמנהל? פעולה זו תירשם בהיסטוריה.")) return;
+
+    const reason = window.prompt("נא להזין סיבת מחיקה (חובה):");
+    if (!reason?.trim()) {
+      alert("חובה להזין סיבה למחיקה.");
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await jobService.deleteJob(jobId, {
+        adminId: user?.id || 'unknown',
+        adminName: user?.fullName || 'Admin',
+        action: 'delete_job',
+        targetId: jobId,
+        targetType: 'job',
+        reason: reason
+      });
+      alert("המשרה נמחקה בהצלחה.");
+      setCurrentPage('admin', { tab: 'jobs' });
+    } catch (error) {
+      console.error("Error deleting job (admin):", error);
+      alert("שגיאה במחיקת המשרה.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const isOwner = user?.id === job?.postedBy.id;
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
   if (loading) {
     return <div className="text-center p-10 text-xl" role="status" aria-live="polite">טוען פרטי משרה...</div>;
@@ -216,7 +250,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
   if (job.suitability.general) suitabilityParts.push("כללי");
   let suitabilityText = suitabilityParts.join(' / ');
   if (job.suitability.minAge) {
-      suitabilityText += `, מגיל ${job.suitability.minAge}`;
+    suitabilityText += `, מגיל ${job.suitability.minAge}`;
   }
 
 
@@ -232,8 +266,11 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
               </p>
             </div>
           )}
-          
+
           <h1 className="text-3xl sm:text-5xl font-extrabold text-royal-blue mb-4 leading-tight break-words max-w-[90%]">
+            <span className="text-xl sm:text-2xl text-gray-400 font-mono block mb-2">
+              #{job.serialNumber ? job.serialNumber : job.id.substring(0, 8)}
+            </span>
             <span className="whitespace-normal block line-clamp-2">{job.title}</span>
           </h1>
 
@@ -260,14 +297,40 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
             </div>
           )}
 
+          {isAdmin && !isOwner && (
+            <div className="flex gap-2 mb-4">
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={handleAdminDelete}
+                icon={<TrashIcon className="w-4 h-4" />}
+                isLoading={isDeleting}
+                className="!px-3 !py-2 !text-sm border-2 border-red-500 bg-red-50 text-red-700 hover:bg-red-100"
+              >
+                מחק משרה (מנהל)
+              </Button>
+            </div>
+          )}
+
+          {!isOwner && user && (
+            <div className="absolute top-0 left-0 mt-4 ml-4">
+              <button
+                onClick={() => setShowReportModal(true)}
+                className="text-gray-400 hover:text-red-500 text-sm flex items-center transition-colors"
+              >
+                <span className="ml-1">🚩</span> דווח
+              </button>
+            </div>
+          )}
+
           <div className="space-y-2 text-sm text-gray-600">
             <p className="flex items-center">
-              <ClockIcon className="w-4 h-4 ml-2 rtl:mr-2 rtl:ml-0 text-gray-400"/>
-              פורסם {formatJobPostedDateTimeDetails(job.postedDate, authCtx?.datePreference || 'hebrew')} על ידי {job.postedBy.posterDisplayName}
+              <ClockIcon className="w-4 h-4 ml-2 rtl:mr-2 rtl:ml-0 text-gray-400" />
+              פורסם <TimeAgo date={job.postedDate} format={(d: string) => formatJobPostedDateTimeDetails(d, authCtx?.datePreference || 'hebrew')} className="mr-1" />
             </p>
             <div className="flex items-center space-x-4 rtl:space-x-reverse">
-              <span className="flex items-center"><EyeIcon className="w-4 h-4 ml-1.5 rtl:mr-1.5 rtl:ml-0 text-gray-400"/>{job.views} צפיות</span>
-              <span className="flex items-center"><ChatBubbleLeftEllipsisIcon className="w-4 h-4 ml-1.5 rtl:mr-1.5 rtl:ml-0 text-gray-400"/>{job.contactAttempts} פניות</span>
+              <span className="flex items-center"><EyeIcon className="w-4 h-4 ml-1.5 rtl:mr-1.5 rtl:ml-0 text-gray-400" />{job.views} צפיות</span>
+              <span className="flex items-center"><ChatBubbleLeftEllipsisIcon className="w-4 h-4 ml-1.5 rtl:mr-1.5 rtl:ml-0 text-gray-400" />{job.contactAttempts} פניות</span>
             </div>
           </div>
         </header>
@@ -283,60 +346,60 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
           <div className="space-y-4">
             <h2 className="text-2xl font-bold text-royal-blue text-center mb-6">פרטי המשרה</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <DetailItem 
-                icon={<MapPinIcon className="w-7 h-7"/>} 
-                label="מיקום" 
-                value={job.area} 
+              <DetailItem
+                icon={<MapPinIcon className="w-7 h-7" />}
+                label="מיקום"
+                value={job.area}
                 animationType="default"
                 onClick={() => console.log('Location clicked!')}
               />
-              <DetailItem 
-                icon={<CalendarDaysIcon className="w-7 h-7"/>} 
-                label="תאריך וזמן" 
-                value={formatDateByPreference(job.specificDate, authCtx?.datePreference || 'hebrew') + (job.startTime ? `, החל מ-${job.startTime}` : '')} 
+              <DetailItem
+                icon={<CalendarDaysIcon className="w-7 h-7" />}
+                label="תאריך וזמן"
+                value={formatDateByPreference(job.specificDate, authCtx?.datePreference || 'hebrew') + (job.startTime ? `, החל מ-${job.startTime}` : '')}
                 animationType="calendar"
                 onClick={() => console.log('Calendar clicked!')}
               />
-              <DetailItem 
-                icon={<ClockIcon className="w-7 h-7"/>} 
-                label="משך משוער" 
-                value={job.estimatedDurationIsFlexible ? 'גמיש' : `${job.estimatedDurationHours || 'לא צוין'} שעות`} 
+              <DetailItem
+                icon={<ClockIcon className="w-7 h-7" />}
+                label="משך משוער"
+                value={job.estimatedDurationIsFlexible ? 'גמיש' : `${job.estimatedDurationHours || 'לא צוין'} שעות`}
                 animationType="clock"
                 onClick={() => console.log('Clock clicked!')}
               />
-              <DetailItem 
-                icon={<BriefcaseIcon className="w-7 h-7"/>} 
-                label="אופן תשלום" 
-                value={job.paymentMethod || 'לא צוין'} 
+              <DetailItem
+                icon={<BriefcaseIcon className="w-7 h-7" />}
+                label="אופן תשלום"
+                value={job.paymentMethod || 'לא צוין'}
                 animationType="default"
                 onClick={() => console.log('Payment method clicked!')}
               />
-              <DetailItem 
-                icon={<ChartBarIcon className="w-7 h-7"/>} 
-                label="רמת קושי" 
-                value={job.difficulty} 
+              <DetailItem
+                icon={<ChartBarIcon className="w-7 h-7" />}
+                label="רמת קושי"
+                value={job.difficulty}
                 animationType="star"
                 onClick={() => console.log('Difficulty clicked!')}
               />
-              <DetailItem 
-                icon={<UsersIcon className="w-7 h-7"/>} 
-                label="התאמה" 
-                value={suitabilityText} 
+              <DetailItem
+                icon={<UsersIcon className="w-7 h-7" />}
+                label="התאמה"
+                value={suitabilityText}
                 animationType="default"
                 onClick={() => console.log('Suitability clicked!')}
               />
-              <DetailItem 
-                icon={<UserIcon className="w-7 h-7"/>} 
-                label="דרושים" 
-                value={`${job.numberOfPeopleNeeded || 1} אנשים`} 
+              <DetailItem
+                icon={<UserIcon className="w-7 h-7" />}
+                label="דרושים"
+                value={`${job.numberOfPeopleNeeded || 1} אנשים`}
                 animationType="default"
                 onClick={() => console.log('People needed clicked!')}
               />
               {job.specialRequirements && (
-                <DetailItem 
-                  icon={<PlusCircleIcon className="w-7 h-7"/>} 
-                  label="דרישות מיוחדות" 
-                  value={job.specialRequirements} 
+                <DetailItem
+                  icon={<PlusCircleIcon className="w-7 h-7" />}
+                  label="דרישות מיוחדות"
+                  value={job.specialRequirements}
                   className="md:col-span-2"
                   animationType="default"
                   onClick={() => console.log('Special requirements clicked!')}
@@ -366,7 +429,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
           {/* פרטי יצירת קשר */}
           <div className="space-y-4">
             <h2 className="text-2xl font-bold text-royal-blue text-center mb-6">פרטי יצירת קשר</h2>
-            
+
             {!user ? (
               <div className="text-center py-8">
                 <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-6 mb-4">
@@ -389,25 +452,25 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                   >
                     הצג פרטי איש קשר
                   </button>
-            </div>
-          </div>
+                </div>
+              </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {job.contactDisplayName && (
-                  <DetailItem 
-                    icon={<UserIcon className="w-7 h-7"/>} 
-                    label="שם איש קשר" 
-                    value={job.contactDisplayName} 
+                  <DetailItem
+                    icon={<UserIcon className="w-7 h-7" />}
+                    label="שם איש קשר"
+                    value={job.contactDisplayName}
                     animationType="default"
                     onClick={() => console.log('Contact name clicked!')}
                   />
                 )}
                 {job.preferredContactMethods?.phone && job.contactPhone && (
-                  <DetailItem 
-                    icon={<PhoneIcon className="w-7 h-7"/>} 
-                    label="טלפון" 
+                  <DetailItem
+                    icon={<PhoneIcon className="w-7 h-7" />}
+                    label="טלפון"
                     value={
-                      <a 
+                      <a
                         href={`tel:${job.contactPhone}`}
                         className="inline-block px-4 py-2 bg-deep-pink text-white rounded-lg hover:bg-pink-600 transition-colors duration-300 font-semibold shadow-md hover:shadow-lg transform hover:scale-105 no-underline"
                       >
@@ -418,11 +481,11 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                   />
                 )}
                 {job.preferredContactMethods?.email && job.contactEmail && (
-                  <DetailItem 
-                    icon={<MailIcon className="w-7 h-7"/>} 
-                    label="אימייל" 
+                  <DetailItem
+                    icon={<MailIcon className="w-7 h-7" />}
+                    label="אימייל"
                     value={
-                      <a 
+                      <a
                         href={`mailto:${job.contactEmail}`}
                         className="inline-block px-4 py-2 bg-deep-pink text-white rounded-lg hover:bg-pink-600 transition-colors duration-300 font-semibold shadow-md hover:shadow-lg transform hover:scale-105 no-underline"
                       >
@@ -434,7 +497,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                 )}
                 {user && user.id !== job.postedBy.id && job.preferredContactMethods?.allowSiteMessages && (
                   <DetailItem
-                    icon={<ChatBubbleLeftEllipsisIcon className="w-7 h-7"/>}
+                    icon={<ChatBubbleLeftEllipsisIcon className="w-7 h-7" />}
                     label="מערכת ההודעות של האתר"
                     value={
                       <button
@@ -448,11 +511,11 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                   />
                 )}
                 {job.preferredContactMethods?.whatsapp && job.contactWhatsapp && (
-                  <DetailItem 
-                    icon={<PhoneIcon className="w-7 h-7"/>} 
-                    label="וואטסאפ" 
+                  <DetailItem
+                    icon={<PhoneIcon className="w-7 h-7" />}
+                    label="וואטסאפ"
                     value={
-                      <a 
+                      <a
                         href={`https://wa.me/${job.contactWhatsapp.replace(/\D/g, '')}`}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -465,71 +528,71 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                   />
                 )}
               </div>
-          )}
+            )}
           </div>
         </main>
       </div>
 
       <Modal isOpen={showContactModal} onClose={() => setShowContactModal(false)} title="פרטי יצירת קשר" titleId={contactModalTitleId} size="sm">
         <div className="p-4 space-y-4">
-            <h3 className="text-xl font-bold text-royal-blue text-center mb-4">{job.contactDisplayName}</h3>
-            <div className="space-y-3">
-                {job.preferredContactMethods.phone && job.contactPhone && (
-                  <DetailItem 
-                    icon={<PhoneIcon className="w-6 h-6"/>}
-                    label="טלפון"
-                    value={
-                      <a href={`tel:${job.contactPhone}`} className="text-lg text-dark-text hover:text-royal-blue transition-colors">
-                        {job.contactPhone}
-                      </a>
-                    }
-                    animationType="default"
-                    onClick={() => console.log('Phone clicked!')}
-                  />
-                )}
-                {job.preferredContactMethods.whatsapp && job.contactWhatsapp && (
-                  <DetailItem 
-                    icon={<ChatBubbleLeftEllipsisIcon className="w-6 h-6"/>}
-                    label="וואטסאפ"
-                    value={
-                      <a href={`https://wa.me/${job.contactWhatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-lg text-dark-text hover:text-green-600 transition-colors">
-                        {job.contactWhatsapp} (WhatsApp)
-                      </a>
-                    }
-                    animationType="default"
-                    onClick={() => console.log('WhatsApp clicked!')}
-                  />
-                )}
-                {job.preferredContactMethods.email && job.contactEmail && (
-                  <DetailItem 
-                    icon={<MailIcon className="w-6 h-6"/>}
-                    label="אימייל"
-                    value={
-                      <a href={`mailto:${job.contactEmail}`} className="text-lg text-dark-text hover:text-royal-blue transition-colors">
-                        {job.contactEmail}
-                      </a>
-                    }
-                    animationType="default"
-                    onClick={() => console.log('Email clicked!')}
-                  />
-                )}
-                {user && user.id !== job.postedBy.id && job.preferredContactMethods?.allowSiteMessages && (
-                  <DetailItem
-                    icon={<ChatBubbleLeftEllipsisIcon className="w-6 h-6"/>}
-                    label="מערכת ההודעות של האתר"
-                    value={
-                      <button
-                        onClick={handleStartChat}
-                        className="inline-block px-4 py-2 bg-royal-blue text-white rounded-lg hover:bg-blue-700 transition-colors duration-300 font-semibold shadow-md hover:shadow-lg transform hover:scale-105"
-                      >
-                        התחל שיחה
-                      </button>
-                    }
-                    animationType="default"
-                  />
-                )}
-            </div>
-             <Button onClick={() => setShowContactModal(false)} variant="primary" className="w-full mt-4">סגור</Button>
+          <h3 className="text-xl font-bold text-royal-blue text-center mb-4">{job.contactDisplayName}</h3>
+          <div className="space-y-3">
+            {job.preferredContactMethods.phone && job.contactPhone && (
+              <DetailItem
+                icon={<PhoneIcon className="w-6 h-6" />}
+                label="טלפון"
+                value={
+                  <a href={`tel:${job.contactPhone}`} className="text-lg text-dark-text hover:text-royal-blue transition-colors">
+                    {job.contactPhone}
+                  </a>
+                }
+                animationType="default"
+                onClick={() => console.log('Phone clicked!')}
+              />
+            )}
+            {job.preferredContactMethods.whatsapp && job.contactWhatsapp && (
+              <DetailItem
+                icon={<ChatBubbleLeftEllipsisIcon className="w-6 h-6" />}
+                label="וואטסאפ"
+                value={
+                  <a href={`https://wa.me/${job.contactWhatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-lg text-dark-text hover:text-green-600 transition-colors">
+                    {job.contactWhatsapp} (WhatsApp)
+                  </a>
+                }
+                animationType="default"
+                onClick={() => console.log('WhatsApp clicked!')}
+              />
+            )}
+            {job.preferredContactMethods.email && job.contactEmail && (
+              <DetailItem
+                icon={<MailIcon className="w-6 h-6" />}
+                label="אימייל"
+                value={
+                  <a href={`mailto:${job.contactEmail}`} className="text-lg text-dark-text hover:text-royal-blue transition-colors">
+                    {job.contactEmail}
+                  </a>
+                }
+                animationType="default"
+                onClick={() => console.log('Email clicked!')}
+              />
+            )}
+            {user && user.id !== job.postedBy.id && job.preferredContactMethods?.allowSiteMessages && (
+              <DetailItem
+                icon={<ChatBubbleLeftEllipsisIcon className="w-6 h-6" />}
+                label="מערכת ההודעות של האתר"
+                value={
+                  <button
+                    onClick={handleStartChat}
+                    className="inline-block px-4 py-2 bg-royal-blue text-white rounded-lg hover:bg-blue-700 transition-colors duration-300 font-semibold shadow-md hover:shadow-lg transform hover:scale-105"
+                  >
+                    התחל שיחה
+                  </button>
+                }
+                animationType="default"
+              />
+            )}
+          </div>
+          <Button onClick={() => setShowContactModal(false)} variant="primary" className="w-full mt-4">סגור</Button>
         </div>
       </Modal>
 
@@ -542,7 +605,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
         size="md"
       >
         <div className="text-center p-6">
-          <TrashIcon className="w-16 h-16 text-red-600 mx-auto mb-4" aria-hidden="true"/>
+          <TrashIcon className="w-16 h-16 text-red-600 mx-auto mb-4" aria-hidden="true" />
           <p className="text-lg text-gray-800 font-medium mb-6">
             האם אתה בטוח שברצונך למחוק את המשרה "{job?.title}"? לא ניתן לשחזר פעולה זו.
           </p>
@@ -556,6 +619,21 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
           </div>
         </div>
       </Modal>
+
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        onSubmit={async (reason) => {
+          if (!job || !user) return;
+          await reportService.submitReport({
+            reporterId: user.id,
+            reportedEntityId: job.id,
+            entityType: 'job',
+            reason,
+          });
+          alert('הדיווח נשלח בהצלחה');
+        }}
+      />
     </>
   );
 };

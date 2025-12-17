@@ -21,6 +21,7 @@ export { ChartBarIcon } from './ChartBarIcon';
 export { FilterIcon } from './FilterIcon';
 export { PaperAirplaneIcon } from './PaperAirplaneIcon';
 export { CheckCircleIcon, DoubleCheckIcon } from './CheckCircleIcon'; // Ensured CheckCircleIcon is exported
+export { EnvelopeIcon } from './EnvelopeIcon';
 export { ArrowRightIcon } from './ArrowRightIcon';
 export { EditIcon } from './EditIcon';
 export { TrashIcon } from './TrashIcon';

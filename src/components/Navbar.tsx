@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import type { Page, PageProps } from '../App';
 import { useAuth } from '../hooks/useAuth';
-import { UserIcon, BriefcaseIcon, PlusCircleIcon, LoginIcon, BellIcon, SearchIcon, ChatBubbleLeftEllipsisIcon } from './icons';
+import * as contactService from '../services/contactService'; // Import contact service
+import { UserIcon, BriefcaseIcon, PlusCircleIcon, LoginIcon, BellIcon, SearchIcon, ChatBubbleLeftEllipsisIcon, EnvelopeIcon } from './icons';
 
 interface NavLinkProps {
   to: Page;
@@ -33,20 +34,22 @@ const NavLink: React.FC<NavLinkProps> = ({ to, label, icon, setCurrentPageProp, 
   return (
     <button
       onClick={() => setCurrentPageProp(to, params)}
-      className={`relative flex items-center space-x-2 rtl:space-x-reverse px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus-ring-color
+      className={`flex items-center space-x-2 rtl:space-x-reverse px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus-ring-color
                   ${finalIsActive ? activeStyle : inactiveStyle} ${className}`}
       aria-current={finalIsActive ? 'page' : undefined}
     >
-      {icon}
+      <div className="relative flex items-center justify-center">
+        {icon}
+        {typeof badgeCount === 'number' && badgeCount > 0 && (
+          <span
+            className="absolute -top-1.5 -right-1.5 min-w-[1rem] h-[1rem] flex items-center justify-center bg-red-600 text-white text-[10px] leading-none font-bold rounded-full shadow-sm border border-white"
+            aria-label={`${badgeCount} התראות והודעות חדשות`}
+          >
+            {badgeCount > 9 ? '9+' : badgeCount}
+          </span>
+        )}
+      </div>
       <span>{label}</span>
-      {typeof badgeCount === 'number' && badgeCount > 0 && (
-        <span
-          className="absolute -top-1 -right-1 min-w-[1.2rem] h-[1.2rem] p-0.5 bg-red-600 text-white text-xs leading-none font-sans font-semibold rounded-full flex items-center justify-center shadow-md border-2 border-royal-blue"
-          aria-label={`${badgeCount} התראות והודעות חדשות`}
-        >
-          {badgeCount > 9 ? '9+' : badgeCount}
-        </span>
-      )}
     </button>
   );
 };
@@ -62,7 +65,11 @@ const pageDisplayNames: Record<Page, string> = {
   admin: 'לוח מנהל',
   notifications: 'התראות והודעות',
   chatThread: 'שיחה פעילה',
-  createJobAlert: 'יצירת התראת עבודה חדשה' // Added
+  createJobAlert: 'יצירת התראת עבודה חדשה',
+  contact: 'צור קשר',
+  privacy: 'מדיניות פרטיות',
+  terms: 'תנאי שימוש',
+  accessibility: 'הצהרת נגישות'
 };
 
 interface NavbarProps extends Pick<PageProps, 'setCurrentPage'> {
@@ -72,6 +79,20 @@ interface NavbarProps extends Pick<PageProps, 'setCurrentPage'> {
 export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) => {
   const { user, logout, totalUnreadCount } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [adminUnreadContacts, setAdminUnreadContacts] = useState(0);
+
+  // Poll for admin messages if user is admin
+  React.useEffect(() => {
+    if (user?.role === 'admin' || user?.role === 'super_admin') {
+      const fetchAdmindat = async () => {
+        const count = await contactService.getUnreadMessageCount();
+        setAdminUnreadContacts(count);
+      };
+      fetchAdmindat();
+      const interval = setInterval(fetchAdmindat, 60000); // Check every minute
+      return () => clearInterval(interval);
+    }
+  }, [user]);
 
   const handleLogout = async () => {
     await logout();
@@ -105,6 +126,15 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
           `bg-deep-pink hover:bg-pink-700 text-white ${currentPage === 'postJob' ? 'ring-2 ring-white/70' : ''}`
         )}
       />
+      <NavLink
+        {...createNavLinkProps(
+          'contact',
+          'צור קשר',
+          <EnvelopeIcon className="w-4 h-4" />,
+          undefined,
+          'text-xs px-2 py-1 bg-white/10 hover:bg-white/20' // Smaller style
+        )}
+      />
     </>
   );
 
@@ -119,6 +149,18 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
         )}
         badgeCount={user ? totalUnreadCount : 0}
       />
+      {(user?.role === 'admin' || user?.role === 'super_admin') && (
+        <NavLink
+          {...createNavLinkProps(
+            'admin',
+            'לוח מנהל',
+            <BriefcaseIcon className="w-5 h-5" />, // Using BriefcaseIcon as a placeholder or import another one
+            adminUnreadContacts > 0 ? { tab: 'contact' } : undefined, // Navigate to contact tab if unread
+            'text-yellow-300 hover:text-yellow-100'
+          )}
+          badgeCount={adminUnreadContacts} // Show badge on Admin link
+        />
+      )}
       {user ? (
         <>
           <NavLink {...createNavLinkProps('profile', 'אזור אישי', <UserIcon className="w-5 h-5" />)} />

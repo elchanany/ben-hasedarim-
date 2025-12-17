@@ -92,8 +92,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // 2. Listen for unread system notifications (assuming specific collection structure)
     // Note: If notifications are in a subcollection 'notifications' under user, we listen there.
-    const notificationsCol = collection(db, 'users', user.id, 'notifications');
-    const qNotifs = query(notificationsCol, where("isRead", "==", false));
+    // 2. Listen for unread system notifications
+    // We query the top-level 'notifications' collection where userId matches
+    const notificationsCol = collection(db, 'notifications');
+    const qNotifs = query(notificationsCol, where("userId", "==", user.id), where("isRead", "==", false));
 
     const unsubscribeNotifs = onSnapshot(qNotifs, (snapshot) => {
       setSystemUnreadCount(snapshot.size);
@@ -140,8 +142,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const userProfile = await FirebaseAuthService.getUserProfile(firebaseUser.uid);
             if (userProfile) {
               if (userProfile.isBlocked) {
-                await FirebaseAuthService.logout();
-                setUser(null);
+                // We keep the user logged in so checking user.isBlocked in App.tsx can show the specific blocked screen with reason
+                setUser(userProfile);
               } else {
                 setUser(userProfile);
               }
@@ -179,7 +181,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     if (user?.id && !loadingAuth) {
       refreshTotalUnreadCount(user.id);
-      const intervalId = window.setInterval(() => refreshTotalUnreadCount(user.id), 30000);
+      const intervalId = window.setInterval(() => refreshTotalUnreadCount(user.id), 2000);
       return () => window.clearInterval(intervalId);
     }
   }, [user?.id, loadingAuth, refreshTotalUnreadCount]);

@@ -8,6 +8,9 @@ import { Button } from '../components/Button';
 import { BriefcaseIcon, ArrowRightIcon, EditIcon, TrashIcon, CheckCircleIcon } from '../components/icons';
 import * as chatService from '../services/chatService';
 import * as jobService from '../services/jobService';
+import * as userService from '../services/userService';
+import * as reportService from '../services/reportService';
+import { ReportModal } from '../components/ReportModal';
 
 interface ChatThreadPageProps extends PageProps {
   // threadId, otherParticipantName, jobTitle, jobId are expected in pageParams
@@ -26,6 +29,10 @@ export const ChatThreadPage: React.FC<ChatThreadPageProps> = ({ setCurrentPage, 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDeletingJob, setIsDeletingJob] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [isBlockedByMe, setIsBlockedByMe] = useState(false);
+
   const messagesEndRef = useRef<HTMLLIElement>(null);
   const messageContainerRef = useRef<HTMLUListElement>(null);
 
@@ -105,6 +112,42 @@ export const ChatThreadPage: React.FC<ChatThreadPageProps> = ({ setCurrentPage, 
   }, [threadDetails, messages.length]);
 
 
+  useEffect(() => {
+    if (user && threadDetails) {
+      const otherId = threadDetails.participantIds.find(id => id !== user.id);
+      if (otherId && user.blockedUserIds?.includes(otherId)) {
+        setIsBlockedByMe(true);
+      } else {
+        setIsBlockedByMe(false);
+      }
+    }
+  }, [user, threadDetails]);
+
+  const handleBlockToggle = async () => {
+    if (!user || !threadDetails) return;
+    const otherId = threadDetails.participantIds.find(id => id !== user.id);
+    if (!otherId) return;
+
+    try {
+      if (isBlockedByMe) {
+        await userService.unblockUser(user.id, otherId);
+        setIsBlockedByMe(false);
+        alert('החסימה הוסרה בהצלחה');
+      } else {
+        if (window.confirm('האם אתה בטוח שברצונך לחסום משתמש זה? לא תוכלו לשלוח הודעות זה לזה.')) {
+          await userService.blockUser(user.id, otherId);
+          setIsBlockedByMe(true);
+          alert('המשתמש נחסם בהצלחה');
+        }
+      }
+      setShowMenu(false);
+    } catch (error) {
+      console.error("Error toggling block:", error);
+      alert('שגיאה בביצוע הפעולה');
+    }
+  };
+
+
   const handleSendMessage = async (text: string) => {
     if (!user || !threadDetails) return;
 
@@ -127,9 +170,14 @@ export const ChatThreadPage: React.FC<ChatThreadPageProps> = ({ setCurrentPage, 
       setThreadDetails(updatedThread);
       refreshTotalUnreadCount();
       setTimeout(() => scrollToBottom("smooth"), 0);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error sending message:", err);
-      setError("שגיאה בשליחת ההודעה.");
+      // Catch blocking error specifically
+      if (err.message && err.message.includes("חסם")) {
+        alert("הודעה לא נשלחה כי המשתמש חסם אותך או שאתה חסמת אותו.");
+      } else {
+        setError("שגיאה בשליחת ההודעה.");
+      }
     }
   };
 
@@ -192,12 +240,12 @@ export const ChatThreadPage: React.FC<ChatThreadPageProps> = ({ setCurrentPage, 
   return (
     <div className="bg-white rounded-xl shadow-xl flex flex-col overflow-hidden h-[70vh] max-h-[650px] w-full max-w-2xl mx-auto my-4">
       {/* Header */}
-      <header className="flex-shrink-0 bg-royal-blue text-white p-3 sm:p-4 flex items-center justify-between shadow-md rounded-t-xl">
+      <header className="flex-shrink-0 bg-royal-blue text-white p-3 sm:p-4 flex items-center justify-between shadow-md rounded-t-xl relative">
         <Button
           variant="outline"
           size="sm"
           onClick={() => setCurrentPage('notifications', { tab: 'messages' })}
-          className="!text-white !border-white hover:!bg-light-blue !px-2.5 !py-1.5"
+          className="!text-white !border-white hover:!bg-light-blue !px-2.5 !py-1.5 z-10"
           aria-label="חזור לרשימת ההודעות"
         >
           <ArrowRightIcon className="w-5 h-5 transform scale-x-[-1]" />
@@ -243,7 +291,37 @@ export const ChatThreadPage: React.FC<ChatThreadPageProps> = ({ setCurrentPage, 
             </div>
           )}
         </div>
-        <div className="w-10"> {/* Spacer to balance the back button */}</div>
+
+        <div className="flex justify-end relative">
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            className="text-white/80 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors"
+            title="אפשרויות נוספות"
+          >
+            <span className="text-2xl font-bold">⋮</span>
+          </button>
+
+          {showMenu && (
+            <div className="absolute top-10 left-0 bg-white shadow-xl rounded-md z-50 min-w-[150px] py-1 text-gray-800 animate-fade-in origin-top-left">
+              <button
+                onClick={() => { setShowMenu(false); handleBlockToggle(); }}
+                className="w-full text-right px-4 py-2 hover:bg-gray-100 text-sm font-medium text-gray-700 block transition-colors"
+              >
+                {isBlockedByMe ? 'בטל חסימה' : 'חסום משתמש'}
+              </button>
+              <button
+                onClick={() => { setShowMenu(false); setShowReportModal(true); }}
+                className="w-full text-right px-4 py-2 hover:bg-gray-100 text-sm font-medium text-red-600 block transition-colors"
+              >
+                דווח על משתמש
+              </button>
+            </div>
+          )}
+          {/* Overlay to close menu */}
+          {showMenu && (
+            <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setShowMenu(false)}></div>
+          )}
+        </div>
       </header>
 
       {/* Messages Area */}
@@ -262,6 +340,21 @@ export const ChatThreadPage: React.FC<ChatThreadPageProps> = ({ setCurrentPage, 
 
       {/* Input Area */}
       <ChatInput onSendMessage={handleSendMessage} isLoading={loading && messages.length > 0} />
+
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        onSubmit={async (reason) => {
+          if (!user || !otherParticipantId) return;
+          await reportService.submitReport({
+            reporterId: user.id,
+            reportedEntityId: otherParticipantId,
+            entityType: 'user', // Reporting the user from chat
+            reason: `דיווח מתוך צ'אט: ${reason}`,
+          });
+          alert('הדיווח נשלח בהצלחה');
+        }}
+      />
     </div>
   );
 };

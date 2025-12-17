@@ -571,7 +571,7 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
           <h2 className="text-2xl font-bold text-royal-blue mb-6 text-center">תשלום</h2>
           <fieldset className="p-4 border border-gray-200 rounded-md">
             <legend className={royalBlueLegendClassName}>סוג תשלום</legend>
-            <div className="flex justify-end space-x-2 rtl:space-x-reverse mt-2 mb-4">
+            <div className="flex justify-end gap-4 mt-2 mb-4">
               <button
                 type="button"
                 onClick={() => setFormData(prev => ({ ...prev, paymentType: PaymentType.HOURLY }))}
@@ -612,7 +612,7 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
 
           <fieldset className="p-4 border border-gray-200 rounded-md">
             <legend className={royalBlueLegendClassName}>למי העבודה מיועדת</legend>
-            <div className="space-y-2 sm:space-y-0 sm:flex sm:justify-end sm:space-x-3 sm:rtl:space-x-reverse mb-3">
+            <div className="flex flex-wrap justify-end gap-3 mb-3">
               {SUITABILITY_OPTIONS_SINGLE_SELECT.map(opt => (
                 <button
                   key={opt.value}
@@ -689,7 +689,7 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
 
         <fieldset className="p-4 border border-gray-200 rounded-md">
           <legend className={royalBlueLegendClassName}>פרטי יצירת קשר למודעה</legend>
-          <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2 sm:rtl:space-x-reverse mt-2 mb-3">
+          <div className="flex flex-col sm:flex-row justify-end gap-3 mt-2 mb-3">
             <button
               type="button"
               onClick={() => {
