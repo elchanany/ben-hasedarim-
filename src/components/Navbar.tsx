@@ -34,7 +34,7 @@ const NavLink: React.FC<NavLinkProps> = ({ to, label, icon, setCurrentPageProp, 
   return (
     <button
       onClick={() => setCurrentPageProp(to, params)}
-      className={`flex items-center space-x-2 rtl:space-x-reverse px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus-ring-color
+      className={`flex items-center space-x-1 rtl:space-x-reverse px-2 py-1.5 rounded-md text-sm font-medium transition-colors duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus-ring-color
                   ${finalIsActive ? activeStyle : inactiveStyle} ${className}`}
       aria-current={finalIsActive ? 'page' : undefined}
     >
@@ -195,11 +195,11 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
   return (
     <nav role="banner" aria-label="תפריט ראשי" className="bg-royal-blue shadow-lg sticky top-0 z-50">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
+        <div className="flex items-center justify-between h-14">
           <div className="flex items-center">
             <button onClick={() => setCurrentPage('home')} className="flex-shrink-0 flex items-center text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus-ring-color rounded-md" aria-label="דף הבית, בין הסדורים">
-              <div className="h-24 w-24 bg-white rounded-lg overflow-hidden flex items-center justify-center p-0.5">
-                <img src="/assets/logo.svg" alt="" className="w-full h-full object-cover transform scale-150" aria-hidden="true" />
+              <div className="h-10 w-10 bg-white rounded-lg overflow-hidden flex items-center justify-center p-0.5">
+                <img src="/assets/logo.svg" alt="" className="w-full h-full object-cover transform scale-125" aria-hidden="true" />
               </div>
               <span className="font-bold text-lg md:text-xl ml-3 rtl:mr-3 rtl:ml-0">
                 {siteName}

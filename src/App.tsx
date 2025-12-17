@@ -15,6 +15,7 @@ import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { TermsOfUsePage } from './pages/TermsOfUsePage';
 import { AccessibilityStatementPage } from './pages/AccessibilityStatementPage';
 import { ContactPage } from './pages/ContactPage';
+import { BlockedPage } from './pages/BlockedPage';
 import { CookieConsent } from './components/CookieConsent';
 import { useAuth } from './hooks/useAuth';
 import { AccessibilityWidget } from './components/AccessibilityWidget';
@@ -140,43 +141,7 @@ const App: React.FC = () => {
 
 
   if (user?.isBlocked) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 text-center">
-        <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mb-6 text-red-600">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-          </svg>
-        </div>
-        <h1 className="text-4xl font-bold text-gray-800 mb-2">החשבון שלך נחסם</h1>
-        <p className="text-xl text-gray-600 mb-6">אין לך אפשרות לגשת לאתר כרגע.</p>
-
-        {user.blockReason && (
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 max-w-md w-full mb-8">
-            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">סיבת החסימה</h3>
-            <p className="text-lg text-gray-900">{user.blockReason}</p>
-          </div>
-        )}
-
-        <p className="text-gray-500 mb-8 max-w-md">
-          אם לדעתך חלה טעות, או אם ברצונך לערער על ההחלטה, אנא צור איתנו קשר.
-        </p>
-
-        <div className="flex gap-4">
-          <button
-            onClick={() => setCurrentPage('contact')}
-            className="bg-royal-blue text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-          >
-            צור קשר
-          </button>
-          <button
-            onClick={() => { /* Logout logic needs to be accessible here, usually via auth hook or refreshing page clears session if persisted differently */ window.location.reload(); }}
-            className="text-gray-500 hover:text-gray-700 underline"
-          >
-            טען מחדש
-          </button>
-        </div>
-      </div>
-    );
+    return <BlockedPage user={user} onLogout={() => window.location.reload()} />;
   }
 
   return (

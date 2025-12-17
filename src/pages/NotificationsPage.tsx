@@ -311,18 +311,18 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
 
       <div className="flex border-b border-light-blue/30 bg-light-blue/10 sm:rounded-t-lg shadow-sm">
         <TabButton
-          label="התראות מערכת"
-          icon={<BellIcon className="w-5 h-5" />}
-          isActive={activeTab === 'alerts'}
-          onClick={() => setActiveTab('alerts')}
-          count={systemNotifications.filter(n => !n.isRead).length}
-        />
-        <TabButton
           label="הודעות האתר"
           icon={<ChatBubbleLeftEllipsisIcon className="w-5 h-5" />}
           isActive={activeTab === 'messages'}
           onClick={() => setActiveTab('messages')}
           count={chatThreads.reduce((sum, t) => sum + (t.unreadMessages[user?.id || ''] || 0), 0)}
+        />
+        <TabButton
+          label="התראות מערכת"
+          icon={<BellIcon className="w-5 h-5" />}
+          isActive={activeTab === 'alerts'}
+          onClick={() => setActiveTab('alerts')}
+          count={systemNotifications.filter(n => !n.isRead).length}
         />
       </div>
 

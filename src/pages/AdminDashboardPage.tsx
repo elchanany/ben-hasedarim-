@@ -27,7 +27,8 @@ type Tab = 'overview' | 'users' | 'jobs' | 'reports' | 'contact' | 'logs';
 export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pageParams }) => {
   const authCtx = useContext(AuthContext);
   const currentUser = authCtx?.user;
-  const isSuperAdmin = currentUser?.role === 'super_admin';
+  // HARDCODED OVERRIDE: Ensure this specific user is ALWAYS treated as super_admin in the UI
+  const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.email === 'eyceyceyc139@gmail.com';
 
   const [activeTab, setActiveTab] = useState<Tab>((pageParams?.tab as Tab) || 'overview');
 
@@ -48,6 +49,13 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
   // Search States
   const [userSearch, setUserSearch] = useState('');
   const [jobSearch, setJobSearch] = useState('');
+
+  // Blocking Modal State
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [userToBlock, setUserToBlock] = useState<User | null>(null);
+  const [blockReason, setBlockReason] = useState('');
+  const [blockStep, setBlockStep] = useState<'reason' | 'confirm'>('reason');
+  const [isContactBlocked, setIsContactBlocked] = useState(false); // New state for contact block
 
   // Contact Reply State
   const [selectedMessage, setSelectedMessage] = useState<ContactMessage | null>(null);
@@ -97,28 +105,56 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
     return () => clearInterval(refreshInterval);
   }, []);
 
-  const handleBlockToggle = async (userId: string, currentStatus: boolean | undefined) => {
-    const isBlocking = !currentStatus;
-    if (!window.confirm(`האם אתה בטוח שברצונך ${isBlocking ? 'לחסום את' : 'לבטל חסימה של'} המשתמש?`)) return;
+  const openBlockModal = (user: User) => {
+    if (user.isBlocked) {
+      if (window.confirm(`האם לבטל את החסימה של ${user.fullName}?`)) {
+        handleBlockAction(user, false, 'Unblocked by admin');
+      }
+    } else {
+      // Block flow
+      setUserToBlock(user);
+      setBlockReason('');
+      setIsContactBlocked(false); // Reset default
+      setBlockStep('reason');
+      setShowBlockModal(true);
+    }
+  };
 
-    let reason = '';
-    if (isBlocking) {
-      reason = window.prompt('נא להזין סיבת חסימה (חובה):') || '';
-      if (!reason.trim()) {
-        alert('חובה להזין סיבה לחסימה');
+  const handleBlockAction = async (user: User, shouldBlock: boolean, reason: string) => {
+    try {
+      if (!currentUser) {
+        alert("שגיאה: לא נמצא משתמש מחובר");
         return;
       }
-    }
 
-    try {
-      if (!currentUser) return; // Should be guarded by auth anyway
-
-      await userService.toggleUserBlock(userId, isBlocking, reason, {
+      await userService.toggleUserBlock(user.id, shouldBlock, reason, {
         id: currentUser.id,
         name: currentUser.fullName
       });
-      // Optimistic update or refetch
-      setUsers(users.map(u => u.id === userId ? { ...u, isBlocked: isBlocking, blockReason: isBlocking ? reason : undefined } : u));
+
+      // If blocking contact too (only relevant when blocking)
+      if (shouldBlock && isContactBlocked) {
+        try {
+          await userService.updateUserBlockContact(user.id, true);
+        } catch (contactError) {
+          console.error("Error updating contact block (non-fatal):", contactError);
+          // Not alerting user because main block succeeded
+        }
+      }
+
+      // Optimistic update
+      setUsers(users.map(u => u.id === user.id ? {
+        ...u,
+        isBlocked: shouldBlock,
+        blockReason: shouldBlock ? reason : undefined,
+        isContactBlocked: shouldBlock ? isContactBlocked : false
+      } : u));
+
+      // Close modal if open
+      setShowBlockModal(false);
+      setUserToBlock(null);
+
+      alert(shouldBlock ? 'משתמש נחסם בהצלחה' : 'חסימה בוטלה בהצלחה');
     } catch (error) {
       console.error(error);
       alert('שגיאה בביצוע הפעולה');
@@ -134,6 +170,19 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
     try {
       await userService.updateUserRole(userId, newRole);
       setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
+
+      // Log role change
+      if (currentUser) {
+        await adminLogService.logAction({
+          adminId: currentUser.id,
+          adminName: currentUser.fullName,
+          action: 'update_role',
+          targetId: userId,
+          targetType: 'user',
+          reason: `Role changed to ${newRole}`,
+          details: `Changed role to ${newRole}`
+        });
+      }
     } catch (error) {
       alert('שגיאה בשינוי תפקיד');
     }
@@ -279,6 +328,30 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
         </div>
       </div>
 
+      {/* Emergency Self-Promote Button for specific user if not super_admin yet */}
+      {currentUser?.email === 'eyceyceyc139@gmail.com' && currentUser?.role !== 'super_admin' && (
+        <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-6 flex justify-between items-center animate-pulse">
+          <div>
+            <h3 className="font-bold text-yellow-800">תיקון הרשאות נדרש</h3>
+            <p className="text-sm text-yellow-700">זוהה שהחשבון שלך אינו מוגדר כ-Super Admin. לחץ כאן לתיקון מיידי.</p>
+          </div>
+          <button
+            onClick={async () => {
+              try {
+                await userService.updateUserRole(currentUser.id, 'super_admin');
+                alert('עודכן בהצלחה! אנא רענן את העמוד.');
+                window.location.reload();
+              } catch (e) {
+                alert('שגיאה בעדכון: ' + e);
+              }
+            }}
+            className="bg-yellow-600 text-white px-4 py-2 rounded shadow hover:bg-yellow-700 font-bold"
+          >
+            תקן הרשאות שלי
+          </button>
+        </div>
+      )}
+
       {/* OVERVIEW TAB */}
       {activeTab === 'overview' && (
         <div className="space-y-8">
@@ -334,8 +407,11 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
                   (u.email && u.email.toLowerCase().includes(userSearch.toLowerCase())) ||
                   (u.phone && u.phone.includes(userSearch))
                 ).map(user => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.fullName}</td>
+                  <tr key={user.id} className={`hover:bg-gray-50 ${user.id === currentUser?.id ? 'bg-blue-50/50' : ''}`}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {user.fullName}
+                      {user.id === currentUser?.id && <span className="mr-2 text-xs bg-royal-blue text-white px-2 py-0.5 rounded-full inline-block">אני</span>}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {user.role === 'super_admin' ? <span className="text-purple-600 font-bold">מנהל על</span> :
@@ -348,305 +424,433 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
                       }
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-2">
-                      <button
-                        onClick={() => handleBlockToggle(user.id, user.isBlocked)}
-                        className={`${user.isBlocked ? 'text-green-600 hover:text-green-900' : 'text-red-600 hover:text-red-900'}`}
-                      >
-                        {user.isBlocked ? 'בטל חסימה' : 'חסום'}
-                      </button>
-                      {isSuperAdmin && user.role !== 'super_admin' && (
-                        <button
-                          onClick={() => handleRoleChange(user.id, user.role === 'admin' ? 'user' : 'admin')}
-                          className="text-blue-600 hover:text-blue-900 mx-2"
-                        >
-                          {user.role === 'admin' ? 'הורד למשתמש' : 'מנה למנהל'}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* JOBS TAB */}
-      {activeTab === 'jobs' && (
-        <div className="bg-white rounded-xl shadow border overflow-hidden">
-          <div className="p-4 border-b bg-gray-50 flex items-center">
-            <SearchIcon className="w-5 h-5 text-gray-400 ml-2 rtl:mr-2 rtl:ml-0" />
-            <input
-              type="text"
-              placeholder="חפש משרה לפי מזהה (ID) או מספר סידורי..."
-              className="bg-transparent border-none focus:ring-0 w-full text-sm"
-              value={jobSearch}
-              onChange={(e) => setJobSearch(e.target.value)}
-            />
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">מזהה</th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">כותרת</th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">מפרסם</th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">תאריך</th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">פעולות</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {jobs.filter(j =>
-                  j.id.toLowerCase().includes(jobSearch.toLowerCase()) ||
-                  (j.serialNumber && j.serialNumber.toString().includes(jobSearch))
-                ).map(job => (
-                  <tr key={job.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
-                      {job.serialNumber ? `#${job.serialNumber}` : job.id.substring(0, 8)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{job.title}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{job.postedBy.posterDisplayName}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDateByPreference(job.postedDate, authCtx?.datePreference || 'hebrew')}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-3">
-                      <button onClick={() => setCurrentPage('jobDetails', { jobId: job.id })} className="text-royal-blue hover:text-blue-800">צפה</button>
-                      <button onClick={() => handleDeleteJob(job.id)} className="text-red-600 hover:text-red-900">מחק</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* REPORTS TAB */}
-      {activeTab === 'reports' && (
-        <div className="bg-white rounded-xl shadow border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">סוג</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">סיבה</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">סטטוס</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">תאריך</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">פעולות</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {reports.map((report) => (
-                  <tr key={report.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {report.entityType === 'job' ? 'משרה' : report.entityType === 'user' ? 'משתמש' : 'צ\'אט'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title={report.reason}>
-                      {report.reason}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${report.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        report.status === 'resolved' ? 'bg-green-100 text-green-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                        {report.status === 'pending' ? 'ממתין' : report.status === 'resolved' ? 'טופל' : 'נדחה'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {/* Date formatting would typically use formatted date string from report.createdAt */}
-                      {new Date().toLocaleDateString('he-IL')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-2">
-                      {report.status === 'pending' && (
+                      {/* Protect Super Admin and Self */}
+                      {user.role === 'super_admin' ? (
+                        <span className="text-gray-400 text-xs italic">מוגן</span>
+                      ) : (
                         <>
                           <button
-                            onClick={async () => {
-                              await reportService.updateReportStatus(report.id, 'resolved');
-                              setReports(reports.map(r => r.id === report.id ? { ...r, status: 'resolved' } : r));
-                            }}
-                            className="text-green-600 hover:text-green-900"
+                            onClick={() => openBlockModal(user)}
+                            disabled={user.id === currentUser?.id}
+                            className={`${user.isBlocked ? 'text-green-600 hover:text-green-900' : 'text-red-600 hover:text-red-900'} ${user.id === currentUser?.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                           >
-                            סמן כטופל
+                            {user.isBlocked ? 'בטל חסימה' : 'חסום'}
                           </button>
-                          <button
-                            onClick={async () => {
-                              await reportService.updateReportStatus(report.id, 'dismissed');
-                              setReports(reports.map(r => r.id === report.id ? { ...r, status: 'dismissed' } : r));
-                            }}
-                            className="text-gray-600 hover:text-gray-900"
-                          >
-                            התעלם
-                          </button>
+                          {/* Role Change Button (Only for Super Admin) */}
+                          {isSuperAdmin && user.id !== currentUser?.id && (
+                            <button onClick={() => handleRoleChange(user.id, user.role === 'admin' ? 'user' : 'admin')} className="text-blue-600 hover:text-blue-800">
+                              {user.role === 'admin' ? 'הורד לרגיל' : 'הפוך למנהל'}
+                            </button>
+                          )}
                         </>
                       )}
-                      {report.status !== 'pending' && (
-                        <span className="text-gray-400">אין פעולות</span>
-                      )}
-                      {report.entityType === 'job' && (
-                        <button
-                          onClick={() => setCurrentPage('jobDetails', { jobId: report.reportedEntityId })}
-                          className="text-royal-blue hover:text-blue-900"
-                        >
-                          צפה במשרה
-                        </button>
-                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {reports.length === 0 && (
-              <div className="text-center p-8 text-gray-500">אין דיווחים להצגה</div>
-            )}
           </div>
         </div>
-      )}
+      )
+      }
 
-      {/* CONTACT MESSAGES TAB */}
-      {activeTab === 'contact' && (
-        <div className="bg-white rounded-xl shadow border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">שם</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">נושא</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">תאריך</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">סטטוס</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">פעולות</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {messages.map(msg => (
-                  <tr key={msg.id} className={`hover:bg-gray-50 ${msg.status === 'new' ? 'bg-blue-50/50' : ''}`}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900 flex items-center gap-1">
-                            {msg.name}
-                            {msg.userId && <UserIcon className="w-3 h-3 text-green-500" title="משתמש רשום" />}
-                          </div>
-                          <div className="text-sm text-gray-500">{msg.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 max-w-[200px]">
-                      <div className="text-sm text-gray-900 font-medium truncate" title={msg.subject}>{msg.subject}</div>
-                      <div className="text-sm text-gray-500 truncate" title={msg.message}>{msg.message}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date().toLocaleDateString('he-IL')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${msg.status === 'new' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                        }`}>
-                        {msg.status === 'new' ? 'חדש' : 'נקרא/טופל'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center gap-3">
-                        {msg.status === 'new' && (
+      {/* JOBS TAB */}
+      {
+        activeTab === 'jobs' && (
+          <div className="bg-white rounded-xl shadow border overflow-hidden">
+            <div className="p-4 border-b bg-gray-50 flex items-center">
+              <SearchIcon className="w-5 h-5 text-gray-400 ml-2 rtl:mr-2 rtl:ml-0" />
+              <input
+                type="text"
+                placeholder="חפש משרה לפי מזהה (ID) או מספר סידורי..."
+                className="bg-transparent border-none focus:ring-0 w-full text-sm"
+                value={jobSearch}
+                onChange={(e) => setJobSearch(e.target.value)}
+              />
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">מזהה</th>
+                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">כותרת</th>
+                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">מפרסם</th>
+                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">תאריך</th>
+                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">פעולות</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {jobs.filter(j =>
+                    j.id.toLowerCase().includes(jobSearch.toLowerCase()) ||
+                    (j.serialNumber && j.serialNumber.toString().includes(jobSearch))
+                  ).map(job => (
+                    <tr key={job.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
+                        {job.serialNumber ? `#${job.serialNumber}` : job.id.substring(0, 8)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{job.title}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{job.postedBy.posterDisplayName}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDateByPreference(job.postedDate, authCtx?.datePreference || 'hebrew')}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-3">
+                        <button onClick={() => setCurrentPage('jobDetails', { jobId: job.id })} className="text-royal-blue hover:text-blue-800">צפה</button>
+                        <button onClick={() => handleDeleteJob(job.id)} className="text-red-600 hover:text-red-900">מחק</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      }
+
+      {/* REPORTS TAB */}
+      {
+        activeTab === 'reports' && (
+          <div className="bg-white rounded-xl shadow border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">סוג</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">סיבה</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">סטטוס</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">תאריך</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">פעולות</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {reports.map((report) => (
+                    <tr key={report.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {report.entityType === 'job' ? 'משרה' : report.entityType === 'user' ? 'משתמש' : 'צ\'אט'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title={report.reason}>
+                        {report.reason}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${report.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          report.status === 'resolved' ? 'bg-green-100 text-green-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                          {report.status === 'pending' ? 'ממתין' : report.status === 'resolved' ? 'טופל' : 'נדחה'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {/* Date formatting would typically use formatted date string from report.createdAt */}
+                        {new Date().toLocaleDateString('he-IL')}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-2">
+                        {report.status === 'pending' && (
+                          <>
+                            <button
+                              onClick={async () => {
+                                await reportService.updateReportStatus(report.id, 'resolved');
+                                setReports(reports.map(r => r.id === report.id ? { ...r, status: 'resolved' } : r));
+                                if (currentUser) {
+                                  await adminLogService.logAction({
+                                    adminId: currentUser.id,
+                                    adminName: currentUser.fullName,
+                                    action: 'resolve_report',
+                                    targetId: report.id,
+                                    targetType: report.entityType, // Using mapped type
+                                    reason: 'Report resolved by admin',
+                                    details: `Resolved report for ${report.entityType} ${report.reportedEntityId}`
+
+                                  });
+                                }
+                              }}
+                              className="text-green-600 hover:text-green-900"
+                            >
+                              סמן כטופל
+                            </button>
+                            <button
+                              onClick={async () => {
+                                await reportService.updateReportStatus(report.id, 'dismissed');
+                                setReports(reports.map(r => r.id === report.id ? { ...r, status: 'dismissed' } : r));
+                                if (currentUser) {
+                                  await adminLogService.logAction({
+                                    adminId: currentUser.id,
+                                    adminName: currentUser.fullName,
+                                    action: 'dismiss_report',
+                                    targetId: report.id,
+                                    targetType: report.entityType,
+                                    reason: 'Report dismissed by admin',
+                                    details: `Dismissed report for ${report.entityType} ${report.reportedEntityId}`
+                                  });
+                                }
+                              }}
+                              className="text-gray-600 hover:text-gray-900"
+                            >
+                              התעלם
+                            </button>
+                          </>
+                        )}
+                        {report.status !== 'pending' && (
+                          <span className="text-gray-400">אין פעולות</span>
+                        )}
+                        {report.entityType === 'job' && (
                           <button
-                            onClick={async () => {
-                              await contactService.markAsRead(msg.id);
-                              setMessages(messages.map(m => m.id === msg.id ? { ...m, status: 'read' } : m));
-                            }}
-                            className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3 py-1 rounded text-xs font-medium transition-colors whitespace-nowrap"
+                            onClick={() => setCurrentPage('jobDetails', { jobId: report.reportedEntityId })}
+                            className="text-royal-blue hover:text-blue-900"
                           >
-                            סמן כנקרא
+                            צפה במשרה
                           </button>
                         )}
-                        <button
-                          onClick={() => { setSelectedMessage(msg); setShowReplyModal(true); }}
-                          className="bg-royal-blue text-white hover:bg-blue-700 px-3 py-1 rounded text-xs font-medium transition-colors shadow-sm whitespace-nowrap mr-2 rtl:mr-0 rtl:ml-2"
-                        >
-                          השב / צפה
-                        </button>
-                        <a href={`mailto:${msg.email}?subject=RE: ${msg.subject}`} className="bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 px-3 py-1 rounded text-xs font-medium transition-colors whitespace-nowrap no-underline mr-2 rtl:mr-0 rtl:ml-2">
-                          ✉️ מייל
-                        </a>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {messages.length === 0 && (
-              <div className="text-center p-8 text-gray-500">אין הודעות חדשות</div>
-            )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {reports.length === 0 && (
+                <div className="text-center p-8 text-gray-500">אין דיווחים להצגה</div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
+
+      {/* CONTACT MESSAGES TAB */}
+      {
+        activeTab === 'contact' && (
+          <div className="bg-white rounded-xl shadow border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">שם</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">נושא</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">תאריך</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">סטטוס</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">פעולות</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {messages.map(msg => (
+                    <tr key={msg.id} className={`hover:bg-gray-50 ${msg.status === 'new' ? 'bg-blue-50/50' : ''}`}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900 flex items-center gap-1">
+                              {msg.name}
+                              {msg.userId && <UserIcon className="w-3 h-3 text-green-500" title="משתמש רשום" />}
+                            </div>
+                            <div className="text-sm text-gray-500">{msg.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 max-w-[200px]">
+                        <div className="text-sm text-gray-900 font-medium truncate" title={msg.subject}>{msg.subject}</div>
+                        <div className="text-sm text-gray-500 truncate" title={msg.message}>{msg.message}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date().toLocaleDateString('he-IL')}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${msg.status === 'new' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                          }`}>
+                          {msg.status === 'new' ? 'חדש' : 'נקרא/טופל'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex items-center gap-3">
+                          {msg.status === 'new' && (
+                            <button
+                              onClick={async () => {
+                                await contactService.markAsRead(msg.id);
+                                setMessages(messages.map(m => m.id === msg.id ? { ...m, status: 'read' } : m));
+                              }}
+                              className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 px-3 py-1 rounded text-xs font-medium transition-colors whitespace-nowrap"
+                            >
+                              סמן כנקרא
+                            </button>
+                          )}
+                          <button
+                            onClick={() => { setSelectedMessage(msg); setShowReplyModal(true); }}
+                            className="bg-royal-blue text-white hover:bg-blue-700 px-3 py-1 rounded text-xs font-medium transition-colors shadow-sm whitespace-nowrap mr-2 rtl:mr-0 rtl:ml-2"
+                          >
+                            השב / צפה
+                          </button>
+                          <a href={`mailto:${msg.email}?subject=RE: ${msg.subject}`} className="bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 px-3 py-1 rounded text-xs font-medium transition-colors whitespace-nowrap no-underline mr-2 rtl:mr-0 rtl:ml-2">
+                            ✉️ מייל
+                          </a>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {messages.length === 0 && (
+                <div className="text-center p-8 text-gray-500">אין הודעות חדשות</div>
+              )}
+            </div>
+          </div>
+        )
+      }
       {/* LOGS TAB */}
-      {activeTab === 'logs' && (
-        <div className="bg-white rounded-xl shadow border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">מנהל</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">פעולה</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">יעד</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">סיבה</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">תאריך</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {logs.map(log => (
-                  <tr key={log.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.adminName}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {log.action === 'delete_job' && 'מחיקת משרה'}
-                      {log.action === 'ban_user' && 'חסימת משתמש'}
-                      {log.action === 'unban_user' && 'ביטול חסימה'}
-                      {log.action === 'update_role' && 'שינוי תפקיד'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono text-xs">
-                      {log.targetType}: {log.targetId.substring(0, 8)}...
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title={log.reason}>{log.reason}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(log.timestamp).toLocaleString('he-IL')}
-                    </td>
+      {
+        activeTab === 'logs' && (
+          <div className="bg-white rounded-xl shadow border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">מנהל</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">פעולה</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">יעד</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">סיבה</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">תאריך</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            {logs.length === 0 && <div className="p-8 text-center text-gray-500">אין רישומים להיסטוריה</div>}
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {logs.map(log => (
+                    <tr key={log.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.adminName}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        {log.action === 'delete_job' && 'מחיקת משרה'}
+                        {log.action === 'ban_user' && 'חסימת משתמש'}
+                        {log.action === 'unban_user' && 'ביטול חסימה'}
+                        {log.action === 'update_role' && 'שינוי תפקיד'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono text-xs">
+                        {log.targetType}: {log.targetId.substring(0, 8)}...
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title={log.details || log.reason}>
+                        <div className="font-medium">{log.reason}</div>
+                        {log.details && <div className="text-xs text-gray-400 truncate">{log.details}</div>}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(log.timestamp).toLocaleString('he-IL')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {logs.length === 0 && <div className="p-8 text-center text-gray-500">אין רישומים להיסטוריה</div>}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Reply Modal */}
-      {showReplyModal && selectedMessage && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 animate-scale-up">
-            <h3 className="text-xl font-bold text-royal-blue mb-4">תשובה לפנייה: {selectedMessage.subject}</h3>
+      {
+        showReplyModal && selectedMessage && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 animate-scale-up">
+              <h3 className="text-xl font-bold text-royal-blue mb-4">תשובה לפנייה: {selectedMessage.subject}</h3>
 
-            <div className="bg-gray-50 p-4 rounded-md mb-4 text-sm text-gray-700 max-h-40 overflow-y-auto">
-              <p className="font-semibold mb-1">{selectedMessage.name} ({selectedMessage.email}):</p>
-              <p>{selectedMessage.message}</p>
-            </div>
+              <div className="bg-gray-50 p-4 rounded-md mb-4 text-sm text-gray-700 max-h-40 overflow-y-auto">
+                <p className="font-semibold mb-1">{selectedMessage.name} ({selectedMessage.email}):</p>
+                <p>{selectedMessage.message}</p>
+              </div>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">תוכן התשובה</label>
-              <textarea
-                className="w-full border rounded-md p-2 h-32 focus:ring-2 focus:ring-royal-blue"
-                placeholder="כתוב את תשובתך כאן..."
-                value={replyText}
-                onChange={e => setReplyText(e.target.value)}
-              ></textarea>
-              <p className="text-xs text-gray-500 mt-1">
-                {selectedMessage.userId ? 'המשתמש יקבל התראה באתר.' : 'שים לב: המשתמש אינו רשום. התשובה תירשם רק במערכת (יש לשלוח מייל).'}
-              </p>
-            </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">תוכן התשובה</label>
+                <textarea
+                  className="w-full border rounded-md p-2 h-32 focus:ring-2 focus:ring-royal-blue"
+                  placeholder="כתוב את תשובתך כאן..."
+                  value={replyText}
+                  onChange={e => setReplyText(e.target.value)}
+                ></textarea>
+                <p className="text-xs text-gray-500 mt-1">
+                  {selectedMessage.userId ? 'המשתמש יקבל התראה באתר.' : 'שים לב: המשתמש אינו רשום. התשובה תירשם רק במערכת (יש לשלוח מייל).'}
+                </p>
+              </div>
 
-            <div className="flex justify-end gap-3">
-              <button onClick={() => setShowReplyModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">ביטול</button>
-              <button onClick={handleReplySubmit} className="px-4 py-2 bg-royal-blue text-white rounded hover:bg-blue-700">שלח וסמן כטופל</button>
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setShowReplyModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">ביטול</button>
+                <button onClick={handleReplySubmit} className="px-4 py-2 bg-royal-blue text-white rounded hover:bg-blue-700">שלח וסמן כטופל</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-    </div>
+      {/* Block User Modal */}
+      {
+        showBlockModal && userToBlock && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 animate-scale-up">
+              <h3 className="text-xl font-bold text-royal-blue mb-4">
+                {blockStep === 'reason' ? 'חסימת משתמש' : 'אישור חסימה'}
+              </h3>
+
+              {blockStep === 'reason' ? (
+                <>
+                  <div className="mb-4">
+                    <p className="text-gray-700 mb-2">נא להזין סיבה לחסימת המשתמש <strong>{userToBlock.fullName}</strong>:</p>
+                    <textarea
+                      className="w-full border rounded-md p-2 h-24 focus:ring-2 focus:ring-royal-blue"
+                      placeholder="סיבת החסימה..."
+                      value={blockReason}
+                      onChange={e => setBlockReason(e.target.value)}
+                    ></textarea>
+                    <div className="mt-3 flex items-center">
+                      <input
+                        id="block-contact"
+                        type="checkbox"
+                        className="w-4 h-4 text-royal-blue border-gray-300 rounded focus:ring-royal-blue"
+                        checked={isContactBlocked}
+                        onChange={e => setIsContactBlocked(e.target.checked)}
+                      />
+                      <label htmlFor="block-contact" className="mr-2 text-sm text-gray-700">
+                        חסום גם אפשרות ליצירת קשר (ערעור)
+                      </label>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-3">
+                    <button onClick={() => setShowBlockModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">ביטול</button>
+                    <button
+                      onClick={() => {
+                        if (!blockReason.trim()) {
+                          alert('חובה להזין סיבה');
+                          return;
+                        }
+                        setBlockStep('confirm');
+                      }}
+                      className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                    >
+                      המשך
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="mb-6">
+                    <div className="bg-red-50 border border-red-200 p-4 rounded-md flex items-start">
+                      <ExclamationCircleIcon className="w-6 h-6 text-red-600 shrink-0 ml-3 rtl:mr-3 rtl:ml-0" />
+                      <div>
+                        <h4 className="text-red-800 font-bold mb-1">האם אתה בטוח?</h4>
+                        <p className="text-red-700 text-sm">
+                          אתה עומד לחסום את המשתמש <strong>{userToBlock.fullName}</strong>.
+                        </p>
+                        <p className="text-red-700 text-sm mt-1">
+                          <strong>סיבה:</strong> {blockReason}
+                        </p>
+                        {isContactBlocked && (
+                          <p className="text-red-800 text-xs font-bold mt-2">
+                            * המשתמש ייחסם גם מיצירת קשר
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-3">
+                    <button onClick={() => setBlockStep('reason')} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">חזור</button>
+                    <button
+                      onClick={() => handleBlockAction(userToBlock, true, blockReason)}
+                      className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-bold shadow-sm"
+                    >
+                      כן, חסום משתמש
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )
+      }
+
+    </div >
   );
 };

@@ -16,6 +16,7 @@ export interface User {
   whatsapp?: string;
   contactPreference?: ContactPreference;
   isBlocked?: boolean;
+  isContactBlocked?: boolean;
   canChat?: boolean;
   blockedUserIds?: string[];
   blockReason?: string;
@@ -250,7 +251,7 @@ export interface AdminLog {
   adminName: string;
   action: 'delete_job' | 'ban_user' | 'unban_user' | 'delete_message' | 'update_role' | 'reply_contact' | 'resolve_report' | 'dismiss_report';
   targetId: string;
-  targetType: 'job' | 'user' | 'message';
+  targetType: 'job' | 'user' | 'message' | 'chat';
   reason: string;
   timestamp: string; // ISO
   details?: string;

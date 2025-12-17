@@ -62,8 +62,8 @@ export const HomePage: React.FC<PageProps> = ({ setCurrentPage }) => {
   const [isMobileFilterSectionOpen, setIsMobileFilterSectionOpen] = useState(false);
 
 
-  const fetchHotJobs = useCallback(async () => {
-    setLoadingHotJobs(true);
+  const fetchHotJobs = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoadingHotJobs(true);
     try {
       const fetchedHotJobs = await jobService.getHotJobs(8);
       setHotJobs(fetchedHotJobs);
@@ -113,7 +113,7 @@ export const HomePage: React.FC<PageProps> = ({ setCurrentPage }) => {
 
     // Refresh jobs every 10 seconds for real-time updates
     const refreshInterval = setInterval(() => {
-      fetchHotJobs();
+      fetchHotJobs(true);
       fetchDisplayedJobs(homeFilters, true);
     }, 10000);
 

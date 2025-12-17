@@ -9,6 +9,7 @@ const __dirname = path.dirname(__filename);
 
 import tailwindcss from '@tailwindcss/vite'
 
+// Vite configuration
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {

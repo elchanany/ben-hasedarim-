@@ -39,6 +39,19 @@ body {
 
 html {
   scroll-behavior: smooth;
+  /* Scale the base font size so all rem-based units (Tailwind) scale accordingly */
+  font-size: calc(16px * var(--font-scale));
+}
+
+/* Ensure form elements and buttons inherit the scaled font size */
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: inherit;
+  font-size: 100%;
+  line-height: inherit;
 }
 
 html.font-scale-medium {
@@ -283,7 +296,7 @@ html.high-contrast.highlight-headings h6 {
 }
 
 /* Grayscale Mode */
-html.grayscale-mode body {
+html.grayscale-mode {
   filter: grayscale(100%);
 }
 
@@ -305,20 +318,32 @@ html.font-accessible button {
 /* Accessibility Widget Styles */
 .accessibility-widget-button {
   position: fixed !important;
-  bottom: 20px !important;
-  left: 20px !important;
+  bottom: 80px !important;
+  /* Move up slightly to avoid footer/conflict */
+  left: 0 !important;
+  /* Attached to side */
   z-index: 9998 !important;
   background-color: var(--button-bg-color-var);
   color: var(--button-text-color-var);
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
+  border-radius: 0 50% 50% 0;
+  /* Half circle attached to side */
+  width: 40px;
+  /* Smaller */
+  height: 40px;
+  /* Smaller */
   display: flex !important;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
   cursor: pointer;
-  border: 1px solid var(--body-bg-color-var);
+  border: 1px solid var(--border-color-var);
+  border-left: none;
+  transition: width 0.3s ease;
+}
+
+.accessibility-widget-button:hover {
+  width: 60px;
+  /* Expand more on hover */
 }
 
 html.high-contrast .accessibility-widget-button {
@@ -335,7 +360,11 @@ html.high-contrast .accessibility-widget-button svg {
 .accessibility-panel {
   position: fixed;
   bottom: 80px;
-  left: 20px;
+  left: -320px;
+  /* Start off-screen */
+  visibility: hidden;
+  /* Hide when closed to prevent focus/clicks */
+  opacity: 0;
   z-index: 9999;
   background-color: var(--body-bg-color-var);
   color: var(--body-text-color-var);
@@ -348,6 +377,15 @@ html.high-contrast .accessibility-widget-button svg {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  /* Smooth "cool" slide effect */
+}
+
+.accessibility-panel.open {
+  left: 20px;
+  /* Slide in */
+  visibility: visible;
+  opacity: 1;
 }
 
 html.high-contrast .accessibility-panel {

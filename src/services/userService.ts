@@ -30,13 +30,32 @@ export const updateUserRole = async (userId: string, newRole: User['role']): Pro
     }
 };
 
+
+export const updateUserBlockContact = async (userId: string, isContactBlocked: boolean): Promise<void> => {
+    try {
+        const userRef = doc(db, USERS_COLLECTION, userId);
+        await updateDoc(userRef, { isContactBlocked });
+    } catch (error) {
+        console.error("Error updating user block contact:", error);
+        throw error;
+    }
+};
+
 export const toggleUserBlock = async (userId: string, isBlocked: boolean, reason?: string, adminUser?: { id: string, name: string }): Promise<void> => {
     try {
         const userRef = doc(db, USERS_COLLECTION, userId);
-        await updateDoc(userRef, {
+        // If unblocking, we also unblock contact by default usually, or let it stay? 
+        // Let's reset contact block on unblock for convenience.
+        const updateData: any = {
             isBlocked,
-            blockReason: isBlocked ? (reason || 'Admin blocked user') : null // Clear reason on unblock
-        });
+            blockReason: isBlocked ? (reason || 'Admin blocked user') : null
+        };
+
+        if (!isBlocked) {
+            updateData.isContactBlocked = false;
+        }
+
+        await updateDoc(userRef, updateData);
 
         if (adminUser) {
             await adminLogService.logAction({
