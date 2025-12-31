@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { Page, PageProps } from '../App';
 import { useAuth } from '../hooks/useAuth';
 import * as contactService from '../services/contactService'; // Import contact service
-import { UserIcon, BriefcaseIcon, PlusCircleIcon, LoginIcon, BellIcon, SearchIcon, ChatBubbleLeftEllipsisIcon, EnvelopeIcon } from './icons';
+import { UserIcon, BriefcaseIcon, PlusCircleIcon, LoginIcon, BellIcon, SearchIcon, ChatBubbleLeftEllipsisIcon, EnvelopeIcon, ArrowRightIcon, EyeIcon, CogIcon, CalendarDaysIcon } from './icons';
+import { UserAvatar } from './UserAvatar';
 
 interface NavLinkProps {
   to: Page;
@@ -69,7 +70,9 @@ const pageDisplayNames: Record<Page, string> = {
   contact: 'צור קשר',
   privacy: 'מדיניות פרטיות',
   terms: 'תנאי שימוש',
-  accessibility: 'הצהרת נגישות'
+  accessibility: 'הצהרת נגישות',
+  publicProfile: 'פרופיל משתמש',
+  settings: 'הגדרות מערכת'
 };
 
 interface NavbarProps extends Pick<PageProps, 'setCurrentPage'> {
@@ -80,10 +83,25 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
   const { user, logout, totalUnreadCount } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [adminUnreadContacts, setAdminUnreadContacts] = useState(0);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // Poll for admin messages if user is admin
   React.useEffect(() => {
-    if (user?.role === 'admin' || user?.role === 'super_admin') {
+    if (user?.role === 'admin' || user?.role === 'super_admin' || user?.email?.toLowerCase() === 'eyceyceyc139@gmail.com') {
       const fetchAdmindat = async () => {
         const count = await contactService.getUnreadMessageCount();
         setAdminUnreadContacts(count);
@@ -126,15 +144,6 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
           `bg-deep-pink hover:bg-pink-700 text-white ${currentPage === 'postJob' ? 'ring-2 ring-white/70' : ''}`
         )}
       />
-      <NavLink
-        {...createNavLinkProps(
-          'contact',
-          'צור קשר',
-          <EnvelopeIcon className="w-4 h-4" />,
-          undefined,
-          'text-xs px-2 py-1 bg-white/10 hover:bg-white/20' // Smaller style
-        )}
-      />
     </>
   );
 
@@ -149,29 +158,88 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
         )}
         badgeCount={user ? totalUnreadCount : 0}
       />
-      {(user?.role === 'admin' || user?.role === 'super_admin') && (
+      {(user?.role === 'admin' || user?.role === 'super_admin' || user?.email?.toLowerCase() === 'eyceyceyc139@gmail.com') && (
         <NavLink
           {...createNavLinkProps(
             'admin',
             'לוח מנהל',
-            <BriefcaseIcon className="w-5 h-5" />, // Using BriefcaseIcon as a placeholder or import another one
-            adminUnreadContacts > 0 ? { tab: 'contact' } : undefined, // Navigate to contact tab if unread
+            <BriefcaseIcon className="w-5 h-5" />,
+            adminUnreadContacts > 0 ? { tab: 'contact' } : undefined,
             'text-yellow-300 hover:text-yellow-100'
           )}
-          badgeCount={adminUnreadContacts} // Show badge on Admin link
+          badgeCount={adminUnreadContacts}
         />
       )}
+      {/* Contact Link moved here */}
+      <NavLink
+        {...createNavLinkProps(
+          'contact',
+          'צור קשר',
+          <EnvelopeIcon className="w-4 h-4" />,
+          undefined,
+          'text-xs px-2 py-1 bg-white/10 hover:bg-white/20' // Smaller style
+        )}
+      />
       {user ? (
-        <>
-          <NavLink {...createNavLinkProps('profile', 'אזור אישי', <UserIcon className="w-5 h-5" />)} />
+        <div className="relative ml-0 mr-auto pl-0" ref={userMenuRef}> {/* Strictly left */}
           <button
-            onClick={handleLogout}
-            className="flex items-center space-x-2 rtl:space-x-reverse px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-blue-600 hover:text-white transition-colors duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus-ring-color"
+            onClick={() => setUserMenuOpen(!userMenuOpen)}
+            className={`flex items-center gap-2 focus:outline-none p-1.5 rounded-full transition-all duration-200 ${userMenuOpen ? 'bg-white/10 ring-2 ring-white/30' : 'hover:bg-white/5'}`}
+            aria-expanded={userMenuOpen}
+            aria-haspopup="true"
           >
-            <LoginIcon className="w-5 h-5 transform scale-x-[-1]" />
-            <span>התנתקות</span>
+            <div className="hidden md:flex flex-col items-end text-white leading-tight">
+              <span className="text-[10px] opacity-80 font-light">שלום,</span>
+              <span className="text-sm font-medium">{user.fullName?.split(' ')[0] || 'אורח'}</span>
+            </div>
+            <UserAvatar name={user.fullName || 'User'} size="md" className="ring-2 ring-white/20 shadow-md" />
           </button>
-        </>
+
+          {userMenuOpen && (
+            <div className="absolute left-0 mt-2 w-56 rounded-lg shadow-xl bg-white ring-1 ring-black ring-opacity-5 z-50 origin-top-left overflow-hidden transform transition-all duration-200 ease-out">
+
+              <div className="py-2">
+                {/* Only the requested items */}
+
+                <button
+                  onClick={() => { setCurrentPage('profile'); setUserMenuOpen(false); }}
+                  className="w-full text-right px-5 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-royal-blue flex items-center transition-colors border-b border-gray-100"
+                  role="menuitem"
+                >
+                  <UserIcon className="w-4 h-4 ml-3 text-gray-500" />
+                  אזור אישי
+                </button>
+
+                <button
+                  onClick={() => { setCurrentPage('settings'); setUserMenuOpen(false); }}
+                  className="w-full text-right px-5 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-royal-blue flex items-center transition-colors border-b border-gray-100"
+                  role="menuitem"
+                >
+                  <CogIcon className="w-4 h-4 ml-3 text-gray-500" />
+                  הגדרות
+                </button>
+
+                <button
+                  onClick={() => { setCurrentPage('publicProfile', { userId: user.id }); setUserMenuOpen(false); }}
+                  className="w-full text-right px-5 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-royal-blue flex items-center transition-colors border-b border-gray-100"
+                  role="menuitem"
+                >
+                  <EyeIcon className="w-4 h-4 ml-3 text-gray-500" />
+                  צפייה בפרופיל
+                </button>
+
+                <button
+                  onClick={() => { handleLogout(); setUserMenuOpen(false); }}
+                  className="w-full text-right px-5 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center transition-colors font-medium"
+                  role="menuitem"
+                >
+                  <ArrowRightIcon className="w-4 h-4 ml-3 text-red-400" />
+                  התנתקות
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       ) : (
         <>
           <NavLink {...createNavLinkProps('login', 'התחברות', <LoginIcon className="w-5 h-5" />)} />
@@ -195,7 +263,7 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
   return (
     <nav role="banner" aria-label="תפריט ראשי" className="bg-royal-blue shadow-lg sticky top-0 z-50">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14">
+        <div className="flex items-center justify-between h-24"> {/* Increased height to h-24 (96px) */}
           <div className="flex items-center">
             <button onClick={() => setCurrentPage('home')} className="flex-shrink-0 flex items-center text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus-ring-color rounded-md" aria-label="דף הבית, בין הסדורים">
               <div className="h-10 w-10 bg-white rounded-lg overflow-hidden flex items-center justify-center p-0.5">
@@ -213,7 +281,7 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
           </div>
           <div className="hidden md:flex items-center space-x-1 rtl:space-x-reverse" role="navigation" aria-label="ניווט ראשי - דסקטופ">
             {navLinks}
-            <div className="w-px h-6 bg-gray-500/50 mx-1" aria-hidden="true"></div>
+            <div className="w-px h-10 bg-gray-500/50 mx-3" aria-hidden="true"></div> {/* Adjusted separator height and margin */}
             {authLinks}
           </div>
           <div className="md:hidden flex items-center">
@@ -258,7 +326,28 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 flex flex-col items-stretch" role="menu" aria-orientation="vertical" aria-labelledby="mobile-menu-button">
             {navLinks}
             <hr className="border-gray-600 w-full my-2" aria-hidden="true" />
-            {authLinks}
+
+            {/* Mobile Actions for Avatar/Settings */}
+            {user ? (
+              <div className="space-y-1">
+                <div className="flex items-center px-2 py-2 text-white">
+                  <UserAvatar name={user.fullName || 'User'} size="sm" className="ml-3" />
+                  <div>
+                    <div className="font-bold">{user.fullName}</div>
+                    <div className="text-xs opacity-70">מחובר</div>
+                  </div>
+                </div>
+                <button onClick={() => setCurrentPage('profile')} className="block w-full text-right px-3 py-2 text-base font-medium text-gray-300 hover:text-white hover:bg-royal-blue/70 rounded-md">אזור אישי ועדכון פרטים</button>
+                <button onClick={() => setCurrentPage('settings')} className="block w-full text-right px-3 py-2 text-base font-medium text-gray-300 hover:text-white hover:bg-royal-blue/70 rounded-md">הגדרות מערכת ותאריך</button>
+                <button onClick={() => setCurrentPage('publicProfile', { userId: user.id })} className="block w-full text-right px-3 py-2 text-base font-medium text-gray-300 hover:text-white hover:bg-royal-blue/70 rounded-md">צפייה בפרופיל</button>
+                <button onClick={handleLogout} className="block w-full text-right px-3 py-2 text-base font-medium text-red-400 hover:text-red-300 hover:bg-royal-blue/70 rounded-md">התנתקות</button>
+              </div>
+            ) : (
+              <>
+                <NavLink {...createNavLinkProps('login', 'התחברות', <LoginIcon className="w-5 h-5" />)} />
+                <NavLink {...createNavLinkProps('register', 'הרשמה', undefined)} />
+              </>
+            )}
           </div>
         </div>
       )}

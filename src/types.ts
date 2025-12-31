@@ -14,12 +14,29 @@ export interface User {
 
   // שדות קיימים
   whatsapp?: string;
-  contactPreference?: ContactPreference;
+  contactPreference?: ContactPreference; // For ads defaults
+  profileContactPreference?: ContactPreference; // For public profile visibility
   isBlocked?: boolean;
   isContactBlocked?: boolean;
   canChat?: boolean;
   blockedUserIds?: string[];
-  blockReason?: string;
+  blockReason?: string; // Admin reason (for logs/internal)
+  blockReasonUser?: string; // User-visible reason (optional)
+}
+
+export interface PublicProfile {
+  id: string; // Same as User ID
+  displayName: string; // Usually full name, but allows for future nickname support if needed
+  role: User['role'];
+  joinDate: string; // ISO Date
+  jobsPublishedCount: number;
+  lastActive: string; // ISO Date
+
+  // Contact info - ONLY returned if user allowed it
+  phone?: string;
+  whatsapp?: string;
+  email?: string;
+  canChat?: boolean;
 }
 
 export interface Report {
@@ -36,6 +53,7 @@ export interface ContactPreference {
   showPhone: boolean;
   showWhatsapp: boolean;
   showEmail: boolean;
+  showChat: boolean;
   displayName: string;
 }
 
@@ -222,6 +240,8 @@ export interface ChatThread {
   id: string;
   jobId?: string;
   jobTitle?: string;
+  isAnonymousThread?: boolean;
+  anonymousParticipantId?: string;
   participantIds: string[];
   participants: Record<string, ChatParticipantInfo>;
   lastMessage: {

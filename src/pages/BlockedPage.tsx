@@ -55,10 +55,11 @@ export const BlockedPage: React.FC<BlockedPageProps> = ({ user, onLogout }) => {
                     מנהל המערכת חסם את הגישה שלך לאתר.
                 </p>
 
-                {user.blockReason && (
+                {/* Only show reason if user-visible reason was provided */}
+                {user.blockReasonUser && (
                     <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6 text-right">
                         <h3 className="text-red-800 font-bold mb-1 text-sm">סיבת החסימה:</h3>
-                        <p className="text-gray-700">{user.blockReason}</p>
+                        <p className="text-gray-700">{user.blockReasonUser}</p>
                     </div>
                 )}
 

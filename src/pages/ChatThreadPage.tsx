@@ -251,7 +251,14 @@ export const ChatThreadPage: React.FC<ChatThreadPageProps> = ({ setCurrentPage, 
           <ArrowRightIcon className="w-5 h-5 transform scale-x-[-1]" />
         </Button>
         <div className="flex-grow text-center mx-2">
-          <h1 className="text-lg sm:text-xl font-semibold truncate">{displayOtherParticipantName}</h1>
+          <h1 className="text-lg sm:text-xl font-semibold truncate">
+            <button
+              onClick={() => threadDetails.participantIds.find(id => id !== user?.id) && setCurrentPage('publicProfile', { userId: threadDetails.participantIds.find(id => id !== user?.id) })}
+              className="hover:underline focus:outline-none"
+            >
+              {displayOtherParticipantName}
+            </button>
+          </h1>
           {displayJobTitle && (
             <div className="flex items-center justify-center gap-2 mt-1">
               <button

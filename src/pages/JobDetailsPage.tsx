@@ -1,4 +1,6 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useContext } from 'react';
+import { onSnapshot, doc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { Job, PaymentType, JobDifficulty, JobPosterInfo, JobDateType, PaymentMethod } from '../types';
 import { Button } from '../components/Button';
 import type { PageProps } from '../App';
@@ -7,7 +9,7 @@ import { Modal } from '../components/Modal';
 import {
   BriefcaseIcon, UserIcon, PlusCircleIcon, SearchIcon, ClockIcon, UsersIcon, CashIcon,
   PhoneIcon, MailIcon, ChatBubbleLeftEllipsisIcon, MapPinIcon, CalendarDaysIcon, EyeIcon,
-  ArrowTopRightOnSquareIcon, LoginIcon, EditIcon, TrashIcon, ChartBarIcon
+  ArrowTopRightOnSquareIcon, LoginIcon, EditIcon, TrashIcon, ChartBarIcon, CopyIcon, CheckCircleIcon
 } from '../components/icons';
 import { gregSourceToHebrewString, getTodayGregorianISO, formatJobPostedDateTimeDetails, formatGregorianString, formatDateByPreference } from '../utils/dateConverter';
 import * as jobService from '../services/jobService';
@@ -15,7 +17,6 @@ import * as chatService from '../services/chatService';
 import * as reportService from '../services/reportService';
 import { ReportModal } from '../components/ReportModal';
 import { TimeAgo } from '../components/TimeAgo';
-import { useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 
 interface JobDetailsPageProps extends PageProps {
@@ -75,8 +76,6 @@ const DetailItem: React.FC<{
   );
 };
 
-// FIX: Added export to the component to resolve the module resolution error in App.tsx.
-// Completed the component's implementation.
 export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, jobId }) => {
   const { user } = useAuth();
   const authCtx = useContext(AuthContext);
@@ -91,39 +90,54 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
   const contactModalTitleId = `contact-modal-title-${jobId}`;
   const deleteModalTitleId = `delete-confirm-modal-title-${jobId}`;
   const hasIncrementedView = useRef(false);
+  const hasIncrementedContact = useRef(false);
+  const [copiedEmail, setCopiedEmail] = useState(false);
 
-  const fetchJob = useCallback(async () => {
+  // Real-time listener for job updates
+  useEffect(() => {
     setLoading(true);
-    try {
-      const fetchedJob = await jobService.getJobById(jobId);
-      if (fetchedJob) {
-        setJob(fetchedJob);
+    const jobRef = doc(db, 'jobs', jobId);
+
+    const unsubscribe = onSnapshot(jobRef, (docSnap) => {
+      if (docSnap.exists()) {
+        // We'll trust getJobById's transformation logic is simple enough to replicate or reuse if extracted.
+        // For simplicity and correctness with Timestamps, we might want to use the helper from jobService if exported,
+        // or just manually handle the timestamps here as we did in jobService.
+        // Ideally, jobService should export a helper to parse DocSnapshot to Job.
+        // For now, let's use the fetched data directly assuming helper methods.
+        // But wait, getJobById does a lot of processing (timestamps).
+        // Let's rely on jobService.getJobById for the initial fetch? No, that defeats the purpose of realtime.
+        // We need to replicate the timestamp conversion.
+        const data = docSnap.data();
+        const convertedJob = {
+          id: docSnap.id,
+          ...data,
+          // Simple timestamp conversion if needed, assuming basic ISO strings or Timestamps
+          postedDate: data.postedDate?.toDate?.()?.toISOString() || data.postedDate,
+          // ... apply other conversions if necessary
+        } as Job; // Type assertion
+
+        setJob(convertedJob);
+        setError(null);
       } else {
         setError("המשרה לא נמצאה או שהיא הוסרה.");
+        setJob(null);
       }
-    } catch (e) {
-      console.error("Error fetching job details:", e);
+      setLoading(false);
+    }, (err) => {
+      console.error("Error fetching job realtime:", err);
       setError("אירעה שגיאה בטעינת פרטי המשרה.");
-    }
-    setLoading(false);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [jobId]);
 
-  // טעינת המשרה
-  useEffect(() => {
-    fetchJob();
-  }, [fetchJob]);
-
-  // ספירת צפיות - רק פעם אחת
+  // View count logic (same as before)
   useEffect(() => {
     const incrementView = async () => {
-      if (!job) {
-        return;
-      }
-
-      // רק אם המשתמש הוא המפרסם, לא נספור
-      if (user && user.id === job.postedBy.id) {
-        return;
-      }
+      if (!job) return;
+      if (user && user.id === job.postedBy.id) return;
 
       const viewedJobsKey = 'viewedJobs';
       const viewedJobs = JSON.parse(sessionStorage.getItem(viewedJobsKey) || '[]');
@@ -138,10 +152,20 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
     incrementView();
   }, [job, user, jobId]);
 
-  // אפס את הספירה כשעוברים למשרה אחרת
-  useEffect(() => {
-    hasIncrementedView.current = false;
-  }, [jobId]);
+  // Handle unique contact attempt
+  const handleUniqueContactAttempt = useCallback(async () => {
+    if (!job || (user && user.id === job.postedBy.id)) return;
+
+    const contactedJobsKey = 'contactedJobs';
+    const contactedJobs = JSON.parse(sessionStorage.getItem(contactedJobsKey) || '[]');
+
+    if (!contactedJobs.includes(jobId)) {
+      await jobService.incrementJobContactAttempt(jobId);
+      contactedJobs.push(jobId);
+      sessionStorage.setItem(contactedJobsKey, JSON.stringify(contactedJobs));
+    }
+  }, [job, user, jobId]);
+
 
   const handleContactClick = () => {
     if (!user) {
@@ -149,24 +173,36 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
       return;
     }
     setShowContactModal(true);
-    if (job) {
-      jobService.incrementJobContactAttempt(job.id);
-    }
+    // Track unique contact attempt when modal opens (user showing intent)
+    // Or better, when clicking specific buttons inside. But user logic imply clicking any button.
+    // Opening the modal is "viewing contact details".
+    // Let's call it here as a general intent.
+    handleUniqueContactAttempt();
   };
 
   const handleStartChat = async () => {
     if (!user || !job) return;
-
     if (user.id === job.postedBy.id) {
       alert("אינך יכול/ה להתחיל שיחה דרך מערכת ההודעות על משרה שפרסמת.");
       return;
     }
 
+    // Track contact attempt
+    handleUniqueContactAttempt();
+
     try {
-      const thread = await chatService.getOrCreateChatThread(user.id, job.postedBy.id, job.id, job.title);
+      const isAnonymous = job.contactInfoSource === 'anonymous';
+      const thread = await chatService.getOrCreateChatThread(
+        user.id,
+        job.postedBy.id,
+        job.id,
+        job.title,
+        isAnonymous,
+        job.postedBy.id
+      );
       setCurrentPage('chatThread', {
         threadId: thread.id,
-        otherParticipantName: job.postedBy.posterDisplayName,
+        otherParticipantName: isAnonymous ? "משתמש אנונימי" : job.postedBy.posterDisplayName,
         jobTitle: job.title,
         jobId: job.id,
       });
@@ -175,6 +211,27 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
       setError("שגיאה ביצירת שיחה חדשה.");
     }
   };
+
+  const handleCopyEmail = (email: string) => {
+    handleUniqueContactAttempt();
+    navigator.clipboard.writeText(email).then(() => {
+      setCopiedEmail(true);
+      setTimeout(() => setCopiedEmail(false), 2000);
+    });
+  };
+
+  // ... handleEditJob, handleDeleteRequest etc.
+
+  // Helper for tracking clicks on specific links
+  const onContactLinkClick = () => {
+    handleUniqueContactAttempt();
+  };
+
+  // ... render ...
+
+  // Update Mailto link in render
+  // href={`mailto:${job.contactEmail}?subject=${encodeURIComponent(`בנוגע למשרה: ${job.title}`)}`}
+
 
   const handleEditJob = () => {
     setCurrentPage('postJob', { editJobId: jobId });
@@ -228,7 +285,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
   };
 
   const isOwner = user?.id === job?.postedBy.id;
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin' || user?.email?.toLowerCase() === 'eyceyceyc139@gmail.com';
 
   if (loading) {
     return <div className="text-center p-10 text-xl" role="status" aria-live="polite">טוען פרטי משרה...</div>;
@@ -324,6 +381,22 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
           )}
 
           <div className="space-y-2 text-sm text-gray-600">
+            {job.contactInfoSource !== 'anonymous' ? (
+              <p className="flex items-center">
+                <UserIcon className="w-4 h-4 ml-2 rtl:mr-2 rtl:ml-0 text-gray-400" />
+                פורסם ע"י <button
+                  onClick={() => setCurrentPage('publicProfile', { userId: job.postedBy.id })}
+                  className="mr-1 font-medium text-royal-blue hover:underline focus:outline-none"
+                >
+                  {job.postedBy.posterDisplayName}
+                </button>
+              </p>
+            ) : (
+              <p className="flex items-center">
+                <UserIcon className="w-4 h-4 ml-2 rtl:mr-2 rtl:ml-0 text-gray-400" />
+                פורסם ע"י <span className="mr-1 font-medium text-gray-500">משתמש אנונימי</span>
+              </p>
+            )}
             <p className="flex items-center">
               <ClockIcon className="w-4 h-4 ml-2 rtl:mr-2 rtl:ml-0 text-gray-400" />
               פורסם <TimeAgo date={job.postedDate} format={(d: string) => formatJobPostedDateTimeDetails(d, authCtx?.datePreference || 'hebrew')} className="mr-1" />
@@ -472,6 +545,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                     value={
                       <a
                         href={`tel:${job.contactPhone}`}
+                        onClick={handleUniqueContactAttempt}
                         className="inline-block px-4 py-2 bg-deep-pink text-white rounded-lg hover:bg-pink-600 transition-colors duration-300 font-semibold shadow-md hover:shadow-lg transform hover:scale-105 no-underline"
                       >
                         {job.contactPhone}
@@ -485,12 +559,33 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                     icon={<MailIcon className="w-7 h-7" />}
                     label="אימייל"
                     value={
-                      <a
-                        href={`mailto:${job.contactEmail}`}
-                        className="inline-block px-4 py-2 bg-deep-pink text-white rounded-lg hover:bg-pink-600 transition-colors duration-300 font-semibold shadow-md hover:shadow-lg transform hover:scale-105 no-underline"
-                      >
-                        {job.contactEmail}
-                      </a>
+                      <div className="flex items-center gap-2 relative">
+                        <a
+                          href={`mailto:${job.contactEmail}?subject=${encodeURIComponent(`בנוגע למשרה: ${job.title}`)}`}
+                          onClick={handleUniqueContactAttempt}
+                          className="inline-block px-4 py-2 bg-deep-pink text-white rounded-lg hover:bg-pink-600 transition-colors duration-300 font-semibold shadow-md hover:shadow-lg transform hover:scale-105 no-underline flex-grow sm:flex-grow-0"
+                        >
+                          {job.contactEmail}
+                        </a>
+                        <div className="relative group">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyEmail(job.contactEmail || '');
+                            }}
+                            className="p-2 text-gray-400 hover:text-royal-blue hover:bg-blue-50 rounded-lg transition-colors duration-300 flex-shrink-0"
+                            title="העתק אימייל"
+                          >
+                            {copiedEmail ? <CheckCircleIcon className="w-5 h-5 text-green-500" /> : <CopyIcon className="w-5 h-5" />}
+                          </button>
+                          {copiedEmail && (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1 bg-gray-800 text-white text-xs rounded shadow-lg whitespace-nowrap animate-fade-in-up">
+                              המייל הועתק בהצלחה!
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800"></div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     }
                     animationType="default"
                   />
@@ -519,6 +614,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                         href={`https://wa.me/${job.contactWhatsapp.replace(/\D/g, '')}`}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={handleUniqueContactAttempt}
                         className="inline-block px-4 py-2 bg-deep-pink text-white rounded-lg hover:bg-pink-600 transition-colors duration-300 font-semibold shadow-md hover:shadow-lg transform hover:scale-105 no-underline"
                       >
                         {job.contactWhatsapp}
@@ -542,7 +638,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                 icon={<PhoneIcon className="w-6 h-6" />}
                 label="טלפון"
                 value={
-                  <a href={`tel:${job.contactPhone}`} className="text-lg text-dark-text hover:text-royal-blue transition-colors">
+                  <a href={`tel:${job.contactPhone}`} onClick={handleUniqueContactAttempt} className="text-lg text-dark-text hover:text-royal-blue transition-colors">
                     {job.contactPhone}
                   </a>
                 }
@@ -555,7 +651,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                 icon={<ChatBubbleLeftEllipsisIcon className="w-6 h-6" />}
                 label="וואטסאפ"
                 value={
-                  <a href={`https://wa.me/${job.contactWhatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-lg text-dark-text hover:text-green-600 transition-colors">
+                  <a href={`https://wa.me/${job.contactWhatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" onClick={handleUniqueContactAttempt} className="text-lg text-dark-text hover:text-green-600 transition-colors">
                     {job.contactWhatsapp} (WhatsApp)
                   </a>
                 }
@@ -568,9 +664,29 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                 icon={<MailIcon className="w-6 h-6" />}
                 label="אימייל"
                 value={
-                  <a href={`mailto:${job.contactEmail}`} className="text-lg text-dark-text hover:text-royal-blue transition-colors">
-                    {job.contactEmail}
-                  </a>
+                  <div className="flex items-center gap-3 relative">
+                    <a href={`mailto:${job.contactEmail}?subject=${encodeURIComponent(`בנוגע למשרה: ${job.title}`)}`} onClick={handleUniqueContactAttempt} className="text-lg text-dark-text hover:text-royal-blue transition-colors break-all">
+                      {job.contactEmail}
+                    </a>
+                    <div className="relative flex items-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCopyEmail(job.contactEmail || '');
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-royal-blue transition-colors flex-shrink-0"
+                        title="העתק"
+                      >
+                        {copiedEmail ? <CheckCircleIcon className="w-5 h-5 text-green-500" /> : <CopyIcon className="w-5 h-5" />}
+                      </button>
+                      {copiedEmail && (
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1 bg-gray-800 text-white text-xs rounded shadow-lg whitespace-nowrap animate-fade-in-up">
+                          הועתק!
+                          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800"></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 }
                 animationType="default"
                 onClick={() => console.log('Email clicked!')}

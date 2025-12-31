@@ -9,6 +9,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { SearchResultsPage } from './pages/SearchResultsPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { NotificationsPage } from './pages/NotificationsPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { ChatThreadPage } from './pages/ChatThreadPage';
 import { CreateJobAlertPage } from './pages/CreateJobAlertPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
@@ -16,11 +17,12 @@ import { TermsOfUsePage } from './pages/TermsOfUsePage';
 import { AccessibilityStatementPage } from './pages/AccessibilityStatementPage';
 import { ContactPage } from './pages/ContactPage';
 import { BlockedPage } from './pages/BlockedPage';
+import { PublicProfilePage } from './pages/PublicProfilePage';
 import { CookieConsent } from './components/CookieConsent';
 import { useAuth } from './hooks/useAuth';
 import { AccessibilityWidget } from './components/AccessibilityWidget';
 
-export type Page = 'home' | 'login' | 'register' | 'postJob' | 'jobDetails' | 'profile' | 'searchResults' | 'admin' | 'notifications' | 'chatThread' | 'createJobAlert' | 'privacy' | 'terms' | 'accessibility' | 'contact';
+export type Page = 'home' | 'login' | 'register' | 'postJob' | 'jobDetails' | 'profile' | 'publicProfile' | 'searchResults' | 'admin' | 'notifications' | 'settings' | 'chatThread' | 'createJobAlert' | 'privacy' | 'terms' | 'accessibility' | 'contact';
 
 export interface PageProps {
   setCurrentPage: (page: Page, params?: Record<string, any>) => void;
@@ -28,21 +30,47 @@ export interface PageProps {
 }
 
 const App: React.FC = () => {
-  const [currentPage, setCurrentPageInternal] = useState<Page>('home');
-  const [pageParams, setPageParams] = useState<Record<string, any> | undefined>(undefined);
+  // Initialize state from URL hash to prevent overwriting on refresh
+  const getInitialState = () => {
+    const hash = window.location.hash.replace(/^#\//, '');
+    const [pageString, paramStr] = hash.split('?');
+    const validPages: Page[] = ['home', 'login', 'register', 'postJob', 'jobDetails', 'profile', 'publicProfile', 'searchResults', 'admin', 'notifications', 'settings', 'chatThread', 'createJobAlert', 'privacy', 'terms', 'accessibility', 'contact'];
+
+    // Default to home if invalid or empty
+    let initialPage: Page = 'home';
+    let initialParams: Record<string, string> | undefined = undefined;
+
+    const page = pageString as Page;
+    if (validPages.includes(page)) {
+      initialPage = page;
+      if (paramStr) {
+        initialParams = {};
+        new URLSearchParams(paramStr).forEach((value, key) => {
+          initialParams![key] = value;
+        });
+      }
+    }
+    return { page: initialPage, params: initialParams };
+  };
+
+  const initialState = getInitialState();
+  const [currentPage, setCurrentPageInternal] = useState<Page>(initialState.page);
+  const [pageParams, setPageParams] = useState<Record<string, any> | undefined>(initialState.params);
   const { user, loadingAuth } = useAuth();
 
   const setCurrentPage = (page: Page, params?: Record<string, any>) => {
     setCurrentPageInternal(page);
     setPageParams(params);
-    window.scrollTo(0, 0); // Scroll to top on page change
+    window.scrollTo(0, 0);
   };
 
+  // Sync internal state with URL changes (Back/Forward buttons)
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace(/^#\//, '');
       const [pageString, paramStr] = hash.split('?');
       const params: Record<string, string> = {};
+
       if (paramStr) {
         new URLSearchParams(paramStr).forEach((value, key) => {
           params[key] = value;
@@ -50,33 +78,41 @@ const App: React.FC = () => {
       }
 
       const page = pageString as Page;
-      const validPages: Page[] = ['home', 'login', 'register', 'postJob', 'jobDetails', 'profile', 'searchResults', 'admin', 'notifications', 'chatThread', 'createJobAlert', 'privacy', 'terms', 'accessibility', 'contact'];
+      const validPages: Page[] = ['home', 'login', 'register', 'postJob', 'jobDetails', 'profile', 'publicProfile', 'searchResults', 'admin', 'notifications', 'settings', 'chatThread', 'createJobAlert', 'privacy', 'terms', 'accessibility', 'contact'];
 
       // Admin page access check based on user role
+      const isUserAdmin = user?.role === 'admin' || user?.role === 'super_admin' || user?.email?.toLowerCase() === 'eyceyceyc139@gmail.com';
+
       if (validPages.includes(page)) {
-        if (page === 'admin' && user?.role !== 'admin' && user?.role !== 'super_admin') {
+        if (page === 'admin' && !isUserAdmin) {
           setCurrentPageInternal('home');
           setPageParams(undefined);
-          window.location.replace('#/home'); // Update hash silently
+          window.location.replace('#/home');
         } else {
+          // If hash changed externally, updates state
           setCurrentPageInternal(page);
           setPageParams(params);
         }
       } else {
-        setCurrentPageInternal('home');
-        setPageParams(undefined);
-        window.location.replace('#/home'); // Update hash silently for invalid pages
+        // Only redirect to home if completely invalid and not just empty
+        if (hash !== '' && hash !== '/') {
+          setCurrentPageInternal('home');
+          setPageParams(undefined);
+          window.location.replace('#/home');
+        }
       }
     };
 
     window.addEventListener('hashchange', handleHashChange);
-    handleHashChange(); // Initial check
+    // Note: We do NOT call handleHashChange() immediately here because we already initialized from hash. 
+    // Calling it might cause double-updates or race conditions with the state-to-hash sync.
 
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
     };
-  }, [user]); // Re-run if user changes for admin check
+  }, [user]);
 
+  // Sync URL hash with internal state changes
   useEffect(() => {
     let newHash = `/${currentPage}`;
     if (pageParams && Object.keys(pageParams).length > 0) {
@@ -85,8 +121,13 @@ const App: React.FC = () => {
         newHash += `?${new URLSearchParams(filteredParams as Record<string, string>).toString()}`;
       }
     }
-    if (window.location.hash.replace(/^#/, '') !== newHash) {
-      // Use replace to avoid adding to history stack for internal state-driven hash changes
+
+    const currentHash = window.location.hash.replace(/^#/, '');
+    if (currentHash !== newHash) {
+      // Using replace vs assign is tricky, but generally replace is better for internal updates 
+      // to avoid clogging history with every keystroke if params update live (though here they don't seem to).
+      // However, if we want the user to be able to go back, we might want assign (default) or pushState logic.
+      // Stick with replace to avoid history loops for now, or ensure consistency.
       window.location.replace(`#${newHash}`);
     }
   }, [currentPage, pageParams]);
@@ -113,12 +154,17 @@ const App: React.FC = () => {
         return <HomePage setCurrentPage={setCurrentPage} />;
       case 'profile':
         return user ? <ProfilePage setCurrentPage={setCurrentPage} /> : <LoginPage setCurrentPage={setCurrentPage} message="עליך להתחבר כדי לגשת לפרופיל." />;
+      case 'publicProfile':
+        return pageParams?.userId ? <PublicProfilePage setCurrentPage={setCurrentPage} userId={pageParams.userId} /> : <HomePage setCurrentPage={setCurrentPage} />;
       case 'searchResults':
         return <SearchResultsPage setCurrentPage={setCurrentPage} pageParams={pageParams} />
       case 'admin':
-        return (user?.role === 'admin' || user?.role === 'super_admin') ? <AdminDashboardPage setCurrentPage={setCurrentPage} /> : <HomePage setCurrentPage={setCurrentPage} />;
+        const isUserAdmin = user?.role === 'admin' || user?.role === 'super_admin' || user?.email?.toLowerCase() === 'eyceyceyc139@gmail.com';
+        return isUserAdmin ? <AdminDashboardPage setCurrentPage={setCurrentPage} /> : <HomePage setCurrentPage={setCurrentPage} />;
       case 'notifications':
         return user ? <NotificationsPage setCurrentPage={setCurrentPage} pageParams={pageParams} /> : <LoginPage setCurrentPage={setCurrentPage} message="עליך להתחבר כדי לצפות בהתראות והודעות." />;
+      case 'settings':
+        return user ? <SettingsPage setCurrentPage={setCurrentPage} /> : <LoginPage setCurrentPage={setCurrentPage} message="עליך להתחבר כדי לגשת להגדרות." />;
       case 'chatThread':
         return user && pageParams?.threadId ? <ChatThreadPage setCurrentPage={setCurrentPage} pageParams={pageParams} /> : <NotificationsPage setCurrentPage={setCurrentPage} pageParams={{ tab: 'messages' }} />;
       case 'createJobAlert':
@@ -139,9 +185,48 @@ const App: React.FC = () => {
   const mainContainerClasses = "flex-grow container mx-auto p-0 sm:p-4 md:p-6";
   const appContainerClasses = "min-h-screen flex flex-col font-assistant bg-neutral-gray";
 
-
+  // Blocked user - show limited UI with navbar and notifications access
   if (user?.isBlocked) {
-    return <BlockedPage user={user} onLogout={() => window.location.reload()} />;
+    // If user navigates to allowed pages, show them; otherwise show BlockedPage
+    const allowedBlockedPages: Page[] = ['notifications'];
+    const isAllowedPage = allowedBlockedPages.includes(currentPage);
+
+    return (
+      <div className={appContainerClasses}>
+        {/* Limited Navbar for blocked users */}
+        <header className="bg-royal-blue text-white p-4 shadow-md">
+          <div className="container mx-auto flex items-center justify-between">
+            <span className="text-xl font-bold">בין הסדורים</span>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setCurrentPage('notifications')}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${currentPage === 'notifications' ? 'bg-blue-700' : 'hover:bg-blue-600'
+                  }`}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                התראות מערכת
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="text-sm text-gray-300 hover:text-white underline"
+              >
+                התנתק
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main className={`${mainContainerClasses} focus:outline-none`}>
+          {isAllowedPage ? (
+            <NotificationsPage setCurrentPage={setCurrentPage} pageParams={{ tab: 'alerts' }} />
+          ) : (
+            <BlockedPage user={user} onLogout={() => window.location.reload()} />
+          )}
+        </main>
+      </div>
+    );
   }
 
   return (

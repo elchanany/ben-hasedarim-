@@ -27,3 +27,6 @@ export { EditIcon } from './EditIcon';
 export { TrashIcon } from './TrashIcon';
 export { SaveIcon } from './SaveIcon';
 export { XCircleIcon } from './XCircleIcon';
+export { ExclamationCircleIcon } from './ExclamationCircleIcon';
+export { CogIcon } from './CogIcon';
+export { CopyIcon } from './CopyIcon';

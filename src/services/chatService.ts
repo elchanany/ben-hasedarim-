@@ -120,7 +120,9 @@ export const getOrCreateChatThread = async (
   userId1: string,
   userId2: string,
   jobId?: string,
-  jobTitle?: string
+  jobTitle?: string,
+  isAnonymous: boolean = false,
+  anonymousParticipantId?: string
 ): Promise<ChatThread> => {
   const threadsCol = collection(db, CHAT_THREADS_COLLECTION);
   // Query for existing thread
@@ -154,6 +156,16 @@ export const getOrCreateChatThread = async (
   const participant1Info = await fetchParticipantInfo(userId1);
   const participant2Info = await fetchParticipantInfo(userId2);
 
+  // If anonymous, mask the name of the anonymous participant
+  if (isAnonymous && anonymousParticipantId) {
+    if (participant1Info.id === anonymousParticipantId) {
+      participant1Info.displayName = "משתמש אנונימי";
+    }
+    if (participant2Info.id === anonymousParticipantId) {
+      participant2Info.displayName = "משתמש אנונימי";
+    }
+  }
+
   let actualJobTitle = jobTitle;
   if (jobId && !jobTitle) {
     const job = await getJobById(jobId);
@@ -163,6 +175,8 @@ export const getOrCreateChatThread = async (
   const newThreadData = {
     jobId: jobId || null,
     jobTitle: actualJobTitle || null,
+    isAnonymousThread: isAnonymous,
+    anonymousParticipantId: anonymousParticipantId || null,
     participantIds: [userId1, userId2],
     participants: {
       [userId1]: participant1Info,

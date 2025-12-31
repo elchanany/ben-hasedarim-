@@ -9,7 +9,18 @@ import type { PageProps } from '../App';
 import { useAuth } from '../hooks/useAuth';
 import { ISRAELI_CITIES, DEFAULT_USER_DISPLAY_NAME } from '../constants';
 import { Modal } from '../components/Modal';
-import { PlusCircleIcon, ClockIcon, LightBulbIcon, EyeIcon, SaveIcon, CheckCircleIcon } from '../components/icons';
+import {
+  CalendarDaysIcon,
+  MapPinIcon,
+  ClockIcon,
+  UserIcon,
+  CheckCircleIcon,
+  ExclamationCircleIcon,
+  PlusCircleIcon,
+  SaveIcon,
+  LightBulbIcon,
+  EyeIcon
+} from '../components/icons';
 import { HebrewDatePicker } from '../components/HebrewDatePicker';
 import { getTodayGregorianISO, gregSourceToHebrewString, formatGregorianString } from '../utils/dateConverter';
 import { useContext } from 'react';
@@ -114,6 +125,17 @@ const validateJobForm = (formData: Partial<Job>, userFullName?: string): Record<
     }
   } else if (formData.contactInfoSource === 'currentUser') {
     if (!formData.contactDisplayName && !userFullName) errors.contactDisplayName = "שם איש קשר (משתמש נוכחי) חסר בפרופיל.";
+
+    // Strict validation: If user selected a specific method, we must have that data in the profile
+    if (formData.preferredContactMethods?.phone && !formData.contactPhone) {
+      errors.preferredContactMethods = "בחרת ליצור קשר טלפוני, אך אין מספר טלפון בפרופיל שלך. אנא עדכן את הפרופיל או בחר דרך אחרת.";
+    }
+    if (formData.preferredContactMethods?.whatsapp && !formData.contactWhatsapp && !formData.contactPhone) {
+      errors.preferredContactMethods = "בחרת ליצור קשר בוואטסאפ, אך אין מספר בפרופיל שלך. אנא עדכן את הפרופיל.";
+    }
+    if (formData.preferredContactMethods?.email && !formData.contactEmail) {
+      errors.preferredContactMethods = "בחרת ליצור קשר במייל, אך אין כתובת מייל בפרופיל שלך.";
+    }
   }
 
 
@@ -187,7 +209,7 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
         phone: user.contactPreference?.showPhone ?? defaultPreferredContacts.phone,
         whatsapp: user.contactPreference?.showWhatsapp ?? defaultPreferredContacts.whatsapp,
         email: user.contactPreference?.showEmail ?? defaultPreferredContacts.email,
-        allowSiteMessages: defaultPreferredContacts.allowSiteMessages,
+        allowSiteMessages: user.contactPreference?.showChat ?? defaultPreferredContacts.allowSiteMessages,
       };
     } else if (!user && !isEditMode) {
       baseData.contactInfoSource = 'other';
@@ -211,6 +233,11 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
   const [submitButtonText, setSubmitButtonText] = useState('פרסם את העבודה');
   const [loadingJobData, setLoadingJobData] = useState(false);
   const [globalErrorSummary, setGlobalErrorSummary] = useState<string>('');
+
+  // New state for validation modal
+  const [showContactRedirectModal, setShowContactRedirectModal] = useState(false);
+  const [contactRedirectMessage, setContactRedirectMessage] = useState('');
+  const [onContactRedirectConfirm, setOnContactRedirectConfirm] = useState<(() => void) | null>(null);
 
 
   useEffect(() => {
@@ -255,8 +282,8 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
 
 
   useEffect(() => {
-    if (formData.contactInfoSource === 'currentUser' && !isEditMode) {
-      if (user) {
+    if (!isEditMode && user) {
+      if (formData.contactInfoSource === 'currentUser') {
         setFormData(prev => ({
           ...prev,
           contactDisplayName: user.contactPreference?.displayName || user.fullName || DEFAULT_USER_DISPLAY_NAME,
@@ -267,18 +294,25 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
             phone: user.contactPreference?.showPhone ?? true,
             whatsapp: user.contactPreference?.showWhatsapp ?? false,
             email: user.contactPreference?.showEmail ?? false,
-            allowSiteMessages: prev.preferredContactMethods?.allowSiteMessages ?? true,
+            allowSiteMessages: user.contactPreference?.showChat ?? true,
           },
         }));
-      } else {
+      } else if (formData.contactInfoSource === 'other' || formData.contactInfoSource === 'anonymous') {
+        // When switching to 'other' or 'anonymous', align preferred methods with user settings too, 
+        // but clear the actual contact details fields.
         setFormData(prev => ({
           ...prev,
-          contactInfoSource: 'other',
-          contactDisplayName: '',
+          // Keep display name empty for 'other', specific text for 'anonymous' might be handled elsewhere or just blank
+          contactDisplayName: prev.contactInfoSource === 'anonymous' ? 'אנונימי' : '',
           contactPhone: '',
           contactWhatsapp: '',
           contactEmail: '',
-          preferredContactMethods: { phone: true, whatsapp: false, email: false, allowSiteMessages: true },
+          preferredContactMethods: {
+            phone: user.contactPreference?.showPhone ?? true,
+            whatsapp: user.contactPreference?.showWhatsapp ?? false,
+            email: user.contactPreference?.showEmail ?? false,
+            allowSiteMessages: user.contactPreference?.showChat ?? true,
+          },
         }));
       }
     }
@@ -356,6 +390,27 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
 
 
   const handlePreferredContactGroupChange = (valueKey: string, checked: boolean) => {
+    if (checked && formData.contactInfoSource === 'currentUser') {
+      if (valueKey === 'phone' && !user?.phone) {
+        setContactRedirectMessage("חסר מספר טלפון בפרופיל שלך. האם ברצונך לעבור להגדרות הפרופיל כדי לעדכן אותו?");
+        setOnContactRedirectConfirm(() => () => setCurrentPage('profile'));
+        setShowContactRedirectModal(true);
+        return;
+      }
+      if (valueKey === 'whatsapp' && !user?.whatsapp && !user?.phone) {
+        setContactRedirectMessage("חסר מספר וואטסאפ בפרופיל שלך. האם ברצונך לעבור להגדרות הפרופיל כדי לעדכן אותו?");
+        setOnContactRedirectConfirm(() => () => setCurrentPage('profile'));
+        setShowContactRedirectModal(true);
+        return;
+      }
+      if (valueKey === 'email' && !user?.email) {
+        setContactRedirectMessage("חסר כתובת אימייל בפרופיל שלך. האם ברצונך לעבור להגדרות הפרופיל כדי לעדכן אותה?");
+        setOnContactRedirectConfirm(() => () => setCurrentPage('profile'));
+        setShowContactRedirectModal(true);
+        return;
+      }
+    }
+
     setFormData(prev => ({
       ...prev,
       preferredContactMethods: { ...(prev.preferredContactMethods as PreferredContactMethods), [valueKey]: checked }
@@ -799,6 +854,7 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
               legendClassName="sr-only"
               optionLabelClassName="text-sm text-dark-text"
             />
+
             <label
               htmlFor="allowSiteMessagesToggle"
               className="flex items-center cursor-pointer justify-end tap-highlight-transparent mt-3"
@@ -817,6 +873,11 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
                 <div className="absolute top-0.5 left-0.5 rtl:right-0.5 rtl:left-auto w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-150 ease-in-out transform peer-checked:translate-x-4 rtl:peer-checked:-translate-x-4"></div>
               </div>
             </label>
+            {formData.contactInfoSource === 'anonymous' && formData.preferredContactMethods?.allowSiteMessages && (
+              <p className="text-xs text-gray-500 mt-1 mr-1 rtl:ml-1 rtl:mr-0 text-right">
+                בבחירה זו, ההתכתבות תתבצע גם היא בצורה אנונימית והצד השני לא יראה את פרטיך.
+              </p>
+            )}
           </fieldset>
 
           {errors.preferredContactMethods && <p className="mt-1 text-xs text-red-700 text-right bg-red-50 p-2 rounded-md">{errors.preferredContactMethods}</p>}
@@ -934,6 +995,34 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
                 </Button>
               </>
             )}
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={showContactRedirectModal}
+        onClose={() => setShowContactRedirectModal(false)}
+        title="חסרים פרטי התקשרות"
+      >
+        <div className="text-center p-6">
+          <ExclamationCircleIcon className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <p className="text-lg text-gray-800 font-medium mb-8">{contactRedirectMessage}</p>
+          <div className="flex justify-center gap-6 rtl:space-x-reverse">
+            <Button
+              onClick={() => {
+                if (onContactRedirectConfirm) onContactRedirectConfirm();
+                setShowContactRedirectModal(false);
+              }}
+              variant="primary"
+            >
+              כן, עבור להגדרות הפרופיל
+            </Button>
+            <Button
+              onClick={() => setShowContactRedirectModal(false)}
+              variant="outline"
+            >
+              לא, תודה
+            </Button>
           </div>
         </div>
       </Modal>

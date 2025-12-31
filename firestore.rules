@@ -20,21 +20,19 @@ service cloud.firestore {
       return role == 'admin' || role == 'super_admin';
     }
     
-    function isSuperAdmin() {
-      return getUserData().role == 'super_admin';
-    }
-
-    // Users Collection
+    // Users Collection - PRIVATE
+    // Only the user themselves or an admin can read the full profile (including phone/email)
     match /users/{userId} {
-      allow read: if isLoggedIn();
+      allow read: if isLoggedIn() && (isOwner(userId) || isAdmin());
       allow create: if isLoggedIn() && isOwner(userId);
-      // Allow users to update their own profile
-      // Allow Admins to update block status
-      // Allow Super Admins to update roles
-      allow update: if isLoggedIn() && (
-        isOwner(userId) || 
-        isAdmin()
-      );
+      allow update: if isLoggedIn() && (isOwner(userId) || isAdmin());
+    }
+    
+    // Public Profiles - PUBLIC READ
+    // Contains only safe data (name, join date, etc.)
+    match /public_profiles/{userId} {
+      allow read: if true; 
+      allow write: if isLoggedIn() && (isOwner(userId) || isAdmin());
     }
     
     // Jobs Collection

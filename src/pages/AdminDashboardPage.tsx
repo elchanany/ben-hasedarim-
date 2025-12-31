@@ -1,10 +1,8 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { doc } from "firebase/firestore";
-import { db } from '@/lib/firebase';
 
 import type { PageProps } from '../App';
 import { Job, User, Report, ContactMessage } from '../types';
-import { BriefcaseIcon, UserIcon, PlusCircleIcon, LightBulbIcon, EnvelopeIcon, SearchIcon } from '../components/icons';
+import { BriefcaseIcon, UserIcon, PlusCircleIcon, LightBulbIcon, EnvelopeIcon, SearchIcon, ExclamationCircleIcon } from '../components/icons';
 import { formatDateByPreference } from '../utils/dateConverter';
 import * as jobService from '../services/jobService';
 import * as userService from '../services/userService';
@@ -28,7 +26,7 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
   const authCtx = useContext(AuthContext);
   const currentUser = authCtx?.user;
   // HARDCODED OVERRIDE: Ensure this specific user is ALWAYS treated as super_admin in the UI
-  const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.email === 'eyceyceyc139@gmail.com';
+  const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.email?.toLowerCase() === 'eyceyceyc139@gmail.com';
 
   const [activeTab, setActiveTab] = useState<Tab>((pageParams?.tab as Tab) || 'overview');
 
@@ -50,20 +48,26 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
   const [userSearch, setUserSearch] = useState('');
   const [jobSearch, setJobSearch] = useState('');
 
+  // Toast Notification State (in-app messages)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
   // Blocking Modal State
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [userToBlock, setUserToBlock] = useState<User | null>(null);
-  const [blockReason, setBlockReason] = useState('');
-  const [blockStep, setBlockStep] = useState<'reason' | 'confirm'>('reason');
-  const [isContactBlocked, setIsContactBlocked] = useState(false); // New state for contact block
+  const [blockReasonAdmin, setBlockReasonAdmin] = useState(''); // Reason for admin history
+  const [blockReasonUser, setBlockReasonUser] = useState(''); // Optional reason visible to user
+  const [isContactBlocked, setIsContactBlocked] = useState(false);
 
   // Contact Reply State
   const [selectedMessage, setSelectedMessage] = useState<ContactMessage | null>(null);
   const [replyText, setReplyText] = useState('');
   const [showReplyModal, setShowReplyModal] = useState(false);
 
-  const fetchAllData = async () => {
-    setLoading(true);
+  // Fetch data - isBackgroundRefresh prevents loading state from showing on auto-refresh
+  const fetchAllData = async (isBackgroundRefresh = false) => {
+    if (!isBackgroundRefresh) {
+      setLoading(true);
+    }
     try {
       // Parallel fetching for dashboard
       const [allJobs, allUsers, allReports, allMessages] = await Promise.all([
@@ -78,7 +82,7 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
       setReports(allReports);
       setMessages(allMessages);
 
-      // Async fetch logs (don't block dashboard stats if logs fail or take time, but for now we wait)
+      // Async fetch logs (don't block dashboard stats)
       adminLogService.getLogs().then(setLogs).catch(e => console.error(e));
 
       const totalJobs = allJobs.length;
@@ -90,47 +94,81 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
     } catch (error) {
       console.error("Error fetching admin data:", error);
     } finally {
-      setLoading(false);
+      if (!isBackgroundRefresh) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchAllData();
+    // Initial load - show loading state
+    fetchAllData(false);
 
-    // Refresh admin data every 10 seconds for real-time updates
+    // Background refresh every 15 seconds - silent update, no UI jump
     const refreshInterval = setInterval(() => {
-      fetchAllData();
-    }, 10000);
+      fetchAllData(true);
+    }, 15000);
 
     return () => clearInterval(refreshInterval);
   }, []);
 
+  // Helper to show toast and auto-dismiss
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
   const openBlockModal = (user: User) => {
     if (user.isBlocked) {
       if (window.confirm(`האם לבטל את החסימה של ${user.fullName}?`)) {
-        handleBlockAction(user, false, 'Unblocked by admin');
+        handleBlockAction(user, false, 'Unblocked by admin', '');
       }
     } else {
-      // Block flow
+      // Block flow - open modal
       setUserToBlock(user);
-      setBlockReason('');
-      setIsContactBlocked(false); // Reset default
-      setBlockStep('reason');
+      setBlockReasonAdmin('');
+      setBlockReasonUser('');
+      setIsContactBlocked(false);
       setShowBlockModal(true);
     }
   };
 
-  const handleBlockAction = async (user: User, shouldBlock: boolean, reason: string) => {
+  const handleBlockAction = async (user: User, shouldBlock: boolean, adminReason: string, userReason: string) => {
     try {
       if (!currentUser) {
-        alert("שגיאה: לא נמצא משתמש מחובר");
+        showToast('שגיאה: לא נמצא משתמש מחובר', 'error');
         return;
       }
 
-      await userService.toggleUserBlock(user.id, shouldBlock, reason, {
-        id: currentUser.id,
-        name: currentUser.fullName
-      });
+      // Call service with separate admin and user reasons
+      await userService.toggleUserBlock(
+        user.id,
+        shouldBlock,
+        adminReason,           // Admin reason (for logs/internal)
+        userReason || undefined // User-visible reason (optional - only if provided)
+      );
+
+      // Log with admin reason
+      if (shouldBlock) {
+        await adminLogService.logAction({
+          adminId: currentUser.id,
+          adminName: currentUser.fullName,
+          action: 'ban_user',
+          targetId: user.id,
+          targetType: 'user',
+          reason: adminReason,
+          details: userReason ? `הודעה למשתמש: ${userReason}` : 'ללא הודעה למשתמש'
+        });
+      } else {
+        await adminLogService.logAction({
+          adminId: currentUser.id,
+          adminName: currentUser.fullName,
+          action: 'unban_user',
+          targetId: user.id,
+          targetType: 'user',
+          reason: 'Unblocked by admin'
+        });
+      }
 
       // If blocking contact too (only relevant when blocking)
       if (shouldBlock && isContactBlocked) {
@@ -138,7 +176,6 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
           await userService.updateUserBlockContact(user.id, true);
         } catch (contactError) {
           console.error("Error updating contact block (non-fatal):", contactError);
-          // Not alerting user because main block succeeded
         }
       }
 
@@ -146,7 +183,8 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
       setUsers(users.map(u => u.id === user.id ? {
         ...u,
         isBlocked: shouldBlock,
-        blockReason: shouldBlock ? reason : undefined,
+        blockReason: shouldBlock ? adminReason : undefined,
+        blockReasonUser: shouldBlock ? (userReason || undefined) : undefined,
         isContactBlocked: shouldBlock ? isContactBlocked : false
       } : u));
 
@@ -154,10 +192,10 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
       setShowBlockModal(false);
       setUserToBlock(null);
 
-      alert(shouldBlock ? 'משתמש נחסם בהצלחה' : 'חסימה בוטלה בהצלחה');
+      showToast(shouldBlock ? 'משתמש נחסם בהצלחה' : 'חסימה בוטלה בהצלחה', 'success');
     } catch (error) {
       console.error(error);
-      alert('שגיאה בביצוע הפעולה');
+      showToast('שגיאה בביצוע הפעולה', 'error');
     }
   };
 
@@ -226,21 +264,7 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
         }
       }
 
-      // Update message status
-      const msgRef = doc(db, 'contact_messages', selectedMessage.id); // Need db import or service method
-      // Using service method is better but I need one for 'replied' status update
-      // I will use markAsRead but I strictly need 'replied'. I'll assume markAsRead is "read"
-      // Let's create a specialized update in service or just assume 'read' is enough?
-      // The Log checks 'reply_contact'.
-
-      // Let's just update locally and rely on service for read. 
-      // Wait, I need to update Firestore status to 'replied'. 
-      // I will use a direct DB update here or add service method.
-      // Direct DB usage requires 'db' import from firebase.
-      // Instead, I'll use contactService.markAsRead and assume 'read' for now, OR add 'markAsReplied'.
-      // I'll add markAsReplied to service in next step or use quick 'any' cast if I can't.
-      // Actually, I'll just use markAsRead for now and in future add explicit 'replied'.
-
+      // Update message status using service
       await contactService.markAsRead(selectedMessage.id); // Mark as read/handled
 
       // Log action
@@ -328,29 +352,6 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
         </div>
       </div>
 
-      {/* Emergency Self-Promote Button for specific user if not super_admin yet */}
-      {currentUser?.email === 'eyceyceyc139@gmail.com' && currentUser?.role !== 'super_admin' && (
-        <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-6 flex justify-between items-center animate-pulse">
-          <div>
-            <h3 className="font-bold text-yellow-800">תיקון הרשאות נדרש</h3>
-            <p className="text-sm text-yellow-700">זוהה שהחשבון שלך אינו מוגדר כ-Super Admin. לחץ כאן לתיקון מיידי.</p>
-          </div>
-          <button
-            onClick={async () => {
-              try {
-                await userService.updateUserRole(currentUser.id, 'super_admin');
-                alert('עודכן בהצלחה! אנא רענן את העמוד.');
-                window.location.reload();
-              } catch (e) {
-                alert('שגיאה בעדכון: ' + e);
-              }
-            }}
-            className="bg-yellow-600 text-white px-4 py-2 rounded shadow hover:bg-yellow-700 font-bold"
-          >
-            תקן הרשאות שלי
-          </button>
-        </div>
-      )}
 
       {/* OVERVIEW TAB */}
       {activeTab === 'overview' && (
@@ -414,8 +415,11 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.role === 'super_admin' ? <span className="text-purple-600 font-bold">מנהל על</span> :
-                        user.role === 'admin' ? <span className="text-blue-600 font-bold">מנהל</span> : 'משתמש'}
+                      {(user.role === 'super_admin' || user.email?.toLowerCase() === 'eyceyceyc139@gmail.com') ? (
+                        <span className="text-purple-600 font-bold">מנהל ראשי</span>
+                      ) : user.role === 'admin' ? (
+                        <span className="text-blue-600 font-bold">מנהל</span>
+                      ) : 'משתמש'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {user.isBlocked ?
@@ -424,20 +428,24 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
                       }
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-2">
-                      {/* Protect Super Admin and Self */}
-                      {user.role === 'super_admin' ? (
-                        <span className="text-gray-400 text-xs italic">מוגן</span>
+                      {/* Protect Super Admin (by role or email) */}
+                      {(user.role === 'super_admin' || user.email?.toLowerCase() === 'eyceyceyc139@gmail.com') ? (
+                        <span className="text-purple-600 text-xs font-bold">מנהל ראשי (מוגן)</span>
+                      ) : user.id === currentUser?.id ? (
+                        <span className="text-gray-400 text-xs italic">אני</span>
+                      ) : (user.role === 'admin' && !isSuperAdmin) ? (
+                        // Admins cannot block other admins (only super admin can)
+                        <span className="text-gray-400 text-xs italic">מנהל (לא ניתן לחסום)</span>
                       ) : (
                         <>
                           <button
                             onClick={() => openBlockModal(user)}
-                            disabled={user.id === currentUser?.id}
-                            className={`${user.isBlocked ? 'text-green-600 hover:text-green-900' : 'text-red-600 hover:text-red-900'} ${user.id === currentUser?.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            className={`${user.isBlocked ? 'text-green-600 hover:text-green-900' : 'text-red-600 hover:text-red-900'}`}
                           >
                             {user.isBlocked ? 'בטל חסימה' : 'חסום'}
                           </button>
                           {/* Role Change Button (Only for Super Admin) */}
-                          {isSuperAdmin && user.id !== currentUser?.id && (
+                          {isSuperAdmin && (
                             <button onClick={() => handleRoleChange(user.id, user.role === 'admin' ? 'user' : 'admin')} className="text-blue-600 hover:text-blue-800">
                               {user.role === 'admin' ? 'הורד לרגיל' : 'הפוך למנהל'}
                             </button>
@@ -633,7 +641,7 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
                           <div>
                             <div className="text-sm font-medium text-gray-900 flex items-center gap-1">
                               {msg.name}
-                              {msg.userId && <UserIcon className="w-3 h-3 text-green-500" title="משתמש רשום" />}
+                              {msg.userId && <UserIcon className="w-3 h-3 text-green-500" />}
                             </div>
                             <div className="text-sm text-gray-500">{msg.email}</div>
                           </div>
@@ -766,90 +774,106 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
         )
       }
 
-      {/* Block User Modal */}
-      {
-        showBlockModal && userToBlock && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 animate-scale-up">
-              <h3 className="text-xl font-bold text-royal-blue mb-4">
-                {blockStep === 'reason' ? 'חסימת משתמש' : 'אישור חסימה'}
-              </h3>
+      {/* Block User Modal - With Admin and User-Visible Reasons */}
+      {showBlockModal && userToBlock && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 animate-scale-up">
+            <h3 className="text-xl font-bold text-red-600 mb-4 flex items-center gap-2">
+              <ExclamationCircleIcon className="w-6 h-6" />
+              חסימת משתמש
+            </h3>
 
-              {blockStep === 'reason' ? (
-                <>
-                  <div className="mb-4">
-                    <p className="text-gray-700 mb-2">נא להזין סיבה לחסימת המשתמש <strong>{userToBlock.fullName}</strong>:</p>
-                    <textarea
-                      className="w-full border rounded-md p-2 h-24 focus:ring-2 focus:ring-royal-blue"
-                      placeholder="סיבת החסימה..."
-                      value={blockReason}
-                      onChange={e => setBlockReason(e.target.value)}
-                    ></textarea>
-                    <div className="mt-3 flex items-center">
-                      <input
-                        id="block-contact"
-                        type="checkbox"
-                        className="w-4 h-4 text-royal-blue border-gray-300 rounded focus:ring-royal-blue"
-                        checked={isContactBlocked}
-                        onChange={e => setIsContactBlocked(e.target.checked)}
-                      />
-                      <label htmlFor="block-contact" className="mr-2 text-sm text-gray-700">
-                        חסום גם אפשרות ליצירת קשר (ערעור)
-                      </label>
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-3">
-                    <button onClick={() => setShowBlockModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">ביטול</button>
-                    <button
-                      onClick={() => {
-                        if (!blockReason.trim()) {
-                          alert('חובה להזין סיבה');
-                          return;
-                        }
-                        setBlockStep('confirm');
-                      }}
-                      className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                    >
-                      המשך
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="mb-6">
-                    <div className="bg-red-50 border border-red-200 p-4 rounded-md flex items-start">
-                      <ExclamationCircleIcon className="w-6 h-6 text-red-600 shrink-0 ml-3 rtl:mr-3 rtl:ml-0" />
-                      <div>
-                        <h4 className="text-red-800 font-bold mb-1">האם אתה בטוח?</h4>
-                        <p className="text-red-700 text-sm">
-                          אתה עומד לחסום את המשתמש <strong>{userToBlock.fullName}</strong>.
-                        </p>
-                        <p className="text-red-700 text-sm mt-1">
-                          <strong>סיבה:</strong> {blockReason}
-                        </p>
-                        {isContactBlocked && (
-                          <p className="text-red-800 text-xs font-bold mt-2">
-                            * המשתמש ייחסם גם מיצירת קשר
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-3">
-                    <button onClick={() => setBlockStep('reason')} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">חזור</button>
-                    <button
-                      onClick={() => handleBlockAction(userToBlock, true, blockReason)}
-                      className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-bold shadow-sm"
-                    >
-                      כן, חסום משתמש
-                    </button>
-                  </div>
-                </>
-              )}
+            <div className="space-y-4">
+              <p className="text-gray-700">
+                אתה עומד לחסום את המשתמש <strong className="text-red-600">{userToBlock.fullName}</strong>.
+              </p>
+
+              {/* Admin Reason - for history/log */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  סיבת החסימה להיסטוריה (חובה):
+                  <span className="text-xs text-gray-500 mr-2">נראה רק למנהלים</span>
+                </label>
+                <textarea
+                  className="w-full border rounded-md p-2 h-20 focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  placeholder="סיבה פנימית למנהלים..."
+                  value={blockReasonAdmin}
+                  onChange={e => setBlockReasonAdmin(e.target.value)}
+                ></textarea>
+              </div>
+
+              {/* User-Visible Reason - optional */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  הודעה למשתמש (אופציונלי):
+                  <span className="text-xs text-gray-500 mr-2">יוצג למשתמש שנחסם</span>
+                </label>
+                <textarea
+                  className="w-full border rounded-md p-2 h-16 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="הסבר קצר שיוצג למשתמש... (אם ריק, תוצג הסיבה הפנימית)"
+                  value={blockReasonUser}
+                  onChange={e => setBlockReasonUser(e.target.value)}
+                ></textarea>
+              </div>
+
+              {/* Block contact option */}
+              <div className="flex items-center bg-gray-50 p-3 rounded-md">
+                <input
+                  id="block-contact"
+                  type="checkbox"
+                  className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                  checked={isContactBlocked}
+                  onChange={e => setIsContactBlocked(e.target.checked)}
+                />
+                <label htmlFor="block-contact" className="mr-2 text-sm text-gray-700">
+                  חסום גם אפשרות ליצירת קשר (ערעור)
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 mt-4 border-t">
+              <button
+                onClick={() => { setShowBlockModal(false); setUserToBlock(null); }}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
+              >
+                ביטול
+              </button>
+              <button
+                onClick={() => {
+                  if (!blockReasonAdmin.trim()) {
+                    showToast('חובה להזין סיבה לחסימה', 'error');
+                    return;
+                  }
+                  handleBlockAction(userToBlock, true, blockReasonAdmin, blockReasonUser);
+                }}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-bold shadow-sm"
+              >
+                חסום משתמש
+              </button>
             </div>
           </div>
-        )
-      }
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[100] px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-slide-up ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+          }`}>
+          {toast.type === 'success' ? (
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <ExclamationCircleIcon className="w-5 h-5" />
+          )}
+          <span className="font-medium">{toast.message}</span>
+          <button onClick={() => setToast(null)} className="hover:opacity-70">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
 
     </div >
   );

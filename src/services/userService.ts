@@ -41,14 +41,22 @@ export const updateUserBlockContact = async (userId: string, isContactBlocked: b
     }
 };
 
-export const toggleUserBlock = async (userId: string, isBlocked: boolean, reason?: string, adminUser?: { id: string, name: string }): Promise<void> => {
+// Updated to accept separate admin reason and user-visible reason
+export const toggleUserBlock = async (
+    userId: string,
+    isBlocked: boolean,
+    adminReason?: string,
+    userReason?: string,
+    adminUser?: { id: string, name: string }
+): Promise<void> => {
     try {
         const userRef = doc(db, USERS_COLLECTION, userId);
-        // If unblocking, we also unblock contact by default usually, or let it stay? 
-        // Let's reset contact block on unblock for convenience.
         const updateData: any = {
             isBlocked,
-            blockReason: isBlocked ? (reason || 'Admin blocked user') : null
+            // Admin reason stored in blockReason (for internal/logs)
+            blockReason: isBlocked ? (adminReason || 'Admin blocked user') : null,
+            // User-visible reason stored in blockReasonUser (only if provided)
+            blockReasonUser: isBlocked ? (userReason || null) : null
         };
 
         if (!isBlocked) {
@@ -57,16 +65,7 @@ export const toggleUserBlock = async (userId: string, isBlocked: boolean, reason
 
         await updateDoc(userRef, updateData);
 
-        if (adminUser) {
-            await adminLogService.logAction({
-                adminId: adminUser.id,
-                adminName: adminUser.name,
-                action: isBlocked ? 'ban_user' : 'unban_user',
-                targetId: userId,
-                targetType: 'user',
-                reason: reason || (isBlocked ? 'No reason provided' : 'Unblocked by admin')
-            });
-        }
+        // Note: Logging is now handled by the caller (AdminDashboardPage) with admin reason
     } catch (error) {
         console.error("Error toggling user block:", error);
         throw error;

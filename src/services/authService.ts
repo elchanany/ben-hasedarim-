@@ -5,13 +5,15 @@ import {
   sendPasswordResetEmail as firebaseSendPasswordResetEmail,
   signInWithPopup,
   User as FirebaseAuthUser,
-  updateProfile
+  updateProfile,
+  deleteUser
 } from "firebase/auth";
 import {
   doc,
   getDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
   serverTimestamp,
   DocumentData
 } from "firebase/firestore";
@@ -19,6 +21,7 @@ import {
 import { auth, db, googleProvider } from "@/lib/firebase";
 // הנתיב תוקן גם כאן ל-@/types
 import { User } from "@/types";
+import { syncPublicProfile } from "./publicProfileService";
 
 export interface RegisterData {
   email: string;
@@ -49,7 +52,7 @@ const mapDocumentToUser = (firebaseUser: FirebaseAuthUser, data: DocumentData): 
     : 'user';
 
   // Force super_admin for specific email even if DB differs (extra safety)
-  if (firebaseUser.email === 'eyceyceyc139@gmail.com') {
+  if (firebaseUser.email?.toLowerCase() === 'eyceyceyc139@gmail.com') {
     role = 'super_admin';
   }
 
@@ -69,9 +72,10 @@ const mapDocumentToUser = (firebaseUser: FirebaseAuthUser, data: DocumentData): 
     createdAt: createdAtStr,
     whatsapp: data.whatsapp || '',
     contactPreference: data.contactPreference || {
-      showPhone: true,
-      showWhatsapp: true,
-      showEmail: false,
+      showPhone: false,
+      showWhatsapp: false,
+      showEmail: true,
+      showChat: false,
       displayName: data.fullName || firebaseUser.displayName || 'משתמש'
     },
     isBlocked: !!data.isBlocked,
@@ -103,9 +107,12 @@ export const fetchUserProfileFromFirestore = async (firebaseUser: FirebaseAuthUs
     const userDoc = await getDoc(userDocRef);
 
     if (userDoc.exists()) {
-      return mapDocumentToUser(firebaseUser, userDoc.data());
+      const user = mapDocumentToUser(firebaseUser, userDoc.data());
+      // Sync public profile in background
+      syncPublicProfile(user).catch(err => console.error("Background sync failed:", err));
+      return user;
     } else {
-      const isSuperAdmin = firebaseUser.email === 'eyceyceyc139@gmail.com';
+      const isSuperAdmin = firebaseUser.email?.toLowerCase() === 'eyceyceyc139@gmail.com';
       const role = isSuperAdmin ? 'super_admin' : 'user';
 
       const newProfile = {
@@ -116,9 +123,10 @@ export const fetchUserProfileFromFirestore = async (firebaseUser: FirebaseAuthUs
         datePreference: 'hebrew',
         isEmployer: false,
         contactPreference: {
-          showPhone: true,
-          showWhatsapp: true,
-          showEmail: false,
+          showPhone: false,
+          showWhatsapp: false,
+          showEmail: true,
+          showChat: false,
           displayName: firebaseUser.displayName || 'משתמש חדש'
         },
         isBlocked: false,
@@ -127,7 +135,7 @@ export const fetchUserProfileFromFirestore = async (firebaseUser: FirebaseAuthUs
 
       await setDoc(userDocRef, newProfile);
 
-      return {
+      const finalNewUser = {
         id: firebaseUser.uid,
         phone: '',
         whatsapp: '',
@@ -136,6 +144,9 @@ export const fetchUserProfileFromFirestore = async (firebaseUser: FirebaseAuthUs
         role: role,
         datePreference: 'hebrew'
       } as User;
+
+      await syncPublicProfile(finalNewUser);
+      return finalNewUser;
     }
   } catch (error) {
     console.error("Error fetching/creating user profile:", error);
@@ -159,7 +170,7 @@ export const register = async (data: RegisterData): Promise<User> => {
     });
   }
 
-  const isSuperAdmin = data.email === 'eyceyceyc139@gmail.com';
+  const isSuperAdmin = data.email?.toLowerCase() === 'eyceyceyc139@gmail.com';
   const role = isSuperAdmin ? 'super_admin' : 'user';
 
   const newProfile = {
@@ -171,9 +182,17 @@ export const register = async (data: RegisterData): Promise<User> => {
     datePreference: 'hebrew',
     createdAt: serverTimestamp(),
     contactPreference: data.contactPreference || {
-      showPhone: true,
-      showWhatsapp: true,
+      showPhone: false,
+      showWhatsapp: false,
       showEmail: true,
+      showChat: false,
+      displayName: data.fullName
+    },
+    profileContactPreference: {
+      showPhone: false,
+      showWhatsapp: false,
+      showEmail: true,
+      showChat: false,
       displayName: data.fullName
     },
     isBlocked: false,
@@ -183,13 +202,16 @@ export const register = async (data: RegisterData): Promise<User> => {
 
   await setDoc(doc(db, "users", userCredential.user.uid), newProfile);
 
-  return {
+  const newUser = {
     id: userCredential.user.uid,
     ...newProfile,
     createdAt: new Date().toISOString(),
     role: 'user',
     datePreference: 'hebrew'
   } as User;
+
+  await syncPublicProfile(newUser);
+  return newUser;
 };
 
 export const signInWithGoogle = async (): Promise<User> => {
@@ -212,9 +234,54 @@ export const updateUserProfile = async (uid: string, data: Partial<User>): Promi
 
   const { id, email, ...dataToUpdate } = data;
 
+  //Get current data first to ensure we surrender nothing
+  const snapshot = await getDoc(userRef);
+  if (!snapshot.exists()) throw new Error("User not found");
+  const currentUser = snapshot.data() as User;
+
   await updateDoc(userRef, dataToUpdate);
 
-  const updatedUser = await getUserProfile(uid);
-  if (!updatedUser) throw new Error("Failed to retrieve updated profile");
+  // Construct the updated object locally to avoid latency issues
+  const updatedUser = {
+    ...currentUser,
+    ...dataToUpdate,
+    id: uid, // Ensure ID hasn't changed
+    // Ensure complex objects are merged correctly if needed, but for top-level partials spread matches updateDoc behavior
+  } as User;
+
+  await syncPublicProfile(updatedUser);
   return updatedUser;
+};
+
+export const deleteAccount = async (userId: string): Promise<void> => {
+  const user = auth.currentUser;
+  if (!user) throw new Error("No authenticated user found");
+  if (user.uid !== userId) throw new Error("Unauthorized to delete this account");
+
+  // 1. Delete Public Profile
+  try {
+    await deleteDoc(doc(db, "public_profiles", userId));
+  } catch (error) {
+    console.error("Error deleting public profile:", error);
+    // Continue even if fail, as we want to delete the main user record
+  }
+
+  // 2. Delete User Profile from Firestore
+  try {
+    await deleteDoc(doc(db, "users", userId));
+  } catch (error) {
+    console.error("Error deleting user profile:", error);
+    throw new Error("Failed to delete user profile data");
+  }
+
+  // 3. Delete Authentication User
+  try {
+    await deleteUser(user);
+  } catch (error: any) {
+    console.error("Error deleting auth user:", error);
+    if (error.code === 'auth/requires-recent-login') {
+      throw new Error("security-requires-recent-login");
+    }
+    throw new Error("Failed to delete authentication account");
+  }
 };

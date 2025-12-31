@@ -273,6 +273,8 @@ export const incrementJobContactAttempt = async (jobId: string): Promise<void> =
 };
 
 export const addJob = async (jobData: Omit<Job, 'id' | 'postedDate' | 'views' | 'contactAttempts' | 'serialNumber'>): Promise<Job> => {
+  console.log("Adding job with payload:", JSON.stringify(jobData, null, 2)); // DEBUG: Verify contact methods
+
   try {
     const jobPayload: any = {
       ...jobData,
@@ -309,10 +311,18 @@ export const addJob = async (jobData: Omit<Job, 'id' | 'postedDate' | 'views' | 
 
       // Create a new ID for the job
       const newJobRef = doc(collection(db, JOBS_COLLECTION));
+      const publicProfileRef = doc(db, 'public_profiles', jobData.postedBy.id);
 
       // Writes
       transaction.set(counterRef, { current: nextSerial }, { merge: true });
       transaction.set(newJobRef, cleanJobPayload);
+
+      // Increment jobs published count for the user and ensure basic profile data exists
+      transaction.set(publicProfileRef, {
+        jobsPublishedCount: increment(1),
+        lastActive: new Date().toISOString(),
+        displayName: jobData.postedBy.posterDisplayName // Ensure name exists for new/dormant users
+      }, { merge: true });
 
       return { ...cleanJobPayload, id: newJobRef.id, postedDate: new Date().toISOString() } as Job;
     });
@@ -372,16 +382,29 @@ export const deleteJob = async (jobId: string, adminLogData?: Omit<AdminLog, 'id
   // Security for this action MUST be handled by Firestore Security Rules (admin/moderator or owner only)
   try {
     const jobRef = doc(db, JOBS_COLLECTION, jobId);
+    let jobData: DocumentSnapshot | null = null;
 
-    // If admin log data provided, we might want to fetch job data first for "details" if not already provided
-    if (adminLogData && !adminLogData.details) {
-      const snap = await getDoc(jobRef);
-      if (snap.exists()) {
+    // Fetch job first to identify the poster for decrementing count
+    const snap = await getDoc(jobRef);
+    if (snap.exists()) {
+      jobData = snap;
+      if (adminLogData && !adminLogData.details) {
         adminLogData.details = JSON.stringify(snap.data());
       }
     }
 
     await deleteDoc(jobRef);
+
+    // Decrement jobs published count for the user
+    if (jobData && jobData.exists()) {
+      const data = jobData.data();
+      if (data && data.postedBy && data.postedBy.id) {
+        const publicProfileRef = doc(db, 'public_profiles', data.postedBy.id);
+        await updateDoc(publicProfileRef, {
+          jobsPublishedCount: increment(-1)
+        }).catch(err => console.warn("Failed to decrement job count", err));
+      }
+    }
 
     if (adminLogData) {
       await adminLogService.logAction(adminLogData);

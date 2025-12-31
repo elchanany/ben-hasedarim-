@@ -136,32 +136,57 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLoadingAuth(true);
 
     if (USE_FIREBASE_BACKEND) {
-      const unsubscribe = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
+      let unsubscribeUserDoc: (() => void) | null = null;
+
+      const unsubscribeAuth = onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
+        // Clean up previous user doc listener if any
+        if (unsubscribeUserDoc) {
+          unsubscribeUserDoc();
+          unsubscribeUserDoc = null;
+        }
+
         if (firebaseUser) {
           try {
-            const userProfile = await FirebaseAuthService.getUserProfile(firebaseUser.uid);
-            if (userProfile) {
-              if (userProfile.isBlocked) {
-                // We keep the user logged in so checking user.isBlocked in App.tsx can show the specific blocked screen with reason
+            // Set up real-time listener on user document for immediate block detection
+            const { doc: firestoreDoc, onSnapshot: onDocSnapshot } = await import('firebase/firestore');
+            const userDocRef = firestoreDoc(db, 'users', firebaseUser.uid);
+
+            unsubscribeUserDoc = onDocSnapshot(userDocRef, (docSnapshot) => {
+              if (docSnapshot.exists()) {
+                const userData = docSnapshot.data();
+                const userProfile: User = {
+                  id: docSnapshot.id,
+                  ...userData
+                } as User;
                 setUser(userProfile);
               } else {
-                setUser(userProfile);
+                // Document doesn't exist yet - try to create from Firebase user
+                FirebaseAuthService.fetchUserProfileFromFirestore(firebaseUser).then(newProfile => {
+                  setUser(newProfile);
+                });
               }
-            } else {
-              // Create a profile if it doesn't exist (e.g., for Google Sign-In or race condition)
-              const newProfile = await FirebaseAuthService.fetchUserProfileFromFirestore(firebaseUser);
-              setUser(newProfile);
-            }
+              setLoadingAuth(false);
+            }, (error) => {
+              console.error("Error listening to user document:", error);
+              setLoadingAuth(false);
+            });
           } catch (error) {
-            console.error("Error fetching user profile:", error);
+            console.error("Error setting up user listener:", error);
             setUser(null);
+            setLoadingAuth(false);
           }
         } else {
           setUser(null);
+          setLoadingAuth(false);
         }
-        setLoadingAuth(false);
       });
-      return () => unsubscribe();
+
+      return () => {
+        unsubscribeAuth();
+        if (unsubscribeUserDoc) {
+          unsubscribeUserDoc();
+        }
+      };
     } else {
       const loadMockUser = async () => {
         try {

@@ -16,9 +16,10 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [contactPreference, setContactPreference] = useState<ContactPreference>({
-    showPhone: true,
+    showPhone: false,
     showWhatsapp: false,
-    showEmail: false,
+    showEmail: true,
+    showChat: false,
     displayName: ''
   });
   const [error, setError] = useState('');
@@ -38,17 +39,17 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
       return;
     }
     if (password.length < 6) {
-        setError('הסיסמה חייבת להכיל לפחות 6 תווים.');
-        return;
+      setError('הסיסמה חייבת להכיל לפחות 6 תווים.');
+      return;
     }
     const phoneRegex = /^(05\d|0[2-4,8,9,77])(-?\d){7}$/;
     if (!phoneRegex.test(phone)) {
-        setError('מספר טלפון לא תקין.');
-        return;
+      setError('מספר טלפון לא תקין.');
+      return;
     }
-     if (whatsapp && !phoneRegex.test(whatsapp)) { 
-        setError('מספר וואטסאפ לא תקין.');
-        return;
+    if (whatsapp && !phoneRegex.test(whatsapp)) {
+      setError('מספר וואטסאפ לא תקין.');
+      return;
     }
 
     setIsLoading(true);
@@ -57,11 +58,11 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
         fullName,
         phone,
         email,
-        whatsapp: whatsapp || phone, 
+        whatsapp: whatsapp || phone,
         password,
         contactPreference: { ...contactPreference, displayName: fullName },
       });
-      setCurrentPage('home'); 
+      setCurrentPage('home');
     } catch (err: any) {
       setError(err.message || 'שגיאת הרשמה. ייתכן שהאימייל כבר קיים או שארעה שגיאה אחרת.');
     } finally {
@@ -83,16 +84,17 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
   };
 
   const contactOptions = [
-    { id: 'showPhone', label: 'הצג טלפון במודעות', value: 'showPhone' },
-    { id: 'showWhatsapp', label: 'הצג וואטסאפ במודעות', value: 'showWhatsapp' },
-    { id: 'showEmail', label: 'הצג אימייל במודעות', value: 'showEmail' },
+    { id: 'showPhone', label: 'הצג טלפון', value: 'showPhone' },
+    { id: 'showWhatsapp', label: 'הצג וואטסאפ', value: 'showWhatsapp' },
+    { id: 'showEmail', label: 'הצג אימייל', value: 'showEmail' },
+    { id: 'showChat', label: 'אפשר יצירת קשר דרך מערכת ההודעות', value: 'showChat' },
   ];
 
   return (
     <div className="min-h-[calc(100vh-250px)] flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-lg w-full space-y-8 bg-white p-8 sm:p-10 rounded-xl shadow-2xl">
         <div className="text-center">
-            <UserIcon className="mx-auto h-12 w-auto text-royal-blue"/>
+          <UserIcon className="mx-auto h-12 w-auto text-royal-blue" />
           <h2 className="mt-6 text-center text-3xl font-extrabold text-royal-blue">
             יצירת חשבון חדש
           </h2>
@@ -128,11 +130,11 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
               <Input label="שם מלא" id="fullName" name="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-              <Input label="טלפון" id="phone" name="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required placeholder="05X-XXXXXXX"/>
+              <Input label="טלפון" id="phone" name="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required placeholder="05X-XXXXXXX" />
             </div>
-            <Input label="אימייל" id="email-register" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="your@email.com"/>
-            <Input label="וואטסאפ (אופציונלי, אם שונה מהטלפון)" id="whatsapp" name="whatsapp" type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="05X-XXXXXXX"/>
-            
+            <Input label="אימייל" id="email-register" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="your@email.com" />
+            <Input label="וואטסאפ (אופציונלי, אם שונה מהטלפון)" id="whatsapp" name="whatsapp" type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="05X-XXXXXXX" />
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
               <Input label="סיסמה (לפחות 6 תווים)" id="password-register" name="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
               <Input label="אימות סיסמה" id="confirmPassword" name="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
@@ -142,11 +144,11 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
               <legend className="text-lg font-medium text-gray-800 px-2">הגדרות פרטיות ראשוניות</legend>
               <p className="text-xs text-gray-500 mb-3 text-right">תוכל לשנות הגדרות אלו ולקבוע שם תצוגה שונה לכל מודעה בעת הפרסום או באזור האישי.</p>
               <CheckboxGroup
-                  legend="אילו פרטי התקשרות להציג כברירת מחדל במודעות שתפרסם?"
-                  name="contactPreferenceGroup"
-                  options={contactOptions}
-                  selectedValues={new Set(Object.entries(contactPreference).filter(([, val]) => val === true && typeof val === 'boolean').map(([key]) => key))}
-                  onChange={handleContactPreferenceChange}
+                legend="אילו פרטי התקשרות להציג כברירת מחדל במודעות שתפרסם?"
+                name="contactPreferenceGroup"
+                options={contactOptions}
+                selectedValues={new Set(Object.entries(contactPreference).filter(([, val]) => val === true && typeof val === 'boolean').map(([key]) => key))}
+                onChange={handleContactPreferenceChange}
               />
             </fieldset>
 
