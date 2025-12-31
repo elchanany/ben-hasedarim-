@@ -239,7 +239,7 @@ export const ProfilePage: React.FC<PageProps> = ({ setCurrentPage }) => {
         {successMessage && <p className="mb-4 text-center text-sm text-green-600 bg-green-100 p-3 rounded-md">{successMessage}</p>}
 
         <>
-          <form onSubmit={handleProfileSubmit} className="space-y-6 mb-10">
+          <form onSubmit={handleProfileSubmit} className="space-y-6 mb-10" noValidate>
             <h2 className="text-xl font-semibold text-deep-pink border-b border-pink-200 pb-2 mb-4">עריכת פרטים אישיים</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input label="שם מלא" id="fullName" name="fullName" value={formData.fullName || ''} onChange={handleProfileChange} required />
@@ -255,7 +255,7 @@ export const ProfilePage: React.FC<PageProps> = ({ setCurrentPage }) => {
             </Button>
           </form>
 
-          <form onSubmit={handlePasswordSubmit} className="space-y-6 pt-6 border-t border-gray-200 mb-8">
+          <form onSubmit={handlePasswordSubmit} className="space-y-6 pt-6 border-t border-gray-200 mb-8" noValidate>
             <h2 className="text-xl font-semibold text-deep-pink border-b border-pink-200 pb-2 mb-4">שינוי סיסמה</h2>
             <Input label="סיסמה נוכחית" id="currentPassword" name="currentPassword" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

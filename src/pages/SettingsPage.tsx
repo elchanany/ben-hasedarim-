@@ -172,7 +172,7 @@ export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
                 {successMessage && <p className="mb-4 text-center text-sm text-green-600 bg-green-100 p-3 rounded-md">{successMessage}</p>}
 
                 <div className="space-y-8 animate-fade-in">
-                    <form onSubmit={handleSettingsSubmit} className="space-y-6">
+                    <form onSubmit={handleSettingsSubmit} className="space-y-6" noValidate>
 
                         {/* Notification Settings Link */}
                         <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 mb-6 flex justify-between items-center">

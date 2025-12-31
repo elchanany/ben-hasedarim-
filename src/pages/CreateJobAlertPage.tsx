@@ -69,7 +69,7 @@ export const CreateJobAlertPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
     const [alertFormData, setAlertFormData] = useState<Partial<Omit<JobAlertPreference, 'id' | 'userId' | 'lastChecked'>>>(initialAlertFormData);
     const [isLoading, setIsLoading] = useState(false);
     const [pageError, setPageError] = useState<string | null>(null);
-    
+
     useEffect(() => {
         const initialData = {
             ...initialAlertFormData,
@@ -107,8 +107,8 @@ export const CreateJobAlertPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
                             maxAge: alertToEdit.maxAge || '',
                             frequency: alertToEdit.frequency || 'daily',
                             isActive: alertToEdit.isActive === undefined ? true : alertToEdit.isActive,
-                            notificationDays: alertToEdit.notificationDays || [0,1,2,3,4,5],
-                            doNotDisturbHours: alertToEdit.doNotDisturbHours || {start: "22:00", end: "07:00"},
+                            notificationDays: alertToEdit.notificationDays || [0, 1, 2, 3, 4, 5],
+                            doNotDisturbHours: alertToEdit.doNotDisturbHours || { start: "22:00", end: "07:00" },
                             deliveryMethods: { site: true, email: false, whatsapp: false, tzintuk: false },
                             alertEmail: alertToEdit.alertEmail || user?.email || '',
                             alertWhatsappPhone: alertToEdit.alertWhatsappPhone || user?.whatsapp || user?.phone || '',
@@ -146,11 +146,11 @@ export const CreateJobAlertPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
         } else if (type === 'checkbox' && name === 'isActive') {
             setAlertFormData(prev => ({ ...prev, isActive: checked }));
         }
-         else { // Handles text inputs including alertEmail, alertWhatsappPhone, alertTzintukPhone
+        else { // Handles text inputs including alertEmail, alertWhatsappPhone, alertTzintukPhone
             setAlertFormData(prev => ({ ...prev, [name]: value }));
         }
     };
-  
+
     const handleAlertPaymentMethodChange = (valueKey: string, checked: boolean) => {
         setAlertFormData(prev => {
             const newSet = new Set(prev.selectedPaymentMethods);
@@ -163,15 +163,15 @@ export const CreateJobAlertPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
     const handleAlertDateChange = (fieldName: 'specificDateStart' | 'specificDateEnd', date: string | null) => {
         setAlertFormData(prev => ({ ...prev, [fieldName]: date }));
     };
-  
+
     const handleNotificationDaysChange = (dayValue: string, checked: boolean) => {
         const dayNumber = parseInt(dayValue, 10);
         setAlertFormData(prev => {
             const currentDays = prev.notificationDays || [];
-            const newDays = checked 
-                ? [...currentDays, dayNumber] 
+            const newDays = checked
+                ? [...currentDays, dayNumber]
                 : currentDays.filter(d => d !== dayNumber);
-            return { ...prev, notificationDays: Array.from(new Set(newDays)).sort((a,b) => a-b) };
+            return { ...prev, notificationDays: Array.from(new Set(newDays)).sort((a, b) => a - b) };
         });
     };
 
@@ -183,7 +183,7 @@ export const CreateJobAlertPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
         setIsLoading(true);
         setPageError(null);
 
-        const finalAlertData: Omit<JobAlertPreference, 'id' | 'userId' | 'lastChecked' > = {
+        const finalAlertData: Omit<JobAlertPreference, 'id' | 'userId' | 'lastChecked'> = {
             name: alertFormData.name || 'התראה ללא שם',
             location: alertFormData.location || '',
             difficulty: alertFormData.difficulty || '',
@@ -206,8 +206,8 @@ export const CreateJobAlertPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
             maxAge: alertFormData.maxAge || '',
             frequency: alertFormData.frequency || 'daily',
             isActive: alertFormData.isActive === undefined ? true : alertFormData.isActive,
-            notificationDays: alertFormData.notificationDays || [0,1,2,3,4,5],
-            doNotDisturbHours: alertFormData.doNotDisturbHours || {start: "22:00", end: "07:00"},
+            notificationDays: alertFormData.notificationDays || [0, 1, 2, 3, 4, 5],
+            doNotDisturbHours: alertFormData.doNotDisturbHours || { start: "22:00", end: "07:00" },
             deliveryMethods: { site: true, email: false, whatsapp: false, tzintuk: false }, // Forced
             alertEmail: alertFormData.alertEmail || '',
             alertWhatsappPhone: alertFormData.alertWhatsappPhone || '',
@@ -215,43 +215,43 @@ export const CreateJobAlertPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
         };
 
         try {
-          if (isEditMode && editingAlertId) {
-            await notificationService.updateJobAlertPreference(user.id, editingAlertId, finalAlertData);
-          } else {
-            await notificationService.addJobAlertPreference(user.id, finalAlertData);
-          }
-          setCurrentPage('notifications', { tab: 'alerts' });
+            if (isEditMode && editingAlertId) {
+                await notificationService.updateJobAlertPreference(user.id, editingAlertId, finalAlertData);
+            } else {
+                await notificationService.addJobAlertPreference(user.id, finalAlertData);
+            }
+            setCurrentPage('notifications', { tab: 'alerts' });
         } catch (error) {
-          console.error("Error saving job alert:", error);
-          setPageError("שגיאה בשמירת ההתראה. נסו שוב.");
+            console.error("Error saving job alert:", error);
+            setPageError("שגיאה בשמירת ההתראה. נסו שוב.");
         } finally {
             setIsLoading(false);
         }
     };
-  
+
     const cityOptions = [{ value: '', label: 'כל הארץ' }, ...ISRAELI_CITIES.map(city => ({ value: city.name, label: city.name }))];
 
-    if (isLoading && isEditMode) { 
+    if (isLoading && isEditMode) {
         return <div className="text-center p-10">טוען נתוני התראה...</div>;
     }
     if (pageError && !isEditMode) { // Show page error more prominently if not loading for edit
-        return <div className="text-center p-10 text-red-500">{pageError} <Button onClick={() => setCurrentPage('notifications', {tab: 'alerts'})}>חזור להתראות</Button></div>;
+        return <div className="text-center p-10 text-red-500">{pageError} <Button onClick={() => setCurrentPage('notifications', { tab: 'alerts' })}>חזור להתראות</Button></div>;
     }
-    
+
     return (
         <div className="max-w-3xl mx-auto bg-white p-6 sm:p-8 rounded-xl shadow-2xl my-8">
             <h1 className="text-3xl font-bold text-royal-blue mb-6 text-center border-b pb-4">
                 {isEditMode ? "עריכת התראת עבודה" : "יצירת התראת עבודה חדשה"}
             </h1>
             {pageError && <p className="mb-4 text-center text-sm text-red-600 bg-red-100 p-3 rounded-md">{pageError}</p>}
-            <form onSubmit={(e) => { e.preventDefault(); handleSaveAlert(); }} className="space-y-6">
+            <form onSubmit={(e) => { e.preventDefault(); handleSaveAlert(); }} className="space-y-6" noValidate>
                 <fieldset className="p-4 border border-light-blue/30 rounded-md bg-light-blue/10">
                     <legend className="text-lg font-semibold text-royal-blue mb-2 px-1">פרטי התראה בסיסיים</legend>
                     <Input label="שם ההתראה (לזיהוי אישי)" name="name" value={alertFormData.name || ''} onChange={handleAlertFormChange} required />
                     <Select label="תדירות קבלת התראות" name="frequency" options={JobAlertFrequencyOptions} value={alertFormData.frequency || 'daily'} onChange={handleAlertFormChange} />
                     <div className="flex items-center justify-end mt-3">
                         <label htmlFor="isActiveAlertPage" className="ml-2 rtl:mr-2 rtl:ml-0 text-sm text-gray-700">התראה פעילה</label>
-                        <input type="checkbox" id="isActiveAlertPage" name="isActive" checked={alertFormData.isActive ?? true} onChange={handleAlertFormChange} className="h-4 w-4 text-royal-blue border-gray-300 rounded focus:ring-royal-blue"/>
+                        <input type="checkbox" id="isActiveAlertPage" name="isActive" checked={alertFormData.isActive ?? true} onChange={handleAlertFormChange} className="h-4 w-4 text-royal-blue border-gray-300 rounded focus:ring-royal-blue" />
                     </div>
                 </fieldset>
 
@@ -269,23 +269,23 @@ export const CreateJobAlertPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
                         </div>
                     )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                        <RangeInputGroup label="משך משוער (שעות)" minName="minEstimatedDurationHours" minValue={alertFormData.minEstimatedDurationHours || ''} onMinChange={handleAlertFormChange} maxName="maxEstimatedDurationHours" maxValue={alertFormData.maxEstimatedDurationHours || ''} onMaxChange={handleAlertFormChange} unitSymbol="שעות" disabled={alertFormData.filterDurationFlexible === 'yes'}/>
+                        <RangeInputGroup label="משך משוער (שעות)" minName="minEstimatedDurationHours" minValue={alertFormData.minEstimatedDurationHours || ''} onMinChange={handleAlertFormChange} maxName="maxEstimatedDurationHours" maxValue={alertFormData.maxEstimatedDurationHours || ''} onMaxChange={handleAlertFormChange} unitSymbol="שעות" disabled={alertFormData.filterDurationFlexible === 'yes'} />
                         <Select label="האם משך הזמן גמיש?" name="filterDurationFlexible" options={DURATION_FLEXIBILITY_OPTIONS} value={alertFormData.filterDurationFlexible || 'any'} onChange={handleAlertFormChange} />
                         <Select label="סוג תשלום" name="paymentKind" options={PAYMENT_KIND_OPTIONS} value={alertFormData.paymentKind || 'any'} onChange={handleAlertFormChange} />
                     </div>
                     {(alertFormData.paymentKind === 'any' || alertFormData.paymentKind === PaymentType.HOURLY) && (
-                        <RangeInputGroup containerClassName="mt-4" label="שכר שעתי" minName="minHourlyRate" minValue={alertFormData.minHourlyRate || ''} onMinChange={handleAlertFormChange} maxName="maxHourlyRate" maxValue={alertFormData.maxHourlyRate || ''} onMaxChange={handleAlertFormChange} unitSymbol="₪ לשעה"/>
+                        <RangeInputGroup containerClassName="mt-4" label="שכר שעתי" minName="minHourlyRate" minValue={alertFormData.minHourlyRate || ''} onMinChange={handleAlertFormChange} maxName="maxHourlyRate" maxValue={alertFormData.maxHourlyRate || ''} onMaxChange={handleAlertFormChange} unitSymbol="₪ לשעה" />
                     )}
                     {(alertFormData.paymentKind === 'any' || alertFormData.paymentKind === PaymentType.GLOBAL) && (
-                        <RangeInputGroup containerClassName="mt-4" label="שכר גלובלי" minName="minGlobalPayment" minValue={alertFormData.minGlobalPayment|| ''} onMinChange={handleAlertFormChange} maxName="maxGlobalPayment" maxValue={alertFormData.maxGlobalPayment || ''} onMaxChange={handleAlertFormChange} unitSymbol="₪ סהכ"/>
+                        <RangeInputGroup containerClassName="mt-4" label="שכר גלובלי" minName="minGlobalPayment" minValue={alertFormData.minGlobalPayment || ''} onMinChange={handleAlertFormChange} maxName="maxGlobalPayment" maxValue={alertFormData.maxGlobalPayment || ''} onMaxChange={handleAlertFormChange} unitSymbol="₪ סהכ" />
                     )}
                     <div className="mt-4">
                         <CheckboxGroup legend="אופן תשלום" name="alert_selectedPaymentMethods_page" options={PAYMENT_METHOD_FILTER_OPTIONS} selectedValues={alertFormData.selectedPaymentMethods || new Set()} onChange={handleAlertPaymentMethodChange} legendClassName="text-sm font-medium text-gray-700 mb-1 text-right" />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                        <RangeInputGroup label="מספר אנשים דרושים" minName="minPeopleNeeded" minValue={alertFormData.minPeopleNeeded || ''} onMinChange={handleAlertFormChange} maxName="maxPeopleNeeded" maxValue={alertFormData.maxPeopleNeeded || ''} onMaxChange={handleAlertFormChange} unitSymbol="אנשים"/>
+                        <RangeInputGroup label="מספר אנשים דרושים" minName="minPeopleNeeded" minValue={alertFormData.minPeopleNeeded || ''} onMinChange={handleAlertFormChange} maxName="maxPeopleNeeded" maxValue={alertFormData.maxPeopleNeeded || ''} onMaxChange={handleAlertFormChange} unitSymbol="אנשים" />
                         <Select label="מיועד ל..." name="suitabilityFor" options={SUITABILITY_FOR_OPTIONS} value={alertFormData.suitabilityFor || 'any'} onChange={handleAlertFormChange} />
-                        <RangeInputGroup label="גיל המועמד" minName="minAge" minValue={alertFormData.minAge || ''} onMinChange={handleAlertFormChange} maxName="maxAge" maxValue={alertFormData.maxAge || ''} onMaxChange={handleAlertFormChange} unitSymbol="שנים"/>
+                        <RangeInputGroup label="גיל המועמד" minName="minAge" minValue={alertFormData.minAge || ''} onMinChange={handleAlertFormChange} maxName="maxAge" maxValue={alertFormData.maxAge || ''} onMaxChange={handleAlertFormChange} unitSymbol="שנים" />
                     </div>
                 </fieldset>
 
@@ -308,17 +308,17 @@ export const CreateJobAlertPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
                         </div>
                     </div>
                 </fieldset>
-          
+
                 <fieldset className="p-4 border border-light-blue/30 rounded-md bg-light-blue/10">
                     <legend className="text-lg font-semibold text-royal-blue mb-2 px-1">אמצעי קבלת התראה (בנוסף לאתר)</legend>
                     <p className="text-xs text-gray-500 mb-3">ההתראות יופיעו תמיד באזור "התראות מערכת" באתר. אפשרויות נוספות בפיתוח ויופיעו כאן לבחירה.</p>
-                    
+
                     {/* Email Alert Option */}
                     <div className="opacity-50 cursor-not-allowed p-3 border-b border-gray-200" title="אפשרות זו בפיתוח ואינה פעילה">
                         <label className="flex items-center justify-end cursor-not-allowed">
                             <span className="mr-3 rtl:ml-3 rtl:mr-0 text-sm text-gray-500">התראות באימייל</span>
                             <div className="relative inline-block w-10 align-middle select-none">
-                                <input type="checkbox" checked={false} readOnly disabled className="sr-only peer"/>
+                                <input type="checkbox" checked={false} readOnly disabled className="sr-only peer" />
                                 <div className="block w-10 h-6 bg-gray-300 rounded-full"></div>
                                 <div className="absolute top-0.5 left-0.5 rtl:right-0.5 rtl:left-auto w-5 h-5 bg-white rounded-full shadow-md"></div>
                             </div>
@@ -328,11 +328,11 @@ export const CreateJobAlertPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
                     </div>
 
                     {/* WhatsApp Alert Option */}
-                     <div className="opacity-50 cursor-not-allowed p-3 border-b border-gray-200" title="אפשרות זו בפיתוח ואינה פעילה">
+                    <div className="opacity-50 cursor-not-allowed p-3 border-b border-gray-200" title="אפשרות זו בפיתוח ואינה פעילה">
                         <label className="flex items-center justify-end cursor-not-allowed">
                             <span className="mr-3 rtl:ml-3 rtl:mr-0 text-sm text-gray-500">התראות בוואטסאפ</span>
-                             <div className="relative inline-block w-10 align-middle select-none">
-                                <input type="checkbox" checked={false} readOnly disabled className="sr-only peer"/>
+                            <div className="relative inline-block w-10 align-middle select-none">
+                                <input type="checkbox" checked={false} readOnly disabled className="sr-only peer" />
                                 <div className="block w-10 h-6 bg-gray-300 rounded-full"></div>
                                 <div className="absolute top-0.5 left-0.5 rtl:right-0.5 rtl:left-auto w-5 h-5 bg-white rounded-full shadow-md"></div>
                             </div>
@@ -346,7 +346,7 @@ export const CreateJobAlertPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
                         <label className="flex items-center justify-end cursor-not-allowed">
                             <span className="mr-3 rtl:ml-3 rtl:mr-0 text-sm text-gray-500">התראות בצינתוק (שיחה קולית)</span>
                             <div className="relative inline-block w-10 align-middle select-none">
-                                <input type="checkbox" checked={false} readOnly disabled className="sr-only peer"/>
+                                <input type="checkbox" checked={false} readOnly disabled className="sr-only peer" />
                                 <div className="block w-10 h-6 bg-gray-300 rounded-full"></div>
                                 <div className="absolute top-0.5 left-0.5 rtl:right-0.5 rtl:left-auto w-5 h-5 bg-white rounded-full shadow-md"></div>
                             </div>

@@ -19,8 +19,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, message })
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const { login, signInWithGoogle, sendPasswordResetEmail } = useAuth();
 
-  // Helper to clean email from common copy-paste fluff and invisible Hebrew marks (RTL/LTR)
-  const cleanEmail = (val: string) => val.replace(/[\u200B-\u200D\uFEFF\u200E\u200F\s]/g, '').toLowerCase();
+  // Ultra-aggressive email cleaning: ASCII ONLY, no spaces, no hidden marks
+  const cleanEmail = (val: string) => {
+    const cleaned = val.toLowerCase()
+      .replace(/[^\x21-\x7E]/g, '') // Remove everything except printable ASCII (no spaces, no Hebrew, no emoji)
+      .trim();
+    return cleaned;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,7 +135,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, message })
           </div>
 
           {isForgotPassword ? (
-            <form onSubmit={handleForgotPassword} className="space-y-6">
+            <form onSubmit={handleForgotPassword} className="space-y-6" noValidate>
               <p className="text-sm text-gray-600 text-center">
                 הכנס את כתובת האימייל שלך ונשלח לך קישור לשחזור הסיסמה.
               </p>
@@ -165,7 +170,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, message })
               )}
             </form>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6" noValidate>
               <Input
                 id="email-login"
                 name="email"

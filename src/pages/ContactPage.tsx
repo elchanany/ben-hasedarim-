@@ -3,6 +3,7 @@ import * as contactService from '../services/contactService';
 import { Button } from '../components/Button';
 import { EnvelopeIcon, PaperAirplaneIcon } from '../components/icons';
 import { useAuth } from '../hooks/useAuth';
+import type { PageProps } from '../App';
 
 export const ContactPage: React.FC<PageProps> = ({ setCurrentPage }) => {
     const { user } = useAuth();
@@ -69,7 +70,7 @@ export const ContactPage: React.FC<PageProps> = ({ setCurrentPage }) => {
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6" noValidate>
                 <div>
                     <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">שם מלא</label>
                     <input

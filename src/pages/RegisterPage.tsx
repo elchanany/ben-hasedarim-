@@ -23,8 +23,13 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
   const [passwordMatchError, setPasswordMatchError] = useState('');
   const { register, signInWithGoogle, checkEmailExists } = useAuth();
 
-  // Helper to clean email from common copy-paste fluff and invisible Hebrew marks (RTL/LTR)
-  const cleanEmail = (val: string) => val.replace(/[\u200B-\u200D\uFEFF\u200E\u200F\s]/g, '').toLowerCase();
+  // Ultra-aggressive email cleaning: ASCII ONLY, no spaces, no hidden marks
+  const cleanEmail = (val: string) => {
+    const cleaned = val.toLowerCase()
+      .replace(/[^\x21-\x7E]/g, '') // Remove everything except printable ASCII (no spaces, no Hebrew, no emoji)
+      .trim();
+    return cleaned;
+  };
 
   // Real-time password match check
   React.useEffect(() => {
@@ -117,6 +122,8 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
     }
 
     setIsLoading(true);
+    console.log("Submit Debug - Email Token:", Array.from(trimmedEmail).map(c => c.charCodeAt(0)).join(','));
+
     try {
       await register({
         fullName: trimmedFullName,
@@ -149,7 +156,7 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
       } else if (errorCode === 'auth/weak-password' || errorMessage.includes('weak-password')) {
         setError('הסיסמה שבחרת חלשה מדי. בחר סיסמה עם 6 תווים לפחות.');
       } else {
-        setError(errorMessage || 'שגיאת הרשמה. נסה שוב מאוחר יותר.');
+        setError(`${errorMessage || 'שגיאת הרשמה. נסה שוב מאוחר יותר.'} (${errorCode})`);
       }
     } finally {
       setIsLoading(false);

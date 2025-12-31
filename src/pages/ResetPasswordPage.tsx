@@ -78,7 +78,7 @@ export const ResetPasswordPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
                     <>
                         {error && <p className="text-center text-sm text-red-600 bg-red-100 p-3 rounded-md">{error}</p>}
 
-                        <form onSubmit={handleSubmit} className="space-y-6">
+                        <form onSubmit={handleSubmit} className="space-y-6" noValidate>
                             <Input
                                 id="reset-password"
                                 name="password"

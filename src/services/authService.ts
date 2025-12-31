@@ -164,6 +164,7 @@ export const login = async (email: string, password: string): Promise<User> => {
 };
 
 export const register = async (data: RegisterData): Promise<User> => {
+  console.log("AuthService Register - Email Token:", Array.from(data.email).map(c => c.charCodeAt(0)).join(','));
   const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
 
   if (userCredential.user) {

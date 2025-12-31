@@ -66,7 +66,7 @@ export const BlockedPage: React.FC<BlockedPageProps> = ({ user, onLogout }) => {
                 {!isContactBlocked ? (
                     <>
                         {!sent ? (
-                            <form onSubmit={handleContactSubmit} className="text-right">
+                            <form onSubmit={handleContactSubmit} className="text-right" noValidate>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">ערעור / יצירת קשר עם ההנהלה:</label>
                                 <textarea
                                     className="w-full border rounded-md p-3 focus:ring-2 focus:ring-royal-blue min-h-[100px]"

@@ -15,7 +15,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }
 
   const adjustTextareaHeight = () => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'; 
+      textareaRef.current.style.height = 'auto';
       const scrollHeight = textareaRef.current.scrollHeight;
       const maxHeight = 120; // Approx 5 lines
       textareaRef.current.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
@@ -33,9 +33,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }
     setIsSending(true);
     try {
       await onSendMessage(messageText.trim());
-      setMessageText(''); 
+      setMessageText('');
       if (textareaRef.current) { // Reset height after send
-         textareaRef.current.style.height = 'auto';
+        textareaRef.current.style.height = 'auto';
       }
     } catch (error) {
       console.error("Error sending message:", error);
@@ -48,7 +48,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit(e as any); 
+      handleSubmit(e as any);
     }
   };
 
@@ -56,6 +56,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }
     <form
       onSubmit={handleSubmit}
       className="flex-shrink-0 flex items-end space-x-2 rtl:space-x-reverse p-2 sm:p-3 border-t border-gray-200 bg-neutral-gray sm:rounded-b-xl"
+      noValidate
     >
       <textarea
         ref={textareaRef}
@@ -64,8 +65,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }
         onKeyDown={handleKeyDown}
         placeholder="הקלד הודעה..."
         className="flex-grow p-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-royal-blue focus:border-royal-blue resize-none overflow-y-auto bg-white text-dark-text placeholder-medium-text"
-        rows={1} 
-        style={{ minHeight: '44px', maxHeight: '120px' }} 
+        rows={1}
+        style={{ minHeight: '44px', maxHeight: '120px' }}
         disabled={isLoading || isSending}
         aria-label="כתוב הודעה"
         aria-multiline="true"
@@ -73,8 +74,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }
       <Button
         type="submit"
         variant="primary"
-        size="md" 
-        className="!p-3 aspect-square rounded-full" 
+        size="md"
+        className="!p-3 aspect-square rounded-full"
         isLoading={isSending}
         disabled={isLoading || !messageText.trim() || isSending}
         aria-label="שלח הודעה"

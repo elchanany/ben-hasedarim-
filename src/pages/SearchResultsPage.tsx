@@ -232,7 +232,7 @@ export const SearchResultsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
   const activeFilterCount = countActiveFilters(filters, initialFiltersState);
 
   const filterFormContent = (
-    <form onSubmit={handleSearchSubmit} className="space-y-6">
+    <form onSubmit={handleSearchSubmit} className="space-y-6" noValidate>
       {/* Quick Search Row - The "Magic Bar" */}
       <div className="bg-white/95 backdrop-blur-sm p-8 md:p-10 rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] border border-white/20 space-y-10 relative z-[100]">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
