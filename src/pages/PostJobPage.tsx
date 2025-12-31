@@ -883,15 +883,15 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
           {errors.preferredContactMethods && <p className="mt-1 text-xs text-red-700 text-right bg-red-50 p-2 rounded-md">{errors.preferredContactMethods}</p>}
         </fieldset>
 
-        {globalErrorSummary && <p className="mb-4 text-center text-sm text-red-700 bg-red-50 p-4 rounded-lg border border-red-200">{globalErrorSummary}</p>}
-        {errors.form && <p className="text-center text-sm text-red-700 bg-red-50 p-4 rounded-lg border border-red-200 mt-2">{errors.form}</p>}
-
         <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mt-6 mb-4 flex items-start text-blue-800 shadow-sm">
           <LightBulbIcon className="w-7 h-7 ml-3 rtl:mr-3 rtl:ml-0 text-blue-600 flex-shrink-0 mt-0.5" />
           <p className="text-sm">
             <strong>שימו לב:</strong> לאחר שהעבודה נתפסה או שאינה רלוונטית עוד, חשוב מאוד למחוק את המודעה דרך 'העבודות שפרסמתי' בפרופיל האישי. כך נשמור יחד על מאגר עבודות עדכני ויעיל לכולם.
           </p>
         </div>
+
+        {globalErrorSummary && <p className="mb-4 text-center text-sm text-red-700 bg-red-50 p-4 rounded-lg border border-red-200 animate-fade-in">{globalErrorSummary}</p>}
+        {errors.form && <p className="text-center text-sm text-red-700 bg-red-50 p-4 rounded-lg border border-red-200 mt-2 animate-fade-in">{errors.form}</p>}
 
         <Button type="submit" variant="secondary" size="lg" className="w-full" isLoading={isLoading} icon={isEditMode ? <SaveIcon className="w-6 h-6" /> : <PlusCircleIcon className="w-6 h-6" />}>
           {isLoading ? (isEditMode ? 'מעדכן...' : 'מפרסם...') : submitButtonText}

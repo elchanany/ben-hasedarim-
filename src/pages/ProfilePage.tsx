@@ -235,7 +235,6 @@ export const ProfilePage: React.FC<PageProps> = ({ setCurrentPage }) => {
           </div>
         </div>
 
-        {errorMessage && <p className="mb-4 text-center text-sm text-red-600 bg-red-100 p-3 rounded-md">{errorMessage}</p>}
         {successMessage && <p className="mb-4 text-center text-sm text-green-600 bg-green-100 p-3 rounded-md">{successMessage}</p>}
 
         <>
@@ -250,6 +249,7 @@ export const ProfilePage: React.FC<PageProps> = ({ setCurrentPage }) => {
               <Input label="וואטסאפ (אם שונה מהטלפון)" id="whatsapp" name="whatsapp" type="tel" value={formData.whatsapp || ''} onChange={handleProfileChange} placeholder="05X-XXXXXXX" />
             </div>
 
+            {errorMessage && <p className="mb-4 text-center text-sm text-red-600 bg-red-100 p-3 rounded-md animate-fade-in">{errorMessage}</p>}
             <Button type="submit" variant="primary" isLoading={isUpdatingProfile} className="w-full sm:w-auto">
               {isUpdatingProfile ? 'מעדכן פרופיל...' : 'שמור שינויים בפרופיל'}
             </Button>
@@ -262,6 +262,7 @@ export const ProfilePage: React.FC<PageProps> = ({ setCurrentPage }) => {
               <Input label="סיסמה חדשה (לפחות 6 תווים)" id="newPassword" name="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
               <Input label="אימות סיסמה חדשה" id="confirmNewPassword" name="confirmNewPassword" type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} required />
             </div>
+            {errorMessage && <p className="mb-4 text-center text-sm text-red-600 bg-red-100 p-3 rounded-md animate-fade-in">{errorMessage}</p>}
             <Button type="submit" variant="secondary" isLoading={isUpdatingPassword} className="w-full sm:w-auto">
               {isUpdatingPassword ? 'משנה סיסמה...' : 'שנה סיסמה'}
             </Button>

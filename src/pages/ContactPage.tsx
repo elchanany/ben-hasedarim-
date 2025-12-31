@@ -63,13 +63,6 @@ export const ContactPage: React.FC<PageProps> = ({ setCurrentPage }) => {
                 <p className="text-gray-600 mt-2">יש לך שאלה? הצעה? נשמח לשמוע ממך.</p>
             </div>
 
-            {error && (
-                <div className="bg-red-50 border-r-4 border-red-500 text-red-700 p-4 mb-6 rounded shadow-sm" role="alert">
-                    <p className="font-bold">שגיאה</p>
-                    <p>{error}</p>
-                </div>
-            )}
-
             <form onSubmit={handleSubmit} className="space-y-6" noValidate>
                 <div>
                     <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">שם מלא</label>
@@ -123,6 +116,7 @@ export const ContactPage: React.FC<PageProps> = ({ setCurrentPage }) => {
                     />
                 </div>
 
+                {error && <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 text-center animate-fade-in">{error}</div>}
                 <Button
                     type="submit"
                     className="w-full py-3 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all"

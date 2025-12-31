@@ -21,6 +21,7 @@ export const CookieConsent: React.FC<CookieConsentProps> = ({ onPrivacyPolicyCli
         marketing: false
     });
     const [showSettings, setShowSettings] = useState(false);
+    const [isAnimating, setIsAnimating] = useState(false);
 
     useEffect(() => {
         const storedConsent = localStorage.getItem(COOKIE_CONSENT_KEY);
@@ -33,29 +34,30 @@ export const CookieConsent: React.FC<CookieConsentProps> = ({ onPrivacyPolicyCli
                 }
             } catch (error) {
                 console.error("Error parsing cookie consent:", error);
-                // If parsing fails, reset to default (show banner)
                 localStorage.removeItem(COOKIE_CONSENT_KEY);
                 setShowBanner(true);
+                setTimeout(() => setIsAnimating(true), 100);
             }
         } else {
             setShowBanner(true);
+            setTimeout(() => setIsAnimating(true), 100);
         }
     }, []);
 
     const savePreferences = (prefs: CookiePreferences) => {
-        localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify(prefs));
-        setPreferences(prefs);
-        setShowBanner(false);
-        setShowSettings(false);
+        setIsAnimating(false);
+        setTimeout(() => {
+            localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify(prefs));
+            setPreferences(prefs);
+            setShowBanner(false);
+            setShowSettings(false);
 
-        if (prefs.analytics) {
-            initAnalytics();
-        } else {
-            // Note: Firebase Analytics cannot be easily "stopped" once started without page reload, 
-            // but effectively we just don't init it. If user revokes, a reload might be needed for full clean state,
-            // or we rely on the fact that we won't log further events.
-            window.location.reload(); // Simplest way to ensure scripts stop if they were running
-        }
+            if (prefs.analytics) {
+                initAnalytics();
+            } else {
+                window.location.reload();
+            }
+        }, 500);
     };
 
     const handleAcceptAll = () => {
@@ -74,8 +76,8 @@ export const CookieConsent: React.FC<CookieConsentProps> = ({ onPrivacyPolicyCli
 
     if (showSettings) {
         return (
-            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 dir-rtl">
-                <div className="bg-white text-gray-900 p-6 rounded-xl shadow-2xl max-w-lg w-full">
+            <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 dir-rtl">
+                <div className="bg-white text-gray-900 p-6 rounded-xl shadow-2xl max-w-lg w-full scale-in">
                     <h3 className="text-xl font-bold mb-4 text-royal-blue">הגדרות עוגיות</h3>
                     <p className="mb-4 text-sm text-gray-600">בחר אילו עוגיות ברצונך לאפשר:</p>
 
@@ -125,7 +127,10 @@ export const CookieConsent: React.FC<CookieConsentProps> = ({ onPrivacyPolicyCli
     }
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 bg-gray-900 text-white shadow-[0_-4px_20px_rgba(0,0,0,0.4)] p-5 z-50 dir-rtl md:flex md:items-center md:justify-between gap-6 px-4 md:px-8 pl-20 md:pl-24 border-t border-gray-700">
+        <div
+            className={`fixed bottom-0 left-0 right-0 bg-gray-900 text-white shadow-[0_-4px_20px_rgba(0,0,0,0.4)] p-5 z-50 dir-rtl md:flex md:items-center md:justify-between gap-6 px-4 md:px-8 pl-20 md:pl-24 border-t border-gray-700 transition-all duration-700 ease-out transform ${isAnimating ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
+                }`}
+        >
             <div className="text-sm text-gray-200 flex-1 mb-4 md:mb-0">
                 <p className="font-bold text-white text-lg mb-2">🍪 הגדרות פרטיות</p>
                 <p className="leading-relaxed">

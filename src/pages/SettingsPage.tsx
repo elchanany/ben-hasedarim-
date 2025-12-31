@@ -168,7 +168,6 @@ export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
                     <h1 className="text-3xl font-bold text-royal-blue">הגדרות מערכת</h1>
                 </div>
 
-                {errorMessage && <p className="mb-4 text-center text-sm text-red-600 bg-red-100 p-3 rounded-md">{errorMessage}</p>}
                 {successMessage && <p className="mb-4 text-center text-sm text-green-600 bg-green-100 p-3 rounded-md">{successMessage}</p>}
 
                 <div className="space-y-8 animate-fade-in">
@@ -290,6 +289,7 @@ export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
                             </p>
                         </fieldset>
 
+                        {errorMessage && <p className="mb-4 text-center text-sm text-red-600 bg-red-100 p-3 rounded-md animate-fade-in">{errorMessage}</p>}
                         <Button type="submit" variant="primary" isLoading={isUpdatingProfile} className="w-full sm:w-auto">
                             {isUpdatingProfile ? 'שומר הגדרות...' : 'שמור הגדרות'}
                         </Button>

@@ -243,7 +243,6 @@ export const CreateJobAlertPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
             <h1 className="text-3xl font-bold text-royal-blue mb-6 text-center border-b pb-4">
                 {isEditMode ? "עריכת התראת עבודה" : "יצירת התראת עבודה חדשה"}
             </h1>
-            {pageError && <p className="mb-4 text-center text-sm text-red-600 bg-red-100 p-3 rounded-md">{pageError}</p>}
             <form onSubmit={(e) => { e.preventDefault(); handleSaveAlert(); }} className="space-y-6" noValidate>
                 <fieldset className="p-4 border border-light-blue/30 rounded-md bg-light-blue/10">
                     <legend className="text-lg font-semibold text-royal-blue mb-2 px-1">פרטי התראה בסיסיים</legend>
@@ -365,6 +364,7 @@ export const CreateJobAlertPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
                         {isLoading ? (isEditMode ? 'מעדכן...' : 'יוצר...') : (isEditMode ? "שמור שינויים" : "צור התראה")}
                     </Button>
                 </div>
+                {pageError && <div className="mt-6 p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 text-center animate-fade-in">{pageError}</div>}
             </form>
         </div>
     );

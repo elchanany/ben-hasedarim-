@@ -76,7 +76,6 @@ export const ResetPasswordPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
                     </div>
                 ) : (
                     <>
-                        {error && <p className="text-center text-sm text-red-600 bg-red-100 p-3 rounded-md">{error}</p>}
 
                         <form onSubmit={handleSubmit} className="space-y-6" noValidate>
                             <Input
@@ -100,6 +99,7 @@ export const ResetPasswordPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
                                 placeholder="********"
                             />
 
+                            {error && <p className="text-center text-sm text-red-600 bg-red-100 p-3 rounded-md my-4 animate-fade-in">{error}</p>}
                             <div>
                                 <Button type="submit" variant="primary" size="lg" className="w-full" isLoading={isLoading} disabled={!oobCode}>
                                     {isLoading ? 'מעדכן...' : 'עדכן סיסמה'}

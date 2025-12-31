@@ -112,7 +112,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, message })
           </p>
         </div>
         {message && <p className="text-center text-sm text-blue-600 bg-blue-100 p-3 rounded-md">{message}</p>}
-        {error && <p className="text-center text-sm text-red-600 bg-red-100 p-3 rounded-md">{error}</p>}
 
         <div className="space-y-6">
           <button
@@ -159,14 +158,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, message })
                   </button>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <Button type="submit" variant="primary" size="lg" className="w-full" isLoading={isLoading}>
-                    שלח קישור שחזור
-                  </Button>
-                  <button type="button" onClick={() => setIsForgotPassword(false)} className="w-full text-center text-sm text-gray-500 hover:text-royal-blue">
-                    ביטול וחזרה להתחברות
-                  </button>
-                </div>
+                <>
+                  {error && <p className="text-center text-sm text-red-600 bg-red-100 p-3 rounded-md my-4 animate-fade-in">{error}</p>}
+                  <div className="space-y-4">
+                    <Button type="submit" variant="primary" size="lg" className="w-full" isLoading={isLoading}>
+                      שלח קישור שחזור
+                    </Button>
+                    <button type="button" onClick={() => setIsForgotPassword(false)} className="w-full text-center text-sm text-gray-500 hover:text-royal-blue">
+                      ביטול וחזרה להתחברות
+                    </button>
+                  </div>
+                </>
               )}
             </form>
           ) : (
@@ -207,6 +209,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, message })
                 </button>
               </div>
 
+              {error && <p className="text-center text-sm text-red-600 bg-red-100 p-3 rounded-md my-4 animate-fade-in">{error}</p>}
               <div>
                 <Button type="submit" variant="primary" size="lg" className="w-full" isLoading={isLoading} disabled={isGoogleLoading}>
                   {isLoading ? 'מתחבר...' : 'התחבר'}
