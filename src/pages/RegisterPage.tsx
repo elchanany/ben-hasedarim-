@@ -23,9 +23,49 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
     displayName: ''
   });
   const [error, setError] = useState<React.ReactNode>('');
+  const [emailError, setEmailError] = useState<React.ReactNode>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const { register, signInWithGoogle } = useAuth();
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const { register, signInWithGoogle, checkEmailExists } = useAuth();
+
+  // Real-time email check
+  React.useEffect(() => {
+    const trimmedEmail = email.trim();
+    if (trimmedEmail.length < 5 || !trimmedEmail.includes('@')) {
+      setEmailError('');
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsCheckingEmail(true);
+      try {
+        const exists = await checkEmailExists(trimmedEmail);
+        if (exists) {
+          setEmailError(
+            <div className="flex flex-col items-center gap-2">
+              <span>כתובת האימייל הזו כבר רשומה במערכת.</span>
+              <button
+                type="button"
+                onClick={() => setCurrentPage('login')}
+                className="text-royal-blue font-bold hover:underline"
+              >
+                שכחת סיסמה? התחבר כאן
+              </button>
+            </div>
+          );
+        } else {
+          setEmailError('');
+        }
+      } catch (err) {
+        console.error("Error checking email:", err);
+      } finally {
+        setIsCheckingEmail(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [email, checkEmailExists, setCurrentPage]);
 
   const handleContactPreferenceChange = (value: string, checked: boolean) => {
     setContactPreference(prev => ({ ...prev, [value]: checked }));
@@ -34,33 +74,55 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (password !== confirmPassword) {
-      setError('הסיסמאות אינן תואמות.');
+
+    // Trim all string inputs
+    const trimmedEmail = email.trim();
+    const trimmedFullName = fullName.trim();
+    const trimmedPhone = phone.trim();
+    const trimmedWhatsapp = whatsapp.trim();
+    const trimmedPassword = password; // Usually don't trim passwords as spaces might be intentional, but confirm same for both
+    const trimmedConfirmPassword = confirmPassword;
+
+    if (trimmedPassword !== trimmedConfirmPassword) {
+      setError('הסיסמאות אינן תואמות. אנא בדוק שוב.');
       return;
     }
-    if (password.length < 6) {
+
+    if (trimmedPassword.length < 6) {
       setError('הסיסמה חייבת להכיל לפחות 6 תווים.');
       return;
     }
-    const phoneRegex = /^(05\d|0[2-4,8,9,77])(-?\d){7}$/;
-    if (!phoneRegex.test(phone)) {
-      setError('מספר טלפון לא תקין.');
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setError('כתובת אימייל לא תקינה.');
       return;
     }
-    if (whatsapp && !phoneRegex.test(whatsapp)) {
+
+    const phoneRegex = /^(05\d|0[2-4,8,9,77])(-?\d){7}$/;
+    if (!phoneRegex.test(trimmedPhone)) {
+      setError('מספר טלפון לא תקין. יש להזין מספר תקין (לדוגמה: 052-1234567).');
+      return;
+    }
+    if (trimmedWhatsapp && !phoneRegex.test(trimmedWhatsapp)) {
       setError('מספר וואטסאפ לא תקין.');
       return;
+    }
+
+    if (emailError) {
+      return; // Error is already shown
     }
 
     setIsLoading(true);
     try {
       await register({
-        fullName,
-        phone,
-        email,
-        whatsapp: whatsapp || phone,
-        password,
-        contactPreference: { ...contactPreference, displayName: fullName },
+        fullName: trimmedFullName,
+        phone: trimmedPhone,
+        email: trimmedEmail,
+        whatsapp: trimmedWhatsapp || trimmedPhone,
+        password: trimmedPassword,
+        contactPreference: { ...contactPreference, displayName: trimmedFullName },
       });
       setCurrentPage('home');
     } catch (err: any) {
@@ -142,12 +204,33 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6" noValidate>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
               <Input label="שם מלא" id="fullName" name="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
               <Input label="טלפון" id="phone" name="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required placeholder="05X-XXXXXXX" />
             </div>
-            <Input label="אימייל" id="email-register" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="your@email.com" />
+            <div className="relative">
+              <Input
+                label="אימייל"
+                id="email-register"
+                name="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="your@email.com"
+              />
+              {emailError && (
+                <div className="mt-1 text-xs text-red-700 bg-red-50 p-3 rounded-md border border-red-200 shadow-sm animate-in fade-in slide-in-from-top-1 duration-200">
+                  {emailError}
+                </div>
+              )}
+              {isCheckingEmail && (
+                <div className="absolute left-3 top-10 flex items-center h-full pb-3">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-royal-blue border-t-transparent"></div>
+                </div>
+              )}
+            </div>
             <Input label="וואטסאפ (אופציונלי, אם שונה מהטלפון)" id="whatsapp" name="whatsapp" type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="05X-XXXXXXX" />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">

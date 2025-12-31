@@ -27,6 +27,7 @@ export interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   sendPasswordResetEmail: (email: string) => Promise<void>;
   confirmPasswordReset: (code: string, newPassword: string) => Promise<void>;
+  checkEmailExists: (email: string) => Promise<boolean>;
   updateUserContext: (updatedUser: User) => Promise<void>;
   loadingAuth: boolean;
   totalUnreadCount: number;
@@ -248,6 +249,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const checkEmailExists = async (email: string) => {
+    if (USE_FIREBASE_BACKEND && (AuthService as any).checkEmailExists) {
+      return await (AuthService as any).checkEmailExists(email);
+    }
+    return false;
+  };
+
   const updateUserContext = async (updatedUserData: User) => {
     setUser(updatedUserData);
     await refreshTotalUnreadCount(updatedUserData.id);
@@ -262,6 +270,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       signInWithGoogle,
       sendPasswordResetEmail,
       confirmPasswordReset,
+      checkEmailExists,
       updateUserContext,
       loadingAuth,
       totalUnreadCount,

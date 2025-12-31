@@ -7,7 +7,8 @@ import {
   User as FirebaseAuthUser,
   updateProfile,
   deleteUser,
-  confirmPasswordReset as firebaseConfirmPasswordReset
+  confirmPasswordReset as firebaseConfirmPasswordReset,
+  fetchSignInMethodsForEmail
 } from "firebase/auth";
 import {
   doc,
@@ -288,5 +289,15 @@ export const deleteAccount = async (userId: string): Promise<void> => {
       throw new Error("security-requires-recent-login");
     }
     throw new Error("Failed to delete authentication account");
+  }
+};
+
+export const checkEmailExists = async (email: string): Promise<boolean> => {
+  try {
+    const methods = await fetchSignInMethodsForEmail(auth, email);
+    return methods.length > 0;
+  } catch (error) {
+    console.error("Error checking email existence:", error);
+    return false;
   }
 };
