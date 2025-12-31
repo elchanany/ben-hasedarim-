@@ -18,11 +18,12 @@ import { AccessibilityStatementPage } from './pages/AccessibilityStatementPage';
 import { ContactPage } from './pages/ContactPage';
 import { BlockedPage } from './pages/BlockedPage';
 import { PublicProfilePage } from './pages/PublicProfilePage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { CookieConsent } from './components/CookieConsent';
 import { useAuth } from './hooks/useAuth';
 import { AccessibilityWidget } from './components/AccessibilityWidget';
 
-export type Page = 'home' | 'login' | 'register' | 'postJob' | 'jobDetails' | 'profile' | 'publicProfile' | 'searchResults' | 'admin' | 'notifications' | 'settings' | 'chatThread' | 'createJobAlert' | 'privacy' | 'terms' | 'accessibility' | 'contact';
+export type Page = 'home' | 'login' | 'register' | 'postJob' | 'jobDetails' | 'profile' | 'publicProfile' | 'searchResults' | 'admin' | 'notifications' | 'settings' | 'chatThread' | 'createJobAlert' | 'privacy' | 'terms' | 'accessibility' | 'contact' | 'reset-password';
 
 export interface PageProps {
   setCurrentPage: (page: Page, params?: Record<string, any>) => void;
@@ -34,7 +35,7 @@ const App: React.FC = () => {
   const getInitialState = () => {
     const hash = window.location.hash.replace(/^#\//, '');
     const [pageString, paramStr] = hash.split('?');
-    const validPages: Page[] = ['home', 'login', 'register', 'postJob', 'jobDetails', 'profile', 'publicProfile', 'searchResults', 'admin', 'notifications', 'settings', 'chatThread', 'createJobAlert', 'privacy', 'terms', 'accessibility', 'contact'];
+    const validPages: Page[] = ['home', 'login', 'register', 'postJob', 'jobDetails', 'profile', 'publicProfile', 'searchResults', 'admin', 'notifications', 'settings', 'chatThread', 'createJobAlert', 'privacy', 'terms', 'accessibility', 'contact', 'reset-password'];
 
     // Default to home if invalid or empty
     let initialPage: Page = 'home';
@@ -78,7 +79,7 @@ const App: React.FC = () => {
       }
 
       const page = pageString as Page;
-      const validPages: Page[] = ['home', 'login', 'register', 'postJob', 'jobDetails', 'profile', 'publicProfile', 'searchResults', 'admin', 'notifications', 'settings', 'chatThread', 'createJobAlert', 'privacy', 'terms', 'accessibility', 'contact'];
+      const validPages: Page[] = ['home', 'login', 'register', 'postJob', 'jobDetails', 'profile', 'publicProfile', 'searchResults', 'admin', 'notifications', 'settings', 'chatThread', 'createJobAlert', 'privacy', 'terms', 'accessibility', 'contact', 'reset-password'];
 
       // Admin page access check based on user role
       const isUserAdmin = user?.role === 'admin' || user?.role === 'super_admin' || user?.email?.toLowerCase() === 'eyceyceyc139@gmail.com';
@@ -145,6 +146,8 @@ const App: React.FC = () => {
         return <LoginPage setCurrentPage={setCurrentPage} />;
       case 'register':
         return <RegisterPage setCurrentPage={setCurrentPage} />;
+      case 'reset-password':
+        return <ResetPasswordPage setCurrentPage={setCurrentPage} pageParams={pageParams} />;
       case 'postJob':
         return user ? <PostJobPage setCurrentPage={setCurrentPage} pageParams={pageParams} /> : <LoginPage setCurrentPage={setCurrentPage} message="עליך להתחבר כדי לפרסם עבודה." />;
       case 'jobDetails':

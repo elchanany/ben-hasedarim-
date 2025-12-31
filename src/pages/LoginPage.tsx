@@ -15,7 +15,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, message })
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const { login, signInWithGoogle } = useAuth();
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
+  const { login, signInWithGoogle, sendPasswordResetEmail } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,9 +25,27 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, message })
     setIsLoading(true);
     try {
       await login(email, password);
-      setCurrentPage('home'); 
+      setCurrentPage('home');
     } catch (err: any) {
       setError(err.message || 'שגיאת התחברות. בדוק את הפרטים ונסה שוב.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      setError('אנא הזן את כתובת האימייל שלך.');
+      return;
+    }
+    setError('');
+    setIsLoading(true);
+    try {
+      await sendPasswordResetEmail(email);
+      setResetEmailSent(true);
+    } catch (err: any) {
+      setError(err.message || 'שגיאה בשליחת אימייל שחזור. וודא שהאימייל תקין.');
     } finally {
       setIsLoading(false);
     }
@@ -48,7 +68,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, message })
     <div className="min-h-[calc(100vh-250px)] flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-light-blue/10 p-8 sm:p-10 rounded-xl shadow-2xl border border-light-blue/20">
         <div className="text-center">
-            <LoginIcon className="mx-auto h-12 w-auto text-royal-blue"/>
+          <LoginIcon className="mx-auto h-12 w-auto text-royal-blue" />
           <h2 className="mt-6 text-center text-3xl font-extrabold text-royal-blue">
             התחברות לחשבון
           </h2>
@@ -61,7 +81,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, message })
         </div>
         {message && <p className="text-center text-sm text-blue-600 bg-blue-100 p-3 rounded-md">{message}</p>}
         {error && <p className="text-center text-sm text-red-600 bg-red-100 p-3 rounded-md">{error}</p>}
-        
+
         <div className="space-y-6">
           <button
             type="button"
@@ -82,41 +102,86 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, message })
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <Input
-              id="email-login"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              label="כתובת אימייל"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
-            />
-            <Input
-              id="password-login"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              label="סיסמה"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="********"
-            />
+          {isForgotPassword ? (
+            <form onSubmit={handleForgotPassword} className="space-y-6">
+              <p className="text-sm text-gray-600 text-center">
+                הכנס את כתובת האימייל שלך ונשלח לך קישור לשחזור הסיסמה.
+              </p>
+              <Input
+                id="email-forgot"
+                name="email"
+                type="email"
+                required
+                label="כתובת אימייל לשחזור"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your@email.com"
+              />
+              {resetEmailSent ? (
+                <div className="text-center space-y-4">
+                  <p className="text-blue-600 bg-blue-100 p-3 rounded-md font-bold">
+                    אימייל שחזור נשלח בהצלחה! בדוק את תיבת הדואר שלך.
+                  </p>
+                  <button type="button" onClick={() => setIsForgotPassword(false)} className="text-royal-blue hover:underline font-bold">
+                    חזור להתחברות
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <Button type="submit" variant="primary" size="lg" className="w-full" isLoading={isLoading}>
+                    שלח קישור שחזור
+                  </Button>
+                  <button type="button" onClick={() => setIsForgotPassword(false)} className="w-full text-center text-sm text-gray-500 hover:text-royal-blue">
+                    ביטול וחזרה להתחברות
+                  </button>
+                </div>
+              )}
+            </form>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <Input
+                id="email-login"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                label="כתובת אימייל"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your@email.com"
+              />
+              <Input
+                id="password-login"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                label="סיסמה"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="********"
+              />
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center justify-end w-full">
+              <div className="flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsForgotPassword(true);
+                    setError('');
+                  }}
+                  className="text-sm font-medium text-royal-blue hover:text-blue-700"
+                >
+                  שכחת סיסמה?
+                </button>
               </div>
-            </div>
 
-            <div>
-              <Button type="submit" variant="primary" size="lg" className="w-full" isLoading={isLoading} disabled={isGoogleLoading}>
-                {isLoading ? 'מתחבר...' : 'התחבר'}
-              </Button>
-            </div>
-          </form>
+              <div>
+                <Button type="submit" variant="primary" size="lg" className="w-full" isLoading={isLoading} disabled={isGoogleLoading}>
+                  {isLoading ? 'מתחבר...' : 'התחבר'}
+                </Button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
     </div>

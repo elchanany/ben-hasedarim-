@@ -26,6 +26,7 @@ export interface AuthContextType {
   logout: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   sendPasswordResetEmail: (email: string) => Promise<void>;
+  confirmPasswordReset: (code: string, newPassword: string) => Promise<void>;
   updateUserContext: (updatedUser: User) => Promise<void>;
   loadingAuth: boolean;
   totalUnreadCount: number;
@@ -237,6 +238,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await AuthService.sendPasswordReset(email);
   };
 
+  const confirmPasswordReset = async (code: string, newPassword: string) => {
+    // Only available in Firebase backend
+    if (USE_FIREBASE_BACKEND && (AuthService as any).confirmPasswordReset) {
+      await (AuthService as any).confirmPasswordReset(code, newPassword);
+    } else if (!USE_FIREBASE_BACKEND) {
+      // Mock implementation if needed, for now just a delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  };
+
   const updateUserContext = async (updatedUserData: User) => {
     setUser(updatedUserData);
     await refreshTotalUnreadCount(updatedUserData.id);
@@ -250,6 +261,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       logout,
       signInWithGoogle,
       sendPasswordResetEmail,
+      confirmPasswordReset,
       updateUserContext,
       loadingAuth,
       totalUnreadCount,

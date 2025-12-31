@@ -30,3 +30,6 @@ export { XCircleIcon } from './XCircleIcon';
 export { ExclamationCircleIcon } from './ExclamationCircleIcon';
 export { CogIcon } from './CogIcon';
 export { CopyIcon } from './CopyIcon';
+export { ChevronDownIcon } from './ChevronDownIcon';
+export { XIcon } from './XIcon';
+export { RefreshIcon } from './RefreshIcon';

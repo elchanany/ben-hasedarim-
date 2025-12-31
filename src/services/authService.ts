@@ -6,7 +6,8 @@ import {
   signInWithPopup,
   User as FirebaseAuthUser,
   updateProfile,
-  deleteUser
+  deleteUser,
+  confirmPasswordReset as firebaseConfirmPasswordReset
 } from "firebase/auth";
 import {
   doc,
@@ -227,6 +228,10 @@ export const logout = async (): Promise<void> => {
 
 export const sendPasswordReset = async (email: string): Promise<void> => {
   await firebaseSendPasswordResetEmail(auth, email);
+};
+
+export const confirmPasswordReset = async (code: string, newPassword: string): Promise<void> => {
+  await firebaseConfirmPasswordReset(auth, code, newPassword);
 };
 
 export const updateUserProfile = async (uid: string, data: Partial<User>): Promise<User> => {

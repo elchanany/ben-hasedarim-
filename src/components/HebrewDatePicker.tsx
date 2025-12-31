@@ -267,7 +267,7 @@ export const HebrewDatePicker: React.FC<HebrewDatePickerProps> = ({
         value={displayedValue}
         onClick={() => setIsOpen(true)}
         readOnly
-        className={`mt-1 block w-full px-3 py-2 bg-white border ${error ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus-ring-color focus:border-royal-blue sm:text-sm text-dark-text cursor-pointer ${inputClassName}`}
+        className={`mt-1 block w-full px-4 py-3 bg-gray-50/50 border ${error ? 'border-red-500' : 'border-gray-100'} rounded-2xl shadow-sm focus:outline-none focus-visible:ring-8 focus-visible:ring-royal-blue/5 focus:border-royal-blue focus:bg-white transition-all text-sm font-medium text-dark-text cursor-pointer ${inputClassName}`}
         required={required}
         aria-required={required ? 'true' : undefined}
         aria-invalid={!!error}

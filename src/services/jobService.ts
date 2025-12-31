@@ -162,79 +162,159 @@ export const getHotJobs = async (jobLimit: number = 4): Promise<Job[]> => {
 export interface SearchCriteria extends JobSearchFilters { }
 
 export const searchJobs = async (criteria: Partial<SearchCriteria>): Promise<Job[]> => {
-  let q = query(collection(db, JOBS_COLLECTION));
-
-  if (criteria.location) {
-    q = query(q, where("area", "==", criteria.location));
-  }
-  if (criteria.difficulty) {
-    q = query(q, where("difficulty", "==", criteria.difficulty));
-  }
-
-  if (criteria.dateType === 'today' || (criteria.dateType === 'specificDate' && criteria.specificDateStart)) {
-    const dateToQuery = criteria.dateType === 'today' ? getTodayGregorianISO() : criteria.specificDateStart!;
-    const startDate = new Date(dateToQuery);
-    startDate.setHours(0, 0, 0, 0);
-
-    let endDate = startDate;
-    if (criteria.dateType === 'specificDate' && criteria.specificDateEnd) {
-      endDate = new Date(criteria.specificDateEnd);
-    }
-    endDate.setHours(23, 59, 59, 999);
-
-    q = query(q, where("specificDate", ">=", startDate.toISOString().split('T')[0]));
-    q = query(q, where("specificDate", "<=", endDate.toISOString().split('T')[0]));
-  } else if (criteria.dateType === 'comingWeek') {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const oneWeekFromToday = new Date(today); oneWeekFromToday.setDate(today.getDate() + 7);
-    q = query(q, where("specificDate", ">=", today.toISOString().split('T')[0]));
-    q = query(q, where("specificDate", "<=", oneWeekFromToday.toISOString().split('T')[0]));
-  } else if (criteria.dateType === 'flexibleDate') {
-    q = query(q, where("dateType", "==", "flexibleDate"));
-  }
-
-  if (criteria.paymentKind && criteria.paymentKind !== 'any') {
-    q = query(q, where("paymentType", "==", criteria.paymentKind));
-    if (criteria.paymentKind === PaymentType.HOURLY) {
-      if (criteria.minHourlyRate) q = query(q, where("hourlyRate", ">=", parseFloat(criteria.minHourlyRate)));
-    } else if (criteria.paymentKind === PaymentType.GLOBAL) {
-      if (criteria.minGlobalPayment) q = query(q, where("globalPayment", ">=", parseFloat(criteria.minGlobalPayment)));
-    }
-  }
-
-  if (criteria.suitabilityFor && criteria.suitabilityFor !== 'any') {
-    q = query(q, where(`suitability.${criteria.suitabilityFor}`, "==", true));
-  }
-
-  let sortByField = "postedDate";
-  let sortDirection: "desc" | "asc" = "desc";
-
-  if (criteria.sortBy === 'hottest') {
-    q = query(q, orderBy("views", "desc"), orderBy("postedDate", "desc"));
-  } else if (criteria.sortBy === 'highestPay') {
-    q = query(q, orderBy("globalPayment", "desc"), orderBy("hourlyRate", "desc"), orderBy("postedDate", "desc"));
-  } else {
-    q = query(q, orderBy(sortByField, sortDirection));
-  }
+  // BASE FETCH: Fetch a larger batch of recent jobs to filter in-memory.
+  // This avoids the "missing index" requirement for dynamic composite queries.
+  // 1000 jobs is reasonable for client-side filtering in this context.
+  const jobsCol = collection(db, JOBS_COLLECTION);
+  const q = query(jobsCol, orderBy("postedDate", "desc"), limit(1000));
 
   const querySnapshot = await getDocs(q);
-  let jobs: Job[] = [];
+  let allRecentJobs: Job[] = [];
   querySnapshot.forEach((docSnap) => {
-    jobs.push({ id: docSnap.id, ...convertTimestamps(docSnap.data()) } as Job);
+    allRecentJobs.push({ id: docSnap.id, ...convertTimestamps(docSnap.data()) } as Job);
   });
 
+  // CLIENT-SIDE FILTERING
+  let filteredJobs = allRecentJobs;
+
+  // 1. Text Search (Term)
   if (criteria.term) {
-    const searchTerm = criteria.term.toLowerCase();
-    jobs = jobs.filter(job =>
+    const searchTerm = criteria.term.toLowerCase().trim();
+    filteredJobs = filteredJobs.filter(job =>
       job.title.toLowerCase().includes(searchTerm) ||
       job.description.toLowerCase().includes(searchTerm)
     );
   }
-  if (criteria.selectedPaymentMethods && criteria.selectedPaymentMethods.size > 0) {
-    jobs = jobs.filter(job => job.paymentMethod && criteria.selectedPaymentMethods!.has(job.paymentMethod));
+
+  // 2. Location
+  if (criteria.location) {
+    const filterLocation = criteria.location.trim();
+    filteredJobs = filteredJobs.filter(job =>
+      job.area && job.area.trim() === filterLocation
+    );
   }
-  jobs = jobs.filter(isJobDateValidForSearch);
-  return jobs;
+
+  // 3. Difficulty
+  if (criteria.difficulty) {
+    filteredJobs = filteredJobs.filter(job => job.difficulty === criteria.difficulty);
+  }
+
+  // 4. Date Type & Specific Dates
+  if (criteria.dateType) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (criteria.dateType === 'today') {
+      const todayISO = getTodayGregorianISO();
+      filteredJobs = filteredJobs.filter(job => job.specificDate === todayISO || job.dateType === 'today');
+    } else if (criteria.dateType === 'comingWeek') {
+      const oneWeekFromToday = new Date(today);
+      oneWeekFromToday.setDate(today.getDate() + 7);
+      filteredJobs = filteredJobs.filter(job => {
+        if (!job.specificDate) return job.dateType === 'flexibleDate';
+        const jobDate = new Date(job.specificDate);
+        return jobDate >= today && jobDate <= oneWeekFromToday;
+      });
+    } else if (criteria.dateType === 'flexibleDate') {
+      filteredJobs = filteredJobs.filter(job => job.dateType === 'flexibleDate');
+    } else if (criteria.dateType === 'specificDate') {
+      if (criteria.specificDateStart) {
+        const startDate = new Date(criteria.specificDateStart);
+        startDate.setHours(0, 0, 0, 0);
+        const endDate = criteria.specificDateEnd ? new Date(criteria.specificDateEnd) : startDate;
+        endDate.setHours(23, 59, 59, 999);
+
+        filteredJobs = filteredJobs.filter(job => {
+          if (!job.specificDate) return false;
+          const jobDate = new Date(job.specificDate);
+          return jobDate >= startDate && jobDate <= endDate;
+        });
+      }
+    }
+  }
+
+  // 5. Payment Kind & Rates
+  if (criteria.paymentKind && criteria.paymentKind !== 'any') {
+    filteredJobs = filteredJobs.filter(job => job.paymentType === criteria.paymentKind);
+
+    if (criteria.paymentKind === PaymentType.HOURLY) {
+      if (criteria.minHourlyRate) {
+        const minRate = parseFloat(criteria.minHourlyRate);
+        filteredJobs = filteredJobs.filter(job => (job.hourlyRate || 0) >= minRate);
+      }
+      if (criteria.maxHourlyRate) {
+        const maxRate = parseFloat(criteria.maxHourlyRate);
+        filteredJobs = filteredJobs.filter(job => (job.hourlyRate || 0) <= maxRate);
+      }
+    } else if (criteria.paymentKind === PaymentType.GLOBAL) {
+      if (criteria.minGlobalPayment) {
+        const minPay = parseFloat(criteria.minGlobalPayment);
+        filteredJobs = filteredJobs.filter(job => (job.globalPayment || 0) >= minPay);
+      }
+      if (criteria.maxGlobalPayment) {
+        const maxPay = parseFloat(criteria.maxGlobalPayment);
+        filteredJobs = filteredJobs.filter(job => (job.globalPayment || 0) <= maxPay);
+      }
+    }
+  }
+
+  // 6. Payment Methods
+  if (criteria.selectedPaymentMethods && criteria.selectedPaymentMethods.size > 0) {
+    filteredJobs = filteredJobs.filter(job => job.paymentMethod && criteria.selectedPaymentMethods!.has(job.paymentMethod));
+  }
+
+  // 7. Duration Flexibility
+  if (criteria.filterDurationFlexible && criteria.filterDurationFlexible !== 'any') {
+    const isFlexible = criteria.filterDurationFlexible === 'yes';
+    filteredJobs = filteredJobs.filter(job => !!job.estimatedDurationIsFlexible === isFlexible);
+  }
+
+  // 8. People Needed Range
+  if (criteria.minPeopleNeeded) {
+    const min = parseInt(criteria.minPeopleNeeded);
+    filteredJobs = filteredJobs.filter(job => (job.numberOfPeopleNeeded || 0) >= min);
+  }
+  if (criteria.maxPeopleNeeded) {
+    const max = parseInt(criteria.maxPeopleNeeded);
+    filteredJobs = filteredJobs.filter(job => (job.numberOfPeopleNeeded || 0) <= max);
+  }
+
+  // 9. Suitability
+  if (criteria.suitabilityFor && criteria.suitabilityFor !== 'any') {
+    filteredJobs = filteredJobs.filter(job => {
+      if (!job.suitability) return false;
+      return (job.suitability as any)[criteria.suitabilityFor!] === true;
+    });
+  }
+
+  // 10. Age Range
+  if (criteria.minAge) {
+    const min = parseInt(criteria.minAge);
+    filteredJobs = filteredJobs.filter(job => (job.suitability?.minAge || 0) >= min);
+  }
+  if (criteria.maxAge) {
+    const max = parseInt(criteria.maxAge);
+    filteredJobs = filteredJobs.filter(job => (job.suitability?.minAge || 0) <= max);
+  }
+
+  // SORTING
+  if (criteria.sortBy === 'hottest') {
+    filteredJobs.sort((a, b) => (b.views || 0) - (a.views || 0) || new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime());
+  } else if (criteria.sortBy === 'highestPay') {
+    filteredJobs.sort((a, b) => {
+      const payA = a.paymentType === PaymentType.GLOBAL ? (a.globalPayment || 0) : (a.hourlyRate || 0) * 8; // Normalized approx
+      const payB = b.paymentType === PaymentType.GLOBAL ? (b.globalPayment || 0) : (b.hourlyRate || 0) * 8;
+      return payB - payA || new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime();
+    });
+  } else {
+    // Default newest
+    filteredJobs.sort((a, b) => new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime());
+  }
+
+  // FINAL DATE VALIDATION (Security/Cleanup)
+  filteredJobs = filteredJobs.filter(isJobDateValidForSearch);
+
+  return filteredJobs;
 };
 
 

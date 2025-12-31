@@ -23,7 +23,7 @@ export const Select: React.FC<SelectProps> = ({
   options,
   error,
   containerClassName = 'mb-4',
-  labelClassName = 'block text-sm font-medium text-dark-text mb-1 text-right', 
+  labelClassName = 'block text-sm font-medium text-dark-text mb-1 text-right',
   selectClassName = '',
   placeholder,
   required,
@@ -31,7 +31,7 @@ export const Select: React.FC<SelectProps> = ({
   ...props
 }) => {
   const baseSelectStyle =
-    'mt-1 block w-full pl-3 pr-10 py-2 text-base bg-white border border-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus-ring-color focus:border-royal-blue sm:text-sm text-dark-text rounded-md disabled:bg-gray-100';
+    'mt-1 block w-full pl-3 pr-10 py-3 text-base bg-gray-50/50 border border-gray-100 focus:outline-none focus:bg-white focus-visible:ring-8 focus-visible:ring-royal-blue/5 focus:border-royal-blue sm:text-sm text-dark-text rounded-2xl transition-all disabled:bg-gray-100';
   const errorSelectStyle = error ? 'border-red-500 focus-visible:ring-red-500 focus:border-red-500' : '';
   const describedBy = errorId || (error && id ? `${id}-error` : undefined);
 

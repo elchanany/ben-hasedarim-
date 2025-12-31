@@ -22,7 +22,7 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
     showChat: false,
     displayName: ''
   });
-  const [error, setError] = useState('');
+  const [error, setError] = useState<React.ReactNode>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const { register, signInWithGoogle } = useAuth();
@@ -64,7 +64,22 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
       });
       setCurrentPage('home');
     } catch (err: any) {
-      setError(err.message || 'שגיאת הרשמה. ייתכן שהאימייל כבר קיים או שארעה שגיאה אחרת.');
+      if (err.code === 'auth/email-already-in-use' || err.message?.includes('email-already-in-use')) {
+        setError(
+          <div className="flex flex-col items-center gap-2">
+            <span>כתובת האימייל הזו כבר רשומה במערכת.</span>
+            <button
+              type="button"
+              onClick={() => setCurrentPage('login')}
+              className="text-royal-blue font-bold hover:underline"
+            >
+              שכחת סיסמה? התחבר כאן
+            </button>
+          </div>
+        );
+      } else {
+        setError(err.message || 'שגיאת הרשמה. נסה שוב מאוחר יותר.');
+      }
     } finally {
       setIsLoading(false);
     }

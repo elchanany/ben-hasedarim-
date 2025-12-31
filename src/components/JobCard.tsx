@@ -162,7 +162,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, setCurrentPage, isHotJob 
   };
 
 
-  const cardBaseClasses = "rounded-xl overflow-hidden transform transition-all hover:-translate-y-1 duration-300 ease-in-out flex flex-col cursor-pointer w-full max-w-[320px] sm:max-w-[340px] min-h-[600px]";
+  const cardBaseClasses = "rounded-xl overflow-hidden transform transition-all hover:-translate-y-1 duration-300 ease-in-out flex flex-col cursor-pointer w-full max-w-[320px] sm:max-w-[340px] min-h-[480px]";
   const hotJobClasses = isHotJob ? "bg-orange-100 border border-orange-400 shadow-xl hover:shadow-2xl" : "bg-white shadow-lg hover:shadow-2xl";
 
   const jobTags: TagProps[] = [];
@@ -277,7 +277,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, setCurrentPage, isHotJob 
           </div>
         </div>
 
-        <div className="px-6 mb-4 flex-grow">
+        <div className="px-6 mb-4">
           <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100/50">
             <p className="text-lg text-gray-700 line-clamp-4 leading-relaxed break-words whitespace-pre-wrap" title={job.description}>{job.description}</p>
           </div>

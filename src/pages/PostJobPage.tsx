@@ -495,7 +495,7 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
 
       const jobPayload: Partial<Job> = {
         title: formData.title!,
-        area: formData.area!,
+        area: formData.area!.trim(),
         description: formData.description!,
         paymentType: formData.paymentType!,
         hourlyRate: formData.paymentType === PaymentType.HOURLY ? formData.hourlyRate : undefined,

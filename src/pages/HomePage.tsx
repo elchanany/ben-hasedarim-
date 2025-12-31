@@ -1,35 +1,36 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Job, JobSearchFilters, JobDifficulty, PaymentMethod, PaymentType, JobDateType } from '../types';
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { Job, JobSearchFilters, PaymentMethod } from '../types';
 import { JobCard } from '../components/JobCard';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { Select } from '../components/Select';
+import { SearchableSelect } from '../components/SearchableSelect';
 import { CheckboxGroup } from '../components/CheckboxGroup';
 import { RangeInputGroup } from '../components/RangeInputGroup';
 import { HebrewDatePicker } from '../components/HebrewDatePicker';
-import { Modal } from '../components/Modal';
 import type { PageProps } from '../App';
 import {
-  ISRAELI_CITIES, SORT_OPTIONS, SortById, INITIAL_JOBS_DISPLAY_COUNT,
-  PAYMENT_KIND_OPTIONS, PAYMENT_METHOD_FILTER_OPTIONS, useDateTypeOptions, DURATION_FLEXIBILITY_OPTIONS, SUITABILITY_FOR_OPTIONS, JOB_DIFFICULTY_FILTER_OPTIONS
+  SORT_OPTIONS,
+  PAYMENT_KIND_OPTIONS,
+  SUITABILITY_FOR_OPTIONS,
+  JOB_DIFFICULTY_FILTER_OPTIONS,
+  DURATION_FLEXIBILITY_OPTIONS,
+  PaymentType,
+  useDateTypeOptions,
+  getCityOptions,
+  INITIAL_JOBS_DISPLAY_COUNT
 } from '../constants';
-import { UserIcon, PlusCircleIcon, SearchIcon, FilterIcon } from '../components/icons';
+import { SearchIcon, FilterIcon, RefreshIcon, UserIcon, PlusCircleIcon, XCircleIcon } from '../components/icons';
 import { countActiveFilters } from '../utils/filterUtils';
 import { useAuth } from '../hooks/useAuth';
 import * as jobService from '../services/jobService';
-
-
-const RefreshIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-  </svg>
-);
 
 const initialFiltersState: JobSearchFilters = {
   term: '',
   location: '',
   difficulty: '',
-  sortBy: 'newest' as SortById,
+  sortBy: 'newest',
   dateType: '',
   specificDateStart: null,
   specificDateEnd: null,
@@ -49,6 +50,7 @@ const initialFiltersState: JobSearchFilters = {
   maxAge: ''
 };
 
+type SortById = typeof SORT_OPTIONS[number]['id'];
 
 export const HomePage: React.FC<PageProps> = ({ setCurrentPage }) => {
   const { user } = useAuth();
@@ -58,9 +60,17 @@ export const HomePage: React.FC<PageProps> = ({ setCurrentPage }) => {
   const [displayedJobs, setDisplayedJobs] = useState<Job[]>([]);
   const [loadingDisplayedJobs, setLoadingDisplayedJobs] = useState(true);
   const [homeFilters, setHomeFilters] = useState<JobSearchFilters>(initialFiltersState);
+  const [debouncedTerm, setDebouncedTerm] = useState(initialFiltersState.term);
   const [showHomeAdvancedFilters, setShowHomeAdvancedFilters] = useState(false);
   const [isMobileFilterSectionOpen, setIsMobileFilterSectionOpen] = useState(false);
 
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedTerm(homeFilters.term);
+    }, 500); // Increased to 500ms for smoother experience
+    return () => clearTimeout(timer);
+  }, [homeFilters.term]);
 
   const fetchHotJobs = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoadingHotJobs(true);
@@ -74,51 +84,46 @@ export const HomePage: React.FC<PageProps> = ({ setCurrentPage }) => {
   }, []);
 
   const fetchDisplayedJobs = useCallback(async (currentFilters: JobSearchFilters, isRefresh = false) => {
-    if (!isRefresh) setLoadingDisplayedJobs(true);
+    if (!isRefresh) {
+      setLoadingDisplayedJobs(true);
+      setDisplayedJobs([]);
+    }
     try {
-      const results = await jobService.searchJobs({
-        term: currentFilters.term,
-        location: currentFilters.location,
-        difficulty: currentFilters.difficulty || undefined,
-        sortBy: currentFilters.sortBy as SortById,
-        dateType: currentFilters.dateType || undefined,
-        specificDateStart: currentFilters.specificDateStart || undefined,
-        specificDateEnd: currentFilters.specificDateEnd || undefined,
-        minEstimatedDurationHours: currentFilters.minEstimatedDurationHours,
-        maxEstimatedDurationHours: currentFilters.maxEstimatedDurationHours,
-        filterDurationFlexible: currentFilters.filterDurationFlexible,
-        paymentKind: currentFilters.paymentKind,
-        minHourlyRate: currentFilters.minHourlyRate,
-        maxHourlyRate: currentFilters.maxHourlyRate,
-        minGlobalPayment: currentFilters.minGlobalPayment,
-        maxGlobalPayment: currentFilters.maxGlobalPayment,
-        selectedPaymentMethods: currentFilters.selectedPaymentMethods,
-        minPeopleNeeded: currentFilters.minPeopleNeeded,
-        maxPeopleNeeded: currentFilters.maxPeopleNeeded,
-        suitabilityFor: currentFilters.suitabilityFor,
-        minAge: currentFilters.minAge,
-        maxAge: currentFilters.maxAge,
-      });
+      const results = await jobService.searchJobs(currentFilters);
       const numToShow = Math.max(INITIAL_JOBS_DISPLAY_COUNT, 8);
       setDisplayedJobs(results.slice(0, numToShow));
     } catch (error) {
       console.error("Error fetching displayed jobs:", error);
+      setDisplayedJobs([]);
     }
     setLoadingDisplayedJobs(false);
   }, []);
 
   useEffect(() => {
     fetchHotJobs();
-    fetchDisplayedJobs(homeFilters);
+  }, [fetchHotJobs]);
 
-    // Refresh jobs every 10 seconds for real-time updates
+  useEffect(() => {
+    // Re-fetch only when debounced term or other filters change
+    const filtersToSync = { ...homeFilters, term: debouncedTerm };
+    fetchDisplayedJobs(filtersToSync);
+
     const refreshInterval = setInterval(() => {
       fetchHotJobs(true);
-      fetchDisplayedJobs(homeFilters, true);
-    }, 10000);
+      fetchDisplayedJobs(filtersToSync, true);
+    }, 30000);
 
     return () => clearInterval(refreshInterval);
-  }, [fetchHotJobs, fetchDisplayedJobs, homeFilters]);
+  }, [fetchHotJobs, fetchDisplayedJobs, debouncedTerm,
+    homeFilters.location, homeFilters.sortBy, homeFilters.dateType,
+    homeFilters.specificDateStart, homeFilters.specificDateEnd,
+    homeFilters.minEstimatedDurationHours, homeFilters.maxEstimatedDurationHours,
+    homeFilters.filterDurationFlexible, homeFilters.paymentKind,
+    homeFilters.minHourlyRate, homeFilters.maxHourlyRate,
+    homeFilters.minGlobalPayment, homeFilters.maxGlobalPayment,
+    homeFilters.selectedPaymentMethods, homeFilters.minPeopleNeeded,
+    homeFilters.suitabilityFor, homeFilters.minAge, homeFilters.maxAge,
+    homeFilters.difficulty]);
 
   const handleJobDeleted = useCallback((deletedJobId: string) => {
     setHotJobs(prev => prev.filter(job => job.id !== deletedJobId));
@@ -157,43 +162,110 @@ export const HomePage: React.FC<PageProps> = ({ setCurrentPage }) => {
     fetchDisplayedJobs(initialFiltersState, true);
   }
 
-  const cityOptions = ISRAELI_CITIES.map(city => ({ value: city.name, label: city.name }));
-  const fieldSetClassName = "p-4 border border-light-blue/30 rounded-md bg-light-blue/10";
-  const legendClassName = "text-md font-semibold text-royal-blue mb-3 text-right px-1";
+  const cityOptions = getCityOptions();
   const activeFilterCount = countActiveFilters(homeFilters, initialFiltersState);
 
   const filterFormContent = (
-    <form onSubmit={handleHomeSearchSubmit} className="space-y-4">
-      <div className={`${fieldSetClassName} space-y-4`}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-          <Input label="חיפוש חופשי (כותרת, תיאור)" id="home_term" name="term" value={homeFilters.term} onChange={handleHomeFilterChange} placeholder="לדוגמה: מלצרות, הובלה דחופה..." containerClassName="mb-0" />
-          <Select label="אזור / עיר" id="home_location" name="location" options={[{ value: '', label: 'כל הארץ' }, ...cityOptions]} value={homeFilters.location} onChange={handleHomeFilterChange} containerClassName="mb-0" />
-        </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2">
-          <span className="font-semibold text-gray-700 text-sm">מיין לפי:</span>
-          {SORT_OPTIONS.map(opt => (
-            <Button key={opt.id} type="button" variant={homeFilters.sortBy === opt.id ? 'primary' : 'outline'} size="sm" onClick={() => setHomeFilters(prev => ({ ...prev, sortBy: opt.id }))} className="!px-3 !py-1.5 text-xs sm:text-sm">
-              {opt.label}
+    <form onSubmit={handleHomeSearchSubmit} className="space-y-6">
+      {/* Quick Search Row - The "Magic Bar" */}
+      <div className="bg-white/95 backdrop-blur-sm p-8 md:p-10 rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] border border-white/20 space-y-10 relative z-[100]">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
+          <div className="md:col-span-5 lg:col-span-6">
+            <Input
+              label="מה אתם מחפשים?"
+              id="home_term"
+              name="term"
+              value={homeFilters.term}
+              onChange={handleHomeFilterChange}
+              placeholder="לדוגמה: מלצרות, הובלה דחופה..."
+              containerClassName="mb-0"
+              labelClassName="block text-sm font-bold text-gray-500 mb-3 uppercase tracking-widest text-right px-1"
+              inputClassName="!rounded-2xl !py-5 !px-8 border-gray-200 bg-white shadow-sm focus:border-royal-blue focus:ring-8 focus:ring-royal-blue/5 transition-all text-xl font-semibold placeholder:text-gray-300"
+            />
+          </div>
+          <div className="md:col-span-4 lg:col-span-3">
+            <SearchableSelect
+              label="איפה?"
+              id="home_location"
+              options={cityOptions}
+              value={homeFilters.location}
+              onChange={(val) => setHomeFilters(prev => ({ ...prev, location: val as string }))}
+              className="mb-0"
+            />
+          </div>
+          <div className="md:col-span-3 lg:col-span-3">
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              icon={<SearchIcon className="w-6 h-6" />}
+              className="w-full !rounded-2xl !py-5 shadow-lg shadow-royal-blue/20 hover:shadow-royal-blue/40 transform hover:-translate-y-1 active:scale-[0.98] transition-all bg-gradient-to-r from-royal-blue to-blue-600 !text-xl font-bold"
+            >
+              מצא עבודה
             </Button>
-          ))}
-          <Button type="button" variant="outline" size="sm" onClick={() => fetchDisplayedJobs(homeFilters, true)} icon={<RefreshIcon className="w-4 h-4" />} className="!px-3 !py-1.5 mr-auto rtl:ml-auto rtl:mr-0">רענן</Button>
+          </div>
+        </div>
+
+        {/* Sort & Quick Actions */}
+        <div className="flex flex-wrap items-center justify-between gap-6 pt-6 border-t border-gray-100/50">
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-bold text-gray-400 uppercase tracking-wider">מיין משרות:</span>
+            <div className="flex bg-gray-50 p-1.5 rounded-2xl border border-gray-100">
+              {SORT_OPTIONS.map(opt => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setHomeFilters(prev => ({ ...prev, sortBy: opt.id as SortById }))}
+                  className={`px-5 py-2 text-sm font-bold rounded-xl transition-all ${homeFilters.sortBy === opt.id
+                    ? 'bg-white text-royal-blue shadow-md shadow-gray-200/50'
+                    : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center">
+            <button
+              type="button"
+              onClick={resetHomeFilters}
+              className="px-6 py-2.5 text-sm font-bold text-red-500 bg-red-50 hover:bg-red-100/80 rounded-xl transition-all flex items-center gap-2 border border-red-100 shadow-sm active:scale-95"
+            >
+              <XCircleIcon className="w-4 h-4" />
+              איפוס כל המסננים
+            </button>
+          </div>
         </div>
       </div>
 
-      <Button type="button" variant="outline" onClick={() => setShowHomeAdvancedFilters(!showHomeAdvancedFilters)} className="w-full text-royal-blue hover:bg-light-pink">
-        {showHomeAdvancedFilters ? 'הסתר מסננים מתקדמים ➖' : 'הצג מסננים מתקדמים ➕'}
-      </Button>
+      <div className="flex justify-center -mt-4 relative z-20">
+        <button
+          type="button"
+          onClick={() => setShowHomeAdvancedFilters(!showHomeAdvancedFilters)}
+          className={`group flex items-center gap-3 px-8 py-3 rounded-2xl text-sm font-bold transition-all duration-300 shadow-lg hover:shadow-xl ${showHomeAdvancedFilters
+            ? 'bg-royal-blue text-white ring-4 ring-royal-blue/20'
+            : 'bg-white text-royal-blue border border-gray-100 hover:border-royal-blue/30'
+            }`}
+        >
+          <FilterIcon className={`w-5 h-5 transition-transform duration-500 ${showHomeAdvancedFilters ? 'rotate-180' : 'group-hover:rotate-12'}`} />
+          {showHomeAdvancedFilters ? 'הסתר אפשרויות סינון' : `אפשרויות סינון מתקדמות (${activeFilterCount} פעילים)`}
+        </button>
+      </div>
 
       {showHomeAdvancedFilters && (
-        <div className="space-y-6 animate-fade-in-down">
-          <fieldset className={fieldSetClassName}>
-            <legend className={legendClassName}>תאריך וזמן</legend>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Select label="זמינות העבודה" name="dateType" options={useDateTypeOptions()} value={homeFilters.dateType} onChange={handleHomeFilterChange} />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in-down">
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
+            <h4 className="flex items-center gap-2 text-royal-blue font-bold mb-4 pb-2 border-b border-gray-50">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              זמן ומועד
+            </h4>
+            <div className="space-y-4 flex-grow">
+              <Select label="זמינות העבודה" name="dateType" options={useDateTypeOptions()} value={homeFilters.dateType} onChange={handleHomeFilterChange} className="!rounded-xl" />
               {homeFilters.dateType === 'specificDate' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:col-span-2">
-                  <HebrewDatePicker label="מתאריך" value={homeFilters.specificDateStart} onChange={(date) => handleHomeDateChange('specificDateStart', date)} id="home_specificDateStart" />
-                  <HebrewDatePicker label="עד תאריך" value={homeFilters.specificDateEnd} onChange={(date) => handleHomeDateChange('specificDateEnd', date)} id="home_specificDateEnd" />
+                <div className="grid grid-cols-1 gap-2">
+                  <HebrewDatePicker label="מתאריך" value={homeFilters.specificDateStart} onChange={(date: any) => handleHomeDateChange('specificDateStart', date)} id="home_specificDateStart" />
+                  <HebrewDatePicker label="עד תאריך" value={homeFilters.specificDateEnd} onChange={(date: any) => handleHomeDateChange('specificDateEnd', date)} id="home_specificDateEnd" />
                 </div>
               )}
               <RangeInputGroup
@@ -204,57 +276,72 @@ export const HomePage: React.FC<PageProps> = ({ setCurrentPage }) => {
                 maxName="maxEstimatedDurationHours"
                 maxValue={homeFilters.maxEstimatedDurationHours}
                 onMaxChange={handleHomeFilterChange}
-                unitSymbol="שעות"
+                unitSymbol="ש'"
                 disabled={homeFilters.filterDurationFlexible === 'yes'}
               />
-              <Select label="האם משך הזמן גמיש?" name="filterDurationFlexible" options={DURATION_FLEXIBILITY_OPTIONS} value={homeFilters.filterDurationFlexible} onChange={handleHomeFilterChange} />
+              <Select label="האם משך הזמן גמיש?" name="filterDurationFlexible" options={DURATION_FLEXIBILITY_OPTIONS} value={homeFilters.filterDurationFlexible} onChange={handleHomeFilterChange} className="!rounded-xl" />
             </div>
-          </fieldset>
+          </div>
 
-          <fieldset className={fieldSetClassName}>
-            <legend className={legendClassName}>תשלום</legend>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6">
-              <Select label="סוג תשלום" name="paymentKind" options={PAYMENT_KIND_OPTIONS} value={homeFilters.paymentKind} onChange={handleHomeFilterChange} />
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
+            <h4 className="flex items-center gap-2 text-royal-blue font-bold mb-4 pb-2 border-b border-gray-50">
+              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+              תשלום ותנאים
+            </h4>
+            <div className="space-y-4 flex-grow">
+              <Select label="סוג תשלום" name="paymentKind" options={PAYMENT_KIND_OPTIONS} value={homeFilters.paymentKind} onChange={handleHomeFilterChange} className="!rounded-xl" />
               {(homeFilters.paymentKind === 'any' || homeFilters.paymentKind === PaymentType.HOURLY) && (
-                <RangeInputGroup label="שכר שעתי" minName="minHourlyRate" minValue={homeFilters.minHourlyRate} onMinChange={handleHomeFilterChange} maxName="maxHourlyRate" maxValue={homeFilters.maxHourlyRate} onMaxChange={handleHomeFilterChange} unitSymbol="₪ לשעה" />
+                <RangeInputGroup label="שכר שעתי" minName="minHourlyRate" minValue={homeFilters.minHourlyRate} onMinChange={handleHomeFilterChange} maxName="maxHourlyRate" maxValue={homeFilters.maxHourlyRate} onMaxChange={handleHomeFilterChange} unitSymbol="₪/ש'" />
               )}
               {(homeFilters.paymentKind === 'any' || homeFilters.paymentKind === PaymentType.GLOBAL) && (
-                <RangeInputGroup label="שכר גלובלי" minName="minGlobalPayment" minValue={homeFilters.minGlobalPayment} onMinChange={handleHomeFilterChange} maxName="maxGlobalPayment" maxValue={homeFilters.maxGlobalPayment} onMaxChange={handleHomeFilterChange} unitSymbol="₪ סהכ" />
+                <RangeInputGroup label="שכר גלובלי" minName="minGlobalPayment" minValue={homeFilters.minGlobalPayment} onMinChange={handleHomeFilterChange} maxName="maxGlobalPayment" maxValue={homeFilters.maxGlobalPayment} onMaxChange={handleHomeFilterChange} unitSymbol="₪" />
               )}
-              <div className="md:col-span-2">
-                <CheckboxGroup legend="אופן תשלום" name="home_selectedPaymentMethods" options={PAYMENT_METHOD_FILTER_OPTIONS} selectedValues={homeFilters.selectedPaymentMethods} onChange={handleHomePaymentMethodChange} legendClassName="text-sm font-medium text-gray-700 mb-1 text-right" />
+              <div className="pt-2">
+                <CheckboxGroup legend="אופן תשלום" name="home_selectedPaymentMethods" options={PAYMENT_METHOD_FILTER_OPTIONS as any} selectedValues={homeFilters.selectedPaymentMethods} onChange={handleHomePaymentMethodChange} legendClassName="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider" />
               </div>
             </div>
-          </fieldset>
+          </div>
 
-          <fieldset className={fieldSetClassName}>
-            <legend className={legendClassName}>התאמה ודרישות נוספות</legend>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <RangeInputGroup label="מספר אנשים דרושים" minName="minPeopleNeeded" minValue={homeFilters.minPeopleNeeded} onMinChange={handleHomeFilterChange} maxName="maxPeopleNeeded" maxValue={homeFilters.maxPeopleNeeded} onMaxChange={handleHomeFilterChange} unitSymbol="אנשים" />
-              <Select label="מיועד ל..." name="suitabilityFor" options={SUITABILITY_FOR_OPTIONS} value={homeFilters.suitabilityFor} onChange={handleHomeFilterChange} />
-              <RangeInputGroup label="גיל המועמד" minName="minAge" minValue={homeFilters.minAge} onMinChange={handleHomeFilterChange} maxName="maxAge" maxValue={homeFilters.maxAge} onMaxChange={handleHomeFilterChange} unitSymbol="שנים" />
-              <Select label="רמת קושי" id="home_difficulty" name="difficulty" options={JOB_DIFFICULTY_FILTER_OPTIONS} value={homeFilters.difficulty} onChange={handleHomeFilterChange} containerClassName="mb-0" />
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
+            <h4 className="flex items-center gap-2 text-royal-blue font-bold mb-4 pb-2 border-b border-gray-50">
+              <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+              קהל יעד ומורכבות
+            </h4>
+            <div className="space-y-4 flex-grow">
+              <RangeInputGroup label="מספר אנשים דרושים" minName="minPeopleNeeded" minValue={homeFilters.minPeopleNeeded} onMinChange={handleHomeFilterChange} maxName="maxPeopleNeeded" maxValue={homeFilters.maxPeopleNeeded} onMaxChange={handleHomeFilterChange} unitSymbol="איש" />
+              <Select label="מיועד ל..." name="suitabilityFor" options={SUITABILITY_FOR_OPTIONS} value={homeFilters.suitabilityFor} onChange={handleHomeFilterChange} className="!rounded-xl" />
+              <RangeInputGroup label="גיל המועמד" minName="minAge" minValue={homeFilters.minAge} onMinChange={handleHomeFilterChange} maxName="maxAge" maxValue={homeFilters.maxAge} onMaxChange={handleHomeFilterChange} unitSymbol="ש'" />
+              <Select label="רמת קושי" id="home_difficulty" name="difficulty" options={JOB_DIFFICULTY_FILTER_OPTIONS} value={homeFilters.difficulty} onChange={handleHomeFilterChange} containerClassName="mb-0" className="!rounded-xl" />
             </div>
-          </fieldset>
+          </div>
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row justify-center items-center gap-3 pt-4">
-        <Button type="submit" variant="primary" size="lg" icon={<SearchIcon className="w-5 h-5" />} className="w-full sm:w-auto">
-          סנן משרות מוצגות
+      <div className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-4 mt-2">
+        <Button
+          type="submit"
+          variant="primary"
+          size="lg"
+          icon={<SearchIcon className="w-5 h-5" />}
+          className="w-full sm:w-auto !px-12 shadow-md hover:shadow-lg transition-all !rounded-xl"
+        >
+          חפש משרות
         </Button>
-        <Button type="button" variant="outline" size="lg" onClick={resetHomeFilters} className="w-full sm:w-auto text-gray-700 hover:bg-gray-100">
-          אפס מסננים
-        </Button>
+        <button
+          type="button"
+          onClick={resetHomeFilters}
+          className="w-full sm:w-auto text-gray-400 hover:text-gray-600 font-bold transition-all px-4"
+        >
+          אפס הכל
+        </button>
       </div>
     </form>
   );
 
-
   return (
     <div className="space-y-12">
       <section className="text-center py-10 md:py-16 animate-fade-in-down bg-blue-100 rounded-2xl mx-4">
-        <h1 className="text-4xl sm:text-5xl font-extrabold text-royal-blue mb-4">
+        <h1 className="text-4xl sm:text-5xl font-extrabold text-royal-blue mb-4 leading-tight">
           בין הסדורים - אתר העבודות הזמניות של הציבור החרדי
         </h1>
         <p className="text-lg sm:text-xl text-medium-text max-w-2xl mx-auto mb-8">
@@ -323,7 +410,6 @@ export const HomePage: React.FC<PageProps> = ({ setCurrentPage }) => {
         </div>
         {!loadingDisplayedJobs && <p className="text-sm text-gray-600 text-center pt-0 pb-4 md:pt-4">מציג {displayedJobs.length} משרות התואמות את הסינון שלך מתוך המאגר.</p>}
 
-
         {loadingDisplayedJobs ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {[...Array(Math.max(INITIAL_JOBS_DISPLAY_COUNT, 8))].map((_, i) => (
@@ -353,10 +439,8 @@ export const HomePage: React.FC<PageProps> = ({ setCurrentPage }) => {
                 Object.entries(homeFilters)
                   .filter(([, value]) => value !== '' && value !== null && !(value instanceof Set && value.size === 0) && value !== undefined)
                   .map(([key, value]) => {
-                    if (key === 'category') return null;
                     return [key, value instanceof Set ? Array.from(value).join(',') : String(value)];
                   })
-                  .filter(Boolean) as [string, string][]
               );
               setCurrentPage('searchResults', paramsForSearchPage);
             }}
@@ -383,3 +467,11 @@ export const HomePage: React.FC<PageProps> = ({ setCurrentPage }) => {
     </div>
   );
 };
+
+const PAYMENT_METHOD_FILTER_OPTIONS = [
+  { value: 'bit', label: 'ביט' },
+  { value: 'paybox', label: 'פייבוקס' },
+  { value: 'cash', label: 'מזומן' },
+  { value: 'bankTransfer', label: 'העברה בנקאית' },
+  { value: 'check', label: 'צ\'ק' },
+];

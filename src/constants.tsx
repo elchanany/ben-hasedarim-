@@ -1,19 +1,60 @@
 import React from 'react'; // Import React for JSX
-import { City, PaymentMethod, PaymentType, JobDateType, JobDifficulty } from './types'; 
+import { City, PaymentMethod, PaymentType, JobDateType, JobDifficulty } from './types';
 // Removed BriefcaseIcon, UserIcon, PlusCircleIcon, SearchIcon, BellIcon if they were only for JOB_CATEGORIES.
 // Keeping them if they are used elsewhere or might be.
 // For instance, BriefcaseIcon is used in AdminDashboardPage and ProfilePage. UserIcon is used widely.
 import { BriefcaseIcon, UserIcon, PlusCircleIcon, SearchIcon, BellIcon } from './components/icons';
-import { PARSED_ISRAELI_CITIES } from './data/cities'; 
+import { PARSED_ISRAELI_CITIES } from './data/cities';
 import { gregSourceToHebrewString, getTodayGregorianISO, formatGregorianString, formatDateByPreference } from './utils/dateConverter';
 import { useContext } from 'react';
 import { AuthContext } from './contexts/AuthContext';
 
 export const ISRAELI_CITIES: City[] = PARSED_ISRAELI_CITIES;
 
+export const MAJOR_CITIES_NAMES = [
+  'ירושלים',
+  'בני ברק',
+  'בית שמש',
+  'מודיעין עילית',
+  'אלעד',
+  'צפת',
+  'ביתר עילית',
+  'תל אביב-יפו',
+  'אשדוד',
+  'פתח תקווה',
+  'נתניה',
+  'רחובות',
+  'חיפה',
+  'באר שבע',
+  'טבריה',
+  'נתיבות',
+  'אופקים',
+  'רכסים',
+  'חריש'
+];
+
+export const getCityOptions = () => {
+  const allCities = ISRAELI_CITIES.map(city => ({ value: city.name, label: city.name }));
+
+  const majorCities = allCities.filter(c => MAJOR_CITIES_NAMES.includes(c.label))
+    .sort((a, b) => MAJOR_CITIES_NAMES.indexOf(a.label) - MAJOR_CITIES_NAMES.indexOf(b.label));
+
+  const otherCities = allCities.filter(c => !MAJOR_CITIES_NAMES.includes(c.label))
+    .sort((a, b) => a.label.localeCompare(b.label, 'he'));
+
+  return [
+    { value: '', label: 'כל הארץ' },
+    ...majorCities,
+    ...otherCities
+  ];
+};
+
 // JOB_CATEGORIES constant REMOVED
 
 export const DEFAULT_USER_DISPLAY_NAME = "שם לתצוגה";
+
+export { PaymentType, JobDifficulty, PaymentMethod } from './types';
+export type { JobDateType } from './types';
 
 export const SORT_OPTIONS = [
   { id: 'newest', label: 'הכי חדשות' },
@@ -27,15 +68,19 @@ export const INITIAL_JOBS_DISPLAY_COUNT = 6;
 
 
 export const PAYMENT_KIND_OPTIONS: { value: 'any' | PaymentType.HOURLY | PaymentType.GLOBAL; label: string }[] = [
-    { value: 'any', label: 'הכל (שעתי וגלובלי)' },
-    { value: PaymentType.HOURLY, label: 'לפי שעה' },
-    { value: PaymentType.GLOBAL, label: 'גלובלי (סה"כ)' },
+  { value: 'any', label: 'הכל (שעתי וגלובלי)' },
+  { value: PaymentType.HOURLY, label: 'לפי שעה' },
+  { value: PaymentType.GLOBAL, label: 'גלובלי (סה"כ)' },
 ];
 
-export const PAYMENT_METHOD_FILTER_OPTIONS = Object.values(PaymentMethod).map(pm => ({ id: pm, value: pm, label: pm }));
+export const PAYMENT_METHOD_FILTER_OPTIONS = Object.values(PaymentMethod).map(pm => ({
+  id: pm.replace(/\s+/g, '_'),
+  value: pm,
+  label: pm
+}));
 
 // שים לב: מערך קבוע לא יתעדכן לפי העדפת המשתמש. השתמש ב-hook הבא במקום:
-export const useDateTypeOptions = (): {value: JobDateType | '', label: string}[] => {
+export const useDateTypeOptions = (): { value: JobDateType | '', label: string }[] => {
   const todayLabel = useTodayLabel();
   return [
     { value: '', label: 'כל התאריכים' },
@@ -54,19 +99,19 @@ export const useTodayLabel = () => {
 };
 
 export const DURATION_FLEXIBILITY_OPTIONS: { value: 'any' | 'yes' | 'no'; label: string }[] = [
-    { value: 'any', label: 'הכל (גמיש ולא גמיש)' },
-    { value: 'yes', label: 'כן, משך הזמן גמיש' },
-    { value: 'no', label: 'לא, משך הזמן קבוע' },
+  { value: 'any', label: 'הכל (גמיש ולא גמיש)' },
+  { value: 'yes', label: 'כן, משך הזמן גמיש' },
+  { value: 'no', label: 'לא, משך הזמן קבוע' },
 ];
 
 export const SUITABILITY_FOR_OPTIONS: { value: 'any' | 'men' | 'women' | 'general'; label: string }[] = [
-    { value: 'any', label: 'הכל' },
-    { value: 'men', label: 'גברים' },
-    { value: 'women', label: 'נשים' },
-    { value: 'general', label: 'כללי (גברים ונשים)' },
+  { value: 'any', label: 'הכל' },
+  { value: 'men', label: 'גברים' },
+  { value: 'women', label: 'נשים' },
+  { value: 'general', label: 'כללי (גברים ונשים)' },
 ];
 
 export const JOB_DIFFICULTY_FILTER_OPTIONS: { value: JobDifficulty | ''; label: string }[] = [
-    { value: '', label: 'כל הרמות'},
-    ...Object.values(JobDifficulty).map(d => ({ value: d, label: d }))
+  { value: '', label: 'כל הרמות' },
+  ...Object.values(JobDifficulty).map(d => ({ value: d, label: d }))
 ];
