@@ -19,15 +19,34 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, message })
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const { login, signInWithGoogle, sendPasswordResetEmail } = useAuth();
 
+  // Helper to clean email from common copy-paste fluff and invisible Hebrew marks (RTL/LTR)
+  const cleanEmail = (val: string) => val.replace(/[\u200B-\u200D\uFEFF\u200E\u200F\s]/g, '').toLowerCase();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
+
+    const cleanedEmail = cleanEmail(email);
+
     try {
-      await login(email, password);
+      await login(cleanedEmail, password);
       setCurrentPage('home');
     } catch (err: any) {
-      setError(err.message || 'שגיאת התחברות. בדוק את הפרטים ונסה שוב.');
+      const errorCode = err.code || '';
+      const errorMessage = err.message || '';
+
+      if (errorCode === 'auth/user-not-found' || errorMessage.includes('user-not-found') || errorCode === 'auth/wrong-password' || errorMessage.includes('wrong-password') || errorCode === 'auth/invalid-credential' || errorMessage.includes('invalid-credential')) {
+        setError('אימייל או סיסמה לא נכונים. בדוק את הפרטים ונסה שוב.');
+      } else if (errorCode === 'auth/invalid-email' || errorMessage.includes('invalid-email')) {
+        setError('כתובת האימייל שהזנת אינה תקינה.');
+      } else if (errorCode === 'auth/user-disabled' || errorMessage.includes('user-disabled')) {
+        setError('חשבון זה הושבת. אנא צור קשר עם התמיכה.');
+      } else if (errorCode === 'auth/too-many-requests' || errorMessage.includes('too-many-requests')) {
+        setError('יותר מדי ניסיונות כושלים. אנא נסה שוב מאוחר יותר או אפס סיסמה.');
+      } else {
+        setError(errorMessage || 'שגיאת התחברות. נסה שוב מאוחר יותר.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -35,17 +54,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, message })
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) {
+    const cleanedEmail = cleanEmail(email);
+    if (!cleanedEmail) {
       setError('אנא הזן את כתובת האימייל שלך.');
       return;
     }
     setError('');
     setIsLoading(true);
     try {
-      await sendPasswordResetEmail(email);
+      await sendPasswordResetEmail(cleanedEmail);
       setResetEmailSent(true);
     } catch (err: any) {
-      setError(err.message || 'שגיאה בשליחת אימייל שחזור. וודא שהאימייל תקין.');
+      const errorCode = err.code || '';
+      if (errorCode === 'auth/user-not-found') {
+        setError('לא נמצא משתמש עם כתובת האימייל הזו.');
+      } else if (errorCode === 'auth/invalid-email') {
+        setError('כתובת האימייל אינה תקינה.');
+      } else {
+        setError('שגיאה בשליחת אימייל שחזור. וודא שהאימייל תקין.');
+      }
     } finally {
       setIsLoading(false);
     }

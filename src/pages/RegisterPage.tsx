@@ -15,23 +15,29 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
   const [whatsapp, setWhatsapp] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [contactPreference, setContactPreference] = useState<ContactPreference>({
-    showPhone: false,
-    showWhatsapp: false,
-    showEmail: true,
-    showChat: false,
-    displayName: ''
-  });
   const [error, setError] = useState<React.ReactNode>('');
   const [emailError, setEmailError] = useState<React.ReactNode>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [passwordMatchError, setPasswordMatchError] = useState('');
   const { register, signInWithGoogle, checkEmailExists } = useAuth();
+
+  // Helper to clean email from common copy-paste fluff and invisible Hebrew marks (RTL/LTR)
+  const cleanEmail = (val: string) => val.replace(/[\u200B-\u200D\uFEFF\u200E\u200F\s]/g, '').toLowerCase();
+
+  // Real-time password match check
+  React.useEffect(() => {
+    if (confirmPassword && password !== confirmPassword) {
+      setPasswordMatchError('הסיסמאות אינן תואמות');
+    } else {
+      setPasswordMatchError('');
+    }
+  }, [password, confirmPassword]);
 
   // Real-time email check
   React.useEffect(() => {
-    const trimmedEmail = email.trim();
+    const trimmedEmail = cleanEmail(email);
     if (trimmedEmail.length < 5 || !trimmedEmail.includes('@')) {
       setEmailError('');
       return;
@@ -67,16 +73,13 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
     return () => clearTimeout(timer);
   }, [email, checkEmailExists, setCurrentPage]);
 
-  const handleContactPreferenceChange = (value: string, checked: boolean) => {
-    setContactPreference(prev => ({ ...prev, [value]: checked }));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     // Trim all string inputs
-    const trimmedEmail = email.trim();
+    const trimmedEmail = cleanEmail(email);
     const trimmedFullName = fullName.trim();
     const trimmedPhone = phone.trim();
     const trimmedWhatsapp = whatsapp.trim();
@@ -93,9 +96,8 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
       return;
     }
 
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(trimmedEmail)) {
+    // Let Firebase handle deep email validation, but catch empty or obviously non-email strings
+    if (!trimmedEmail.includes('@') || trimmedEmail.length < 5) {
       setError('כתובת אימייל לא תקינה.');
       return;
     }
@@ -122,11 +124,14 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
         email: trimmedEmail,
         whatsapp: trimmedWhatsapp || trimmedPhone,
         password: trimmedPassword,
-        contactPreference: { ...contactPreference, displayName: trimmedFullName },
+        contactPreference: { displayName: trimmedFullName },
       });
       setCurrentPage('home');
     } catch (err: any) {
-      if (err.code === 'auth/email-already-in-use' || err.message?.includes('email-already-in-use')) {
+      const errorCode = err.code || '';
+      const errorMessage = err.message || '';
+
+      if (errorCode === 'auth/email-already-in-use' || errorMessage.includes('email-already-in-use')) {
         setError(
           <div className="flex flex-col items-center gap-2">
             <span>כתובת האימייל הזו כבר רשומה במערכת.</span>
@@ -139,8 +144,12 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
             </button>
           </div>
         );
+      } else if (errorCode === 'auth/invalid-email' || errorMessage.includes('invalid-email')) {
+        setError('כתובת האימייל שהזנת אינה תקינה. אנא בדוק שנית.');
+      } else if (errorCode === 'auth/weak-password' || errorMessage.includes('weak-password')) {
+        setError('הסיסמה שבחרת חלשה מדי. בחר סיסמה עם 6 תווים לפחות.');
       } else {
-        setError(err.message || 'שגיאת הרשמה. נסה שוב מאוחר יותר.');
+        setError(errorMessage || 'שגיאת הרשמה. נסה שוב מאוחר יותר.');
       }
     } finally {
       setIsLoading(false);
@@ -160,13 +169,6 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
     }
   };
 
-  const contactOptions = [
-    { id: 'showPhone', label: 'הצג טלפון', value: 'showPhone' },
-    { id: 'showWhatsapp', label: 'הצג וואטסאפ', value: 'showWhatsapp' },
-    { id: 'showEmail', label: 'הצג אימייל', value: 'showEmail' },
-    { id: 'showChat', label: 'אפשר יצירת קשר דרך מערכת ההודעות', value: 'showChat' },
-  ];
-
   return (
     <div className="min-h-[calc(100vh-250px)] flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-lg w-full space-y-8 bg-white p-8 sm:p-10 rounded-xl shadow-2xl">
@@ -182,7 +184,6 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
             </button>
           </p>
         </div>
-        {error && <p className="text-center text-sm text-red-600 bg-red-100 p-3 rounded-md">{error}</p>}
 
         <div className="space-y-6">
           <button
@@ -234,21 +235,28 @@ export const RegisterPage: React.FC<PageProps> = ({ setCurrentPage }) => {
             <Input label="וואטסאפ (אופציונלי, אם שונה מהטלפון)" id="whatsapp" name="whatsapp" type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="05X-XXXXXXX" />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
-              <Input label="סיסמה (לפחות 6 תווים)" id="password-register" name="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-              <Input label="אימות סיסמה" id="confirmPassword" name="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+              <Input
+                label="סיסמה (לפחות 6 תווים)"
+                id="password-register"
+                name="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <Input
+                label="אימות סיסמה"
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                error={passwordMatchError}
+              />
             </div>
 
-            <fieldset className="p-4 border border-light-blue/30 rounded-md bg-light-blue/10">
-              <legend className="text-lg font-medium text-gray-800 px-2">הגדרות פרטיות ראשוניות</legend>
-              <p className="text-xs text-gray-500 mb-3 text-right">תוכל לשנות הגדרות אלו ולקבוע שם תצוגה שונה לכל מודעה בעת הפרסום או באזור האישי.</p>
-              <CheckboxGroup
-                legend="אילו פרטי התקשרות להציג כברירת מחדל במודעות שתפרסם?"
-                name="contactPreferenceGroup"
-                options={contactOptions}
-                selectedValues={new Set(Object.entries(contactPreference).filter(([, val]) => val === true && typeof val === 'boolean').map(([key]) => key))}
-                onChange={handleContactPreferenceChange}
-              />
-            </fieldset>
+            {error && <p className="text-center text-sm text-red-600 bg-red-100 p-3 rounded-md animate-in fade-in slide-in-from-bottom-2 duration-300">{error}</p>}
 
             <div>
               <Button type="submit" variant="primary" size="lg" className="w-full" isLoading={isLoading} disabled={isGoogleLoading}>

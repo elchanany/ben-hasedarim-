@@ -208,7 +208,7 @@ export const register = async (data: RegisterData): Promise<User> => {
     id: userCredential.user.uid,
     ...newProfile,
     createdAt: new Date().toISOString(),
-    role: 'user',
+    role: role,
     datePreference: 'hebrew'
   } as User;
 
