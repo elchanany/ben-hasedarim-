@@ -21,7 +21,7 @@ interface PaymentPageParams {
 
 export const PaymentPage: React.FC<PageProps> = ({ setCurrentPage, pageParams }) => {
     const { user } = useAuth();
-    const { isReady, mode } = usePayPal();
+    const { isReady, mode, error: paypalError } = usePayPal();
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
@@ -159,7 +159,6 @@ export const PaymentPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
                     const jobData = JSON.parse(storedJobData);
                     const finalJobData: any = {
                         ...jobData,
-                        isPosted: true,
                         isPosted: true,
                         paymentStatus: 'paid',
                         paymentDetails: {
@@ -361,9 +360,17 @@ export const PaymentPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
                         {/* PayPal container */}
                         <div className="min-h-[150px] relative z-0">
                             {!isReady ? (
-                                <div className="flex justify-center py-8">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-royal-blue"></div>
-                                </div>
+                                paypalError ? (
+                                    <div className="bg-red-50 text-red-700 p-4 rounded-xl text-sm text-center">
+                                        <p className="font-bold mb-2">⚠️ שגיאה בטעינת PayPal</p>
+                                        <p>{paypalError}</p>
+                                        <p className="mt-2 text-xs text-red-500">בדוק את הקונסול למידע נוסף</p>
+                                    </div>
+                                ) : (
+                                    <div className="flex justify-center py-8">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-royal-blue"></div>
+                                    </div>
+                                )
                             ) : (
                                 <>
                                     {mode === 'sandbox' && (
@@ -383,7 +390,7 @@ export const PaymentPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
                                                     description: type === 'post_job' ? `פרסום משרה: ${jobTitle}` : (type === 'view_contact' ? `פתיחת קשר: ${jobTitle}` : 'מנוי חודשי'),
                                                     amount: {
                                                         value: currentAmount.toString(),
-                                                        currency_code: "ILS"
+                                                        currency_code: "USD" // Must match SDK currency
                                                     },
                                                     custom_id: `${type}_${jobId || 'sub'}`
                                                 }],
