@@ -15,14 +15,14 @@ export const Textarea: React.FC<TextareaProps> = ({
   id,
   error,
   containerClassName = 'mb-4',
-  labelClassName = 'block text-sm font-medium text-dark-text mb-1 text-right', 
+  labelClassName = 'block text-sm font-medium text-dark-text mb-1 text-right',
   textareaClassName = '',
   required,
   errorId,
   ...props
 }) => {
   const baseTextareaStyle =
-    'mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus-ring-color focus:border-royal-blue sm:text-sm text-dark-text placeholder-medium-text disabled:bg-gray-100';
+    'mt-1 block w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-lg shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus-ring-color focus:border-royal-blue sm:text-sm text-dark-text placeholder-medium-text disabled:bg-gray-100 transition-colors duration-200 resize-y';
   const errorTextareaStyle = error ? 'border-red-500 focus-visible:ring-red-500 focus:border-red-500' : '';
   const describedBy = errorId || (error && id ? `${id}-error` : undefined);
 

@@ -6,6 +6,7 @@ import { Button } from '../components/Button';
 import type { PageProps } from '../App';
 import { useAuth } from '../hooks/useAuth';
 import { Modal } from '../components/Modal';
+import { ConfirmModal } from '../components/ConfirmModal';
 import {
   BriefcaseIcon, UserIcon, PlusCircleIcon, SearchIcon, ClockIcon, UsersIcon, CashIcon,
   PhoneIcon, MailIcon, ChatBubbleLeftEllipsisIcon, MapPinIcon, CalendarDaysIcon, EyeIcon,
@@ -76,19 +77,37 @@ const DetailItem: React.FC<{
   );
 };
 
-export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, jobId }) => {
-  const { user } = useAuth();
+export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, pageParams }) => {
+  const { user, refreshTotalUnreadCount } = useAuth();
   const authCtx = useContext(AuthContext);
+  const jobId = pageParams?.jobId as string;
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showContactModal, setShowContactModal] = useState(false);
-  const [showContactDetails, setShowContactDetails] = useState(false);
-  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
-  const [showReportModal, setShowReportModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Confirm Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type?: 'danger' | 'success' | 'info';
+    confirmText?: string;
+    cancelText?: string;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    type: 'info',
+  });
+
+  const closeConfirmModal = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
+  const [showContactDetails, setShowContactDetails] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const contactModalTitleId = `contact-modal-title-${jobId}`;
-  const deleteModalTitleId = `delete-confirm-modal-title-${jobId}`;
   const hasIncrementedView = useRef(false);
   const hasIncrementedContact = useRef(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
@@ -100,22 +119,12 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
 
     const unsubscribe = onSnapshot(jobRef, (docSnap) => {
       if (docSnap.exists()) {
-        // We'll trust getJobById's transformation logic is simple enough to replicate or reuse if extracted.
-        // For simplicity and correctness with Timestamps, we might want to use the helper from jobService if exported,
-        // or just manually handle the timestamps here as we did in jobService.
-        // Ideally, jobService should export a helper to parse DocSnapshot to Job.
-        // For now, let's use the fetched data directly assuming helper methods.
-        // But wait, getJobById does a lot of processing (timestamps).
-        // Let's rely on jobService.getJobById for the initial fetch? No, that defeats the purpose of realtime.
-        // We need to replicate the timestamp conversion.
         const data = docSnap.data();
         const convertedJob = {
           id: docSnap.id,
           ...data,
-          // Simple timestamp conversion if needed, assuming basic ISO strings or Timestamps
           postedDate: data.postedDate?.toDate?.()?.toISOString() || data.postedDate,
-          // ... apply other conversions if necessary
-        } as Job; // Type assertion
+        } as Job;
 
         setJob(convertedJob);
         setError(null);
@@ -133,7 +142,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
     return () => unsubscribe();
   }, [jobId]);
 
-  // View count logic (same as before)
+  // View count logic
   useEffect(() => {
     const incrementView = async () => {
       if (!job) return;
@@ -152,20 +161,26 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
     incrementView();
   }, [job, user, jobId]);
 
-  // Handle unique contact attempt
-  const handleUniqueContactAttempt = useCallback(async () => {
-    if (!job || (user && user.id === job.postedBy.id)) return;
+  // Handle contact attempt with application tracking
+  const handleContactAttempt = useCallback(async () => {
+    if (!job) return;
 
-    const contactedJobsKey = 'contactedJobs';
-    const contactedJobs = JSON.parse(sessionStorage.getItem(contactedJobsKey) || '[]');
-
-    if (!contactedJobs.includes(jobId)) {
+    if (!hasIncrementedContact.current) {
       await jobService.incrementJobContactAttempt(jobId);
-      contactedJobs.push(jobId);
-      sessionStorage.setItem(contactedJobsKey, JSON.stringify(contactedJobs));
+      hasIncrementedContact.current = true;
     }
-  }, [job, user, jobId]);
 
+    const appliedJobsKey = 'appliedJobs';
+    const appliedJobs = JSON.parse(localStorage.getItem(appliedJobsKey) || '[]');
+
+    if (!appliedJobs.includes(jobId)) {
+      await jobService.incrementApplicationCount(jobId);
+      appliedJobs.push(jobId);
+      localStorage.setItem(appliedJobsKey, JSON.stringify(appliedJobs));
+    }
+
+    setShowContactDetails(true);
+  }, [job, jobId]);
 
   const handleContactClick = () => {
     if (!user) {
@@ -173,22 +188,24 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
       return;
     }
     setShowContactModal(true);
-    // Track unique contact attempt when modal opens (user showing intent)
-    // Or better, when clicking specific buttons inside. But user logic imply clicking any button.
-    // Opening the modal is "viewing contact details".
-    // Let's call it here as a general intent.
-    handleUniqueContactAttempt();
+    handleContactAttempt();
   };
 
   const handleStartChat = async () => {
     if (!user || !job) return;
     if (user.id === job.postedBy.id) {
-      alert("אינך יכול/ה להתחיל שיחה דרך מערכת ההודעות על משרה שפרסמת.");
+      setConfirmModal({
+        isOpen: true,
+        title: 'שגיאה',
+        message: 'אינך יכול/ה להתחיל שיחה דרך מערכת ההודעות על משרה שפרסמת.',
+        confirmText: 'אישור',
+        type: 'info',
+        onConfirm: closeConfirmModal
+      });
       return;
     }
 
-    // Track contact attempt
-    handleUniqueContactAttempt();
+    handleContactAttempt();
 
     try {
       const isAnonymous = job.contactInfoSource === 'anonymous';
@@ -213,74 +230,99 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
   };
 
   const handleCopyEmail = (email: string) => {
-    handleUniqueContactAttempt();
+    handleContactAttempt();
     navigator.clipboard.writeText(email).then(() => {
       setCopiedEmail(true);
       setTimeout(() => setCopiedEmail(false), 2000);
     });
   };
 
-  // ... handleEditJob, handleDeleteRequest etc.
-
-  // Helper for tracking clicks on specific links
-  const onContactLinkClick = () => {
-    handleUniqueContactAttempt();
-  };
-
-  // ... render ...
-
-  // Update Mailto link in render
-  // href={`mailto:${job.contactEmail}?subject=${encodeURIComponent(`בנוגע למשרה: ${job.title}`)}`}
-
-
   const handleEditJob = () => {
     setCurrentPage('postJob', { editJobId: jobId });
   };
 
   const handleDeleteRequest = () => {
-    setShowDeleteConfirmModal(true);
+    setConfirmModal({
+      isOpen: true,
+      title: 'מחיקת משרה',
+      message: `האם אתה בטוח שברצונך למחוק את המשרה "${job?.title}"? לא ניתן לשחזר פעולה זו.`,
+      confirmText: 'מחק משרה',
+      cancelText: 'ביטול',
+      type: 'danger',
+      onConfirm: async () => {
+        setIsDeleting(true);
+        try {
+          await jobService.deleteJob(jobId);
+          closeConfirmModal();
+          setCurrentPage('home');
+        } catch (error) {
+          console.error("Error deleting job:", error);
+          setError("שגיאה במחיקת המשרה.");
+        } finally {
+          setIsDeleting(false);
+        }
+      }
+    });
   };
 
-  const confirmDeleteJob = async () => {
-    setIsDeleting(true);
-    try {
-      await jobService.deleteJob(jobId);
-      setShowDeleteConfirmModal(false);
-      setCurrentPage('home');
-    } catch (error) {
-      console.error("Error deleting job:", error);
-      setError("שגיאה במחיקת המשרה.");
-    } finally {
-      setIsDeleting(false);
-    }
+  const handleDelete = async () => {
+    if (!job || !user) return;
+
+    setConfirmModal({
+      isOpen: true,
+      title: 'מחיקת משרה',
+      message: "האם אתה בטוח שברצונך למחוק משרה זו כמנהל? פעולה זו תירשם בהיסטוריה.",
+      confirmText: 'מחק משרה',
+      type: 'danger',
+      onConfirm: async () => {
+        const reason = window.prompt("נא להזין סיבת מחיקה (חובה):");
+        if (!reason?.trim()) {
+          alert("חובה להזין סיבה למחיקה.");
+          closeConfirmModal();
+          return;
+        }
+
+        setIsDeleting(true);
+        try {
+          if (user.role === 'admin' || user.role === 'super_admin') {
+            await jobService.deleteJob(job.id, {
+              adminId: user.id,
+              adminName: user.fullName || 'Admin',
+              action: 'delete_job',
+              targetId: job.id,
+              targetType: 'job',
+              reason: reason
+            });
+          } else {
+            await jobService.deleteJob(job.id);
+          }
+          closeConfirmModal();
+          alert("המשרה נמחקה בהצלחה.");
+          setCurrentPage('admin', { tab: 'jobs' });
+        } catch (err) {
+          console.error("Error deleting job:", err);
+          setError("שגיאה במחיקת המשרה.");
+          alert("שגיאה במחיקת המשרה.");
+        } finally {
+          setIsDeleting(false);
+        }
+      }
+    });
   };
 
-  const handleAdminDelete = async () => {
-    if (!window.confirm("האם אתה בטוח שברצונך למחוק משרה זו כמנהל? פעולה זו תירשם בהיסטוריה.")) return;
-
-    const reason = window.prompt("נא להזין סיבת מחיקה (חובה):");
-    if (!reason?.trim()) {
-      alert("חובה להזין סיבה למחיקה.");
-      return;
-    }
-
-    setIsDeleting(true);
+  const handleReportSubmit = async (reason: string) => {
+    if (!user || !job) return;
     try {
-      await jobService.deleteJob(jobId, {
-        adminId: user?.id || 'unknown',
-        adminName: user?.fullName || 'Admin',
-        action: 'delete_job',
-        targetId: jobId,
-        targetType: 'job',
+      await reportService.submitReport({
+        reporterId: user.id,
+        reportedEntityId: job.id,
+        entityType: 'job',
         reason: reason
       });
-      alert("המשרה נמחקה בהצלחה.");
-      setCurrentPage('admin', { tab: 'jobs' });
+      alert('הדיווח נשלח בהצלחה.');
     } catch (error) {
-      console.error("Error deleting job (admin):", error);
-      alert("שגיאה במחיקת המשרה.");
-    } finally {
-      setIsDeleting(false);
+      console.error("Error submitting report:", error);
+      alert('שגיאה בשליחת הדיווח.');
     }
   };
 
@@ -313,7 +355,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
 
   return (
     <>
-      <div className="max-w-4xl mx-auto bg-white p-6 sm:p-8 rounded-xl shadow-2xl my-8 animate-fade-in-down">
+      <div className="max-w-4xl mx-auto bg-white p-4 sm:p-8 rounded-xl shadow-2xl my-4 sm:my-8 animate-fade-in-down">
         <header className="relative border-b pb-6 mb-6">
           {isOwner && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
@@ -324,7 +366,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
             </div>
           )}
 
-          <h1 className="text-3xl sm:text-5xl font-extrabold text-royal-blue mb-4 leading-tight break-words max-w-[90%]">
+          <h1 className="text-2xl sm:text-5xl font-extrabold text-royal-blue mb-4 leading-tight break-words max-w-[90%]">
             <span className="text-xl sm:text-2xl text-gray-400 font-mono block mb-2">
               #{job.serialNumber ? job.serialNumber : job.id.substring(0, 8)}
             </span>
@@ -359,7 +401,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
               <Button
                 variant="danger"
                 size="sm"
-                onClick={handleAdminDelete}
+                onClick={handleDelete}
                 icon={<TrashIcon className="w-4 h-4" />}
                 isLoading={isDeleting}
                 className="!px-3 !py-2 !text-sm border-2 border-red-500 bg-red-50 text-red-700 hover:bg-red-100"
@@ -410,63 +452,64 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
 
         <main className="space-y-6">
           {/* תיאור המשרה */}
-          <div className="bg-gradient-to-r from-royal-blue to-deep-pink p-6 rounded-xl shadow-lg">
-            <h2 className="text-2xl font-bold text-white mb-4">תיאור המשרה</h2>
+          <div className="bg-gradient-to-r from-royal-blue to-deep-pink p-4 sm:p-6 rounded-xl shadow-lg">
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-4">תיאור המשרה</h2>
             <p className="text-lg text-white/90 whitespace-pre-wrap">{job.description}</p>
           </div>
 
           {/* פרטי המשרה */}
           <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-royal-blue text-center mb-6">פרטי המשרה</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-royal-blue text-center mb-6">פרטי המשרה</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <DetailItem
                 icon={<MapPinIcon className="w-7 h-7" />}
                 label="מיקום"
                 value={job.area}
                 animationType="default"
-                onClick={() => console.log('Location clicked!')}
               />
+              {job.address && (
+                <DetailItem
+                  icon={<MapPinIcon className="w-6 h-6 text-red-500" />}
+                  label="כתובת מדוייקת"
+                  value={job.address}
+                  animationType="default"
+                />
+              )}
               <DetailItem
                 icon={<CalendarDaysIcon className="w-7 h-7" />}
                 label="תאריך וזמן"
                 value={formatDateByPreference(job.specificDate, authCtx?.datePreference || 'hebrew') + (job.startTime ? `, החל מ-${job.startTime}` : '')}
                 animationType="calendar"
-                onClick={() => console.log('Calendar clicked!')}
               />
               <DetailItem
                 icon={<ClockIcon className="w-7 h-7" />}
                 label="משך משוער"
                 value={job.estimatedDurationIsFlexible ? 'גמיש' : `${job.estimatedDurationHours || 'לא צוין'} שעות`}
                 animationType="clock"
-                onClick={() => console.log('Clock clicked!')}
               />
               <DetailItem
                 icon={<BriefcaseIcon className="w-7 h-7" />}
                 label="אופן תשלום"
                 value={job.paymentMethod || 'לא צוין'}
                 animationType="default"
-                onClick={() => console.log('Payment method clicked!')}
               />
               <DetailItem
                 icon={<ChartBarIcon className="w-7 h-7" />}
                 label="רמת קושי"
                 value={job.difficulty}
                 animationType="star"
-                onClick={() => console.log('Difficulty clicked!')}
               />
               <DetailItem
                 icon={<UsersIcon className="w-7 h-7" />}
                 label="התאמה"
                 value={suitabilityText}
                 animationType="default"
-                onClick={() => console.log('Suitability clicked!')}
               />
               <DetailItem
                 icon={<UserIcon className="w-7 h-7" />}
                 label="דרושים"
                 value={`${job.numberOfPeopleNeeded || 1} אנשים`}
                 animationType="default"
-                onClick={() => console.log('People needed clicked!')}
               />
               {job.specialRequirements && (
                 <DetailItem
@@ -475,25 +518,24 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                   value={job.specialRequirements}
                   className="md:col-span-2"
                   animationType="default"
-                  onClick={() => console.log('Special requirements clicked!')}
                 />
               )}
             </div>
           </div>
 
           {/* סקשן תשלום מודגש */}
-          <div className="mt-8 p-6 bg-light-pink border-2 border-deep-pink rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] transform">
+          <div className="mt-6 sm:mt-8 p-4 sm:p-6 bg-light-pink border-2 border-deep-pink rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] transform">
             <div className="text-center">
               <div className="flex items-center justify-center mb-4">
-                <CashIcon className="w-12 h-12 text-deep-pink mr-3 animate-pulse" />
-                <h3 className="text-3xl font-bold text-royal-blue">פרטי התשלום</h3>
+                <CashIcon className="w-10 h-10 sm:w-12 sm:h-12 text-deep-pink mr-3 animate-pulse" />
+                <h3 className="text-2xl sm:text-3xl font-bold text-royal-blue">פרטי התשלום</h3>
               </div>
-              <div className="text-4xl font-bold text-deep-pink mb-2 drop-shadow-sm">
+              <div className="text-3xl sm:text-4xl font-bold text-deep-pink mb-2 drop-shadow-sm">
                 {getPaymentInfo()}
               </div>
               {job.paymentMethod && (
                 <div className="text-xl text-medium-text">
-                  אופן תשלום: {job.paymentMethod}
+                  אופן תשלום: {job.paymentMethod === 'אחר' && job.customPaymentMethod ? job.customPaymentMethod : job.paymentMethod}
                 </div>
               )}
             </div>
@@ -501,7 +543,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
 
           {/* פרטי יצירת קשר */}
           <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-royal-blue text-center mb-6">פרטי יצירת קשר</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-royal-blue text-center mb-6">פרטי יצירת קשר</h2>
 
             {!user ? (
               <div className="text-center py-8">
@@ -520,7 +562,10 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                 <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 mb-4">
                   <p className="text-lg text-gray-700 mb-4">לחץ על הכפתור כדי לראות את פרטי יצירת הקשר</p>
                   <button
-                    onClick={() => setShowContactDetails(true)}
+                    onClick={() => {
+                      setShowContactDetails(true);
+                      handleContactAttempt();
+                    }}
                     className="bg-deep-pink text-white px-6 py-3 rounded-lg hover:bg-pink-600 transition-colors duration-300 font-semibold"
                   >
                     הצג פרטי איש קשר
@@ -535,7 +580,6 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                     label="שם איש קשר"
                     value={job.contactDisplayName}
                     animationType="default"
-                    onClick={() => console.log('Contact name clicked!')}
                   />
                 )}
                 {job.preferredContactMethods?.phone && job.contactPhone && (
@@ -545,7 +589,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                     value={
                       <a
                         href={`tel:${job.contactPhone}`}
-                        onClick={handleUniqueContactAttempt}
+                        onClick={handleContactAttempt}
                         className="inline-block px-4 py-2 bg-deep-pink text-white rounded-lg hover:bg-pink-600 transition-colors duration-300 font-semibold shadow-md hover:shadow-lg transform hover:scale-105 no-underline"
                       >
                         {job.contactPhone}
@@ -562,7 +606,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                       <div className="flex items-center gap-2 relative">
                         <a
                           href={`mailto:${job.contactEmail}?subject=${encodeURIComponent(`בנוגע למשרה: ${job.title}`)}`}
-                          onClick={handleUniqueContactAttempt}
+                          onClick={handleContactAttempt}
                           className="inline-block px-4 py-2 bg-deep-pink text-white rounded-lg hover:bg-pink-600 transition-colors duration-300 font-semibold shadow-md hover:shadow-lg transform hover:scale-105 no-underline flex-grow sm:flex-grow-0"
                         >
                           {job.contactEmail}
@@ -614,7 +658,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                         href={`https://wa.me/${job.contactWhatsapp.replace(/\D/g, '')}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        onClick={handleUniqueContactAttempt}
+                        onClick={handleContactAttempt}
                         className="inline-block px-4 py-2 bg-deep-pink text-white rounded-lg hover:bg-pink-600 transition-colors duration-300 font-semibold shadow-md hover:shadow-lg transform hover:scale-105 no-underline"
                       >
                         {job.contactWhatsapp}
@@ -638,12 +682,11 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                 icon={<PhoneIcon className="w-6 h-6" />}
                 label="טלפון"
                 value={
-                  <a href={`tel:${job.contactPhone}`} onClick={handleUniqueContactAttempt} className="text-lg text-dark-text hover:text-royal-blue transition-colors">
+                  <a href={`tel:${job.contactPhone}`} onClick={handleContactAttempt} className="text-lg text-dark-text hover:text-royal-blue transition-colors">
                     {job.contactPhone}
                   </a>
                 }
                 animationType="default"
-                onClick={() => console.log('Phone clicked!')}
               />
             )}
             {job.preferredContactMethods.whatsapp && job.contactWhatsapp && (
@@ -651,12 +694,11 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                 icon={<ChatBubbleLeftEllipsisIcon className="w-6 h-6" />}
                 label="וואטסאפ"
                 value={
-                  <a href={`https://wa.me/${job.contactWhatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" onClick={handleUniqueContactAttempt} className="text-lg text-dark-text hover:text-green-600 transition-colors">
+                  <a href={`https://wa.me/${job.contactWhatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" onClick={handleContactAttempt} className="text-lg text-dark-text hover:text-green-600 transition-colors">
                     {job.contactWhatsapp} (WhatsApp)
                   </a>
                 }
                 animationType="default"
-                onClick={() => console.log('WhatsApp clicked!')}
               />
             )}
             {job.preferredContactMethods.email && job.contactEmail && (
@@ -665,7 +707,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                 label="אימייל"
                 value={
                   <div className="flex items-center gap-3 relative">
-                    <a href={`mailto:${job.contactEmail}?subject=${encodeURIComponent(`בנוגע למשרה: ${job.title}`)}`} onClick={handleUniqueContactAttempt} className="text-lg text-dark-text hover:text-royal-blue transition-colors break-all">
+                    <a href={`mailto:${job.contactEmail}?subject=${encodeURIComponent(`בנוגע למשרה: ${job.title}`)}`} onClick={handleContactAttempt} className="text-lg text-dark-text hover:text-royal-blue transition-colors break-all">
                       {job.contactEmail}
                     </a>
                     <div className="relative flex items-center">
@@ -689,7 +731,6 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                   </div>
                 }
                 animationType="default"
-                onClick={() => console.log('Email clicked!')}
               />
             )}
             {user && user.id !== job.postedBy.id && job.preferredContactMethods?.allowSiteMessages && (
@@ -712,43 +753,22 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
         </div>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={showDeleteConfirmModal}
-        onClose={() => setShowDeleteConfirmModal(false)}
-        title="אישור מחיקת משרה"
-        titleId={deleteModalTitleId}
-        size="md"
-      >
-        <div className="text-center p-6">
-          <TrashIcon className="w-16 h-16 text-red-600 mx-auto mb-4" aria-hidden="true" />
-          <p className="text-lg text-gray-800 font-medium mb-6">
-            האם אתה בטוח שברצונך למחוק את המשרה "{job?.title}"? לא ניתן לשחזר פעולה זו.
-          </p>
-          <div className="flex justify-center space-x-3 rtl:space-x-reverse">
-            <Button variant="outline" onClick={() => setShowDeleteConfirmModal(false)} aria-label="ביטול מחיקת משרה" size="lg" className="px-6 py-2">
-              ביטול
-            </Button>
-            <Button variant="danger" onClick={confirmDeleteJob} isLoading={isDeleting} aria-label={`אישור מחיקת המשרה ${job?.title}`} size="lg" className="px-6 py-2">
-              {isDeleting ? 'מוחק...' : 'כן, מחק משרה'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={closeConfirmModal}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
+        type={confirmModal.type}
+      />
 
       <ReportModal
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
-        onSubmit={async (reason) => {
-          if (!job || !user) return;
-          await reportService.submitReport({
-            reporterId: user.id,
-            reportedEntityId: job.id,
-            entityType: 'job',
-            reason,
-          });
-          alert('הדיווח נשלח בהצלחה');
-        }}
+        onSubmit={handleReportSubmit}
+        title="דיווח על משרה"
       />
     </>
   );

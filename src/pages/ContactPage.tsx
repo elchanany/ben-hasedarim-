@@ -54,12 +54,12 @@ export const ContactPage: React.FC<PageProps> = ({ setCurrentPage }) => {
     }
 
     return (
-        <div className="max-w-2xl mx-auto p-6 sm:p-8 bg-white rounded-xl shadow-xl my-8 animate-fade-in-up">
+        <div className="max-w-2xl mx-auto p-6 sm:p-8 bg-white rounded-xl shadow-xl my-4 sm:my-8 animate-fade-in-up">
             <div className="text-center mb-8">
                 <div className="inline-flex items-center justify-center p-3 bg-light-blue/20 rounded-full mb-4 text-royal-blue">
                     <EnvelopeIcon className="w-8 h-8" />
                 </div>
-                <h1 className="text-3xl font-bold text-royal-blue">צור קשר</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-royal-blue">צור קשר</h1>
                 <p className="text-gray-600 mt-2">יש לך שאלה? הצעה? נשמח לשמוע ממך.</p>
             </div>
 

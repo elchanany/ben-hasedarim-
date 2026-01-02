@@ -186,6 +186,7 @@ export const getOrCreateChatThread = async (
     unreadMessages: { [userId1]: 0, [userId2]: 0 },
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
+    blockedBy: [], // Initialize empty block list
   };
 
   const docRef = await addDoc(threadsCol, newThreadData);
@@ -212,6 +213,7 @@ export const sendMessage = async (
   }
 
   // CHECK BLOCKING STATUS
+  // Check user profile blocking (legacy/redundant if thread blocking is used, but good for safety)
   const receiverProfile = await getUserProfile(receiverId);
   if (receiverProfile?.blockedUserIds?.includes(senderId)) {
     throw new Error("הודעה לא נשלחה כי המשתמש חסם אותך");
@@ -232,6 +234,16 @@ export const sendMessage = async (
 
   if (!thread) {
     throw new Error("Could not find or create chat thread.");
+  }
+
+  // Check Thread-level blocking
+  if (thread.blockedBy && (thread.blockedBy.includes(senderId) || thread.blockedBy.includes(receiverId))) {
+    const blockerId = thread.blockedBy.includes(senderId) ? senderId : receiverId;
+    if (blockerId === senderId) {
+      throw new Error("לא ניתן לשלוח הודעה בשיחה שחסמת.");
+    } else {
+      throw new Error("הודעה לא נשלחה כי המשתמש חסם אותך.");
+    }
   }
 
   const messagesCol = collection(db, CHAT_THREADS_COLLECTION, thread.id, 'messages');
@@ -277,6 +289,60 @@ export const sendMessage = async (
       timestamp: messageTimestampEstimate
     } as unknown as ChatMessage // Cast because serverTimestamp type !== string
   };
+};
+
+export const deleteChatThread = async (threadId: string, userId: string, hardDelete: boolean = false): Promise<void> => {
+  const threadRef = doc(db, CHAT_THREADS_COLLECTION, threadId);
+  const threadSnap = await getDoc(threadRef);
+
+  if (!threadSnap.exists()) {
+    throw new Error("Chat thread not found");
+  }
+
+  if (hardDelete) {
+    // "Delete for Everyone" - permanently remove the document
+    await import("firebase/firestore").then(({ deleteDoc }) => deleteDoc(threadRef));
+    return;
+  }
+
+  const threadData = threadSnap.data() as ChatThread;
+  const updatedParticipantIds = threadData.participantIds.filter(id => id !== userId);
+
+  if (updatedParticipantIds.length === 0) {
+    // If no participants left, delete the thread document entirely
+    await import("firebase/firestore").then(({ deleteDoc }) => deleteDoc(threadRef));
+  } else {
+    // Remove user and update
+    await updateDoc(threadRef, {
+      participantIds: updatedParticipantIds
+    });
+  }
+};
+
+export const toggleBlockUserInThread = async (threadId: string, currentUserId: string, block: boolean): Promise<void> => {
+  const threadRef = doc(db, CHAT_THREADS_COLLECTION, threadId);
+  const threadSnap = await getDoc(threadRef);
+
+  if (!threadSnap.exists()) {
+    throw new Error("Chat thread not found");
+  }
+
+  const threadData = threadSnap.data() as ChatThread;
+  let blockedBy = threadData.blockedBy || [];
+
+  if (block) {
+    // Add user to blockedBy if not already there
+    if (!blockedBy.includes(currentUserId)) {
+      blockedBy = [...blockedBy, currentUserId];
+    }
+  } else {
+    // Remove user from blockedBy
+    blockedBy = blockedBy.filter(id => id !== currentUserId);
+  }
+
+  await updateDoc(threadRef, {
+    blockedBy: blockedBy
+  });
 };
 
 

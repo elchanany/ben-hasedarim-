@@ -14,6 +14,7 @@ interface RangeInputGroupProps {
   disabled?: boolean;
   labelClassName?: string;
   inputClassName?: string;
+  containerClassName?: string;
 }
 
 export const RangeInputGroup: React.FC<RangeInputGroupProps> = ({
@@ -28,9 +29,10 @@ export const RangeInputGroup: React.FC<RangeInputGroupProps> = ({
   disabled = false,
   labelClassName = '',
   inputClassName = '',
+  containerClassName = '',
 }) => {
   return (
-    <div className={`flex flex-col gap-1 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+    <div className={`flex flex-col gap-1 ${disabled ? 'opacity-50 pointer-events-none' : ''} ${containerClassName}`}>
       <label className={`text-sm font-medium text-gray-700 text-right ${labelClassName}`}>{label}</label>
       <div className="flex items-center gap-2">
         <div className="relative flex-1">

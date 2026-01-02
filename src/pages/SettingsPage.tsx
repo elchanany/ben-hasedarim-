@@ -162,10 +162,10 @@ export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
 
     return (
         <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
-            <div className="bg-white p-6 sm:p-8 rounded-xl shadow-2xl">
+            <div className="bg-white p-4 sm:p-8 rounded-xl shadow-2xl">
                 <div className="flex items-center mb-6 pb-4 border-b">
                     <CogIcon className="w-10 h-10 text-royal-blue mr-4 rtl:ml-4 rtl:mr-0" />
-                    <h1 className="text-3xl font-bold text-royal-blue">הגדרות מערכת</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-royal-blue">הגדרות מערכת</h1>
                 </div>
 
                 {successMessage && <p className="mb-4 text-center text-sm text-green-600 bg-green-100 p-3 rounded-md">{successMessage}</p>}
@@ -173,28 +173,8 @@ export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
                 <div className="space-y-8 animate-fade-in">
                     <form onSubmit={handleSettingsSubmit} className="space-y-6" noValidate>
 
-                        {/* Notification Settings Link */}
-                        <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 mb-6 flex justify-between items-center">
-                            <div>
-                                <h3 className="font-semibold text-royal-blue mb-1 flex items-center">
-                                    <BellIcon className="w-5 h-5 ml-2" />
-                                    ניהול התראות והודעות
-                                </h3>
-                                <p className="text-sm text-gray-600">בחר אילו עדכונים לקבל וכיצד</p>
-                            </div>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                type="button"
-                                onClick={() => setCurrentPage('notifications')}
-                                className="bg-white whitespace-nowrap"
-                            >
-                                למסך ההתראות
-                            </Button>
-                        </div>
-
                         {/* Job Alerts Settings Link */}
-                        <div className="bg-yellow-50/50 p-4 rounded-lg border border-yellow-100 mb-6 flex justify-between items-center">
+                        <div className="bg-yellow-50/50 p-4 rounded-lg border border-yellow-100 mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
                             <div>
                                 <h3 className="font-semibold text-yellow-800 mb-1 flex items-center">
                                     <BellIcon className="w-5 h-5 ml-2" />
@@ -207,9 +187,9 @@ export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
                                 size="sm"
                                 type="button"
                                 onClick={() => setCurrentPage('createJobAlert')}
-                                className="bg-white whitespace-nowrap"
+                                className="bg-white whitespace-nowrap w-full sm:w-auto"
                             >
-                                להתראות עבודות
+                                הוספת התראה חדשה
                             </Button>
                         </div>
 
@@ -219,7 +199,7 @@ export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
                                 <CalendarDaysIcon className="w-5 h-5 ml-2 text-gray-500" />
                                 העדפת תאריך
                             </legend>
-                            <div className="flex gap-3 mt-2">
+                            <div className="flex flex-wrap gap-2 sm:gap-3 mt-2">
                                 <Button
                                     type="button"
                                     variant={datePref === 'hebrew' ? 'primary' : 'outline'}
@@ -228,6 +208,7 @@ export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
                                         authCtx?.setDatePreference('hebrew');
                                         setSuccessMessage('העדפת תאריך עודכנה לעברי');
                                     }}
+                                    className="flex-1 sm:flex-none py-2 text-xs sm:text-sm"
                                 >
                                     עברי
                                 </Button>
@@ -239,11 +220,27 @@ export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
                                         authCtx?.setDatePreference('gregorian');
                                         setSuccessMessage('העדפת תאריך עודכנה ללועזי');
                                     }}
+                                    className="flex-1 sm:flex-none py-2 text-xs sm:text-sm"
                                 >
                                     לועזי
                                 </Button>
+                                <Button
+                                    type="button"
+                                    variant={datePref === 'both' ? 'primary' : 'outline'}
+                                    onClick={() => {
+                                        setDatePref('both');
+                                        authCtx?.setDatePreference('both');
+                                        setSuccessMessage('העדפת תאריך עודכנה לתצוגה משולבת (עברי ולועזי)');
+                                    }}
+                                    className="flex-1 sm:flex-none py-2 text-xs sm:text-sm"
+                                >
+                                    גם וגם
+                                </Button>
                             </div>
-                            <p className="text-xs text-gray-500 mt-2">העדפה זו משפיעה על אופן תצוגת התאריכים ברחבי האתר.</p>
+                            <p className="text-xs text-gray-500 mt-2">
+                                העדפה זו משפיעה על אופן תצוגת התאריכים ברחבי האתר.
+                                {datePref === 'both' && <span className="block mt-1 text-royal-blue font-medium">תצוגה משולבת: "ג׳ בטבת תשפ״ה (2 ינואר 2025)"</span>}
+                            </p>
                         </fieldset>
 
                         {/* Contact Display Defaults for Ads */}
@@ -363,6 +360,6 @@ export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
                     </div>
                 </div>
             </Modal>
-        </div>
+        </div >
     );
 };

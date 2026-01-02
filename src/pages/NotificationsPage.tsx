@@ -4,11 +4,13 @@ import { useAuth } from '../hooks/useAuth';
 import { Notification, JobAlertPreference, ChatThread, JobAlertDeliveryMethods } from '../types';
 import * as notificationService from '../services/notificationService';
 import { Button } from '../components/Button';
-import { BellIcon, PlusCircleIcon, SearchIcon, BriefcaseIcon, ChatBubbleLeftEllipsisIcon, UserIcon, EditIcon, TrashIcon, CheckCircleIcon } from '../components/icons';
+import { BellIcon, PlusCircleIcon, SearchIcon, BriefcaseIcon, ChatBubbleLeftEllipsisIcon, UserIcon, EditIcon, TrashIcon, CheckCircleIcon, ClockIcon } from '../components/icons';
 import { formatRelativePostedDate } from '../utils/dateConverter';
 import * as chatService from '../services/chatService';
 import { useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
+import { Modal } from '../components/Modal';
+
 
 
 const JobAlertFrequencyOptions = [
@@ -28,7 +30,8 @@ const ChatThreadListItem: React.FC<{
   thread: ChatThread;
   currentUserId: string;
   onClick: (threadId: string, otherParticipantName: string, jobTitle?: string, jobId?: string) => void;
-}> = ({ thread, currentUserId, onClick }) => {
+  onDelete: (threadId: string) => void;
+}> = ({ thread, currentUserId, onClick, onDelete }) => {
   const authCtx = useContext(AuthContext);
   try {
     if (!thread || !thread.participantIds || !Array.isArray(thread.participantIds)) {
@@ -56,43 +59,55 @@ const ChatThreadListItem: React.FC<{
     return (
       <li
         onClick={() => onClick(thread.id, otherParticipant.displayName || "משתתף", thread.jobTitle, thread.jobId)}
-        className={`p-3 sm:p-4 rounded-lg border flex items-center space-x-3 rtl:space-x-reverse cursor-pointer transition-colors duration-150 hover:bg-light-blue/60
+        className={`relative p-3 sm:p-4 rounded-lg border flex items-center space-x-3 rtl:space-x-reverse cursor-pointer transition-all duration-200 hover:bg-light-blue/60 group
                   ${unreadCount > 0 ? 'bg-yellow-100/80 border-yellow-300/60 font-semibold' : 'bg-light-blue/20 border-light-blue/30'}`}
         role="button"
         tabIndex={0}
         aria-label={`פתח שיחה עם ${otherParticipant.displayName || "משתתף"}${thread.jobTitle ? ` לגבי ${thread.jobTitle}` : ''}. ${unreadCount > 0 ? `${unreadCount} הודעות חדשות.` : ''}`}
       >
-        <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-royal-blue text-white rounded-full flex items-center justify-center">
+        <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-royal-blue text-white rounded-full flex items-center justify-center shadow-sm">
           <UserIcon className="w-5 h-5 sm:w-6 sm:h-6" />
         </div>
-        <div className="flex-grow min-w-0">
-          <div className="flex justify-between items-center">
-            <h4 className={`text-base sm:text-lg truncate ${unreadCount > 0 ? 'text-deep-pink' : 'text-royal-blue'}`}>
+        <div className="flex-grow min-w-0 pr-0 sm:pr-2">
+          <div className="flex justify-between items-baseline gap-2">
+            <h4 className={`text-sm sm:text-lg truncate max-w-[120px] sm:max-w-none ${unreadCount > 0 ? 'text-deep-pink' : 'text-royal-blue'}`}>
               {otherParticipant.displayName || "משתתף"}
             </h4>
             {thread.lastMessage && thread.lastMessage.timestamp && (
-              <span className="text-xs text-gray-500 flex-shrink-0 ml-2 rtl:mr-2 rtl:ml-0">
+              <span className="text-[10px] sm:text-xs text-gray-500 flex-shrink-0">
                 {formatRelativePostedDate(thread.lastMessage.timestamp, authCtx?.datePreference || 'hebrew')}
               </span>
             )}
           </div>
           {thread.jobTitle && (
-            <p className="text-xs sm:text-sm text-gray-500 truncate flex items-center">
-              <BriefcaseIcon className="w-3 h-3 mr-1 rtl:ml-1 rtl:mr-0 text-gray-400" />
-              {thread.jobTitle}
+            <p className="text-[11px] sm:text-sm text-gray-500 truncate flex items-center mt-0.5">
+              <BriefcaseIcon className="w-3 h-3 ml-1 rtl:mr-1 rtl:ml-0 text-gray-400" />
+              <span className="truncate">{thread.jobTitle}</span>
             </p>
           )}
-          <p className={`text-sm truncate ${unreadCount > 0 ? 'text-gray-700' : 'text-gray-600'}`}>
+          <p className={`text-xs sm:text-sm truncate mt-0.5 ${unreadCount > 0 ? 'text-gray-700' : 'text-gray-600'}`}>
             {lastMessageText}
           </p>
         </div>
-        {unreadCount > 0 && (
-          <div className="flex-shrink-0 ml-1 rtl:mr-1 rtl:ml-0">
-            <span className="px-2.5 py-1 bg-red-600 text-white text-xs font-bold rounded-full mr-1 rtl:ml-1 rtl:mr-0">
+        <div className="flex flex-shrink-0 items-center gap-2 mr-auto rtl:ml-auto rtl:mr-0 pl-1">
+          {unreadCount > 0 && (
+            <span className="px-2 py-0.5 bg-red-600 text-white text-[10px] sm:text-xs font-bold rounded-full">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
-          </div>
-        )}
+          )}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(thread.id);
+            }}
+            className="p-1.5 sm:p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all duration-200"
+            title="מחק שיחה"
+            aria-label="מחק שיחה"
+          >
+            <TrashIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
+        </div>
       </li>
     );
   } catch (error) {
@@ -109,9 +124,9 @@ const ChatThreadListItem: React.FC<{
 export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pageParams }) => {
   const { user, refreshTotalUnreadCount } = useAuth();
   const authCtx = useContext(AuthContext);
-  const [activeTab, setActiveTab] = useState<'alerts' | 'messages'>('messages');
+  const [activeTab, setActiveTab] = useState<'messages' | 'job_alerts' | 'system'>('messages');
 
-  // Early return if user is not logged in
+  // Early return if user is not logged in... (lines 114-123 kept same)
   if (!user) {
     return (
       <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8 py-4 sm:py-8 px-2 sm:px-0">
@@ -123,6 +138,7 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
     );
   }
 
+  // State hooks...
   const [systemNotifications, setSystemNotifications] = useState<Notification[]>([]);
   const [jobAlerts, setJobAlerts] = useState<JobAlertPreference[]>([]);
   const [chatThreads, setChatThreads] = useState<ChatThread[]>([]);
@@ -131,10 +147,33 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
   const [loadingAlerts, setLoadingAlerts] = useState(true);
   const [loadingChatThreads, setLoadingChatThreads] = useState(true);
 
-  // Modal State
+  // Pagination for job alert notifications
+  const [visibleJobAlertCount, setVisibleJobAlertCount] = useState(4);
+
+  // Modal State...
   const [selectedSystemNotification, setSelectedSystemNotification] = useState<Notification | null>(null);
   const [showSystemNotificationModal, setShowSystemNotificationModal] = useState(false);
 
+  // Sub-tab state for Job Alerts
+  const [jobAlertSubTab, setJobAlertSubTab] = useState<'notifications' | 'settings'>('notifications');
+
+  // Confirmation Modal State
+  const [confirmationModal, setConfirmationModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    confirmText?: string;
+    cancelText?: string;
+    isDestructive?: boolean;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+  });
+
+  // Fetch functions... (lines 138-185 kept same)
   const fetchSystemNotifications = useCallback(async () => {
     if (user) {
       setLoadingSystemNotifications(true);
@@ -171,7 +210,6 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
         if (Array.isArray(threads)) {
           setChatThreads(threads);
         } else {
-          console.warn("Chat threads is not an array:", threads);
           setChatThreads([]);
         }
         refreshTotalUnreadCount();
@@ -184,8 +222,8 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
     }
   }, [user, refreshTotalUnreadCount]);
 
-
-  // Load initial data when component mounts
+  // Effects... (lines 188-210)
+  // Load initial data
   useEffect(() => {
     if (user) {
       try {
@@ -199,17 +237,17 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
   }, [user, fetchSystemNotifications, fetchJobAlerts, fetchChatThreads]);
 
   useEffect(() => {
-    // Only update URL if the tab actually changed from user interaction
+    // Determine active tab from params or defaults
     try {
-      if (pageParams?.tab && pageParams.tab !== activeTab && (pageParams.tab === 'alerts' || pageParams.tab === 'messages')) {
-        setActiveTab(pageParams.tab);
+      if (pageParams?.tab && pageParams.tab !== activeTab && ['messages', 'job_alerts', 'system'].includes(pageParams.tab)) {
+        setActiveTab(pageParams.tab as any);
       }
     } catch (error) {
       console.error("Error in tab change effect:", error);
     }
   }, [pageParams?.tab]);
 
-
+  // Handlers... (lines 213-280 kept same)
   const handleMarkAsRead = async (notificationId: string) => {
     if (user) {
       try {
@@ -236,16 +274,43 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
     setCurrentPage('createJobAlert', { alertId: alert.id });
   };
 
-  const handleDeleteAlert = async (alertId: string) => {
-    if (user && window.confirm("האם אתה בטוח שברצונך למחוק התראה זו?")) {
+  const handleDeleteAlert = (alertId: string) => {
+    setConfirmationModal({
+      isOpen: true,
+      title: 'מחיקת התראה',
+      message: 'האם אתה בטוח שברצונך למחוק התראה זו לצמיתות?',
+      confirmText: 'כן, מחק',
+      isDestructive: true,
+      onConfirm: async () => {
+        if (user) {
+          try {
+            await notificationService.deleteJobAlertPreference(user.id, alertId);
+            fetchJobAlerts();
+            setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+          } catch (error) {
+            console.error("Error deleting job alert:", error);
+          }
+        }
+      }
+    });
+  }
+
+  const handleToggleAlertActive = async (alert: JobAlertPreference) => {
+    if (user) {
       try {
-        await notificationService.deleteJobAlertPreference(user.id, alertId);
+        const updatedAlert = { ...alert, isActive: !alert.isActive };
+        // Use updateJobAlertPreference but exclude id/userId/lastChecked which are not in the payload type usually, 
+        // but checking usage in CreateJobAlertPage, it passes a partial object.
+        // We need to pass the full object minus the read-only fields.
+        // Actually service updateJobAlertPreference takes (userId, alertId, updates).
+        const { id, userId, lastChecked, ...updates } = updatedAlert;
+        await notificationService.updateJobAlertPreference(user.id, alert.id, updates);
         fetchJobAlerts();
       } catch (error) {
-        console.error("Error deleting job alert:", error);
+        console.error("Error toggling alert active status:", error);
       }
     }
-  }
+  };
 
   const handleChatThreadClick = (threadId: string, otherParticipantName: string, jobTitle?: string, jobId?: string) => {
     if (user) {
@@ -257,21 +322,60 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
     }
   };
 
+  const handleDeleteChat = (threadId: string) => {
+    setConfirmationModal({
+      isOpen: true,
+      title: 'מחיקת שיחה לצמיתות',
+      message: 'האם אתה בטוח שברצונך למחוק את השיחה הזו לצמיתות? פעולה זו תמחק את כל ההודעות בשיחה עבור שני המשתתפים ולא ניתן יהיה לשחזר אותה.',
+      confirmText: 'מחק לצמיתות',
+      isDestructive: true,
+      onConfirm: async () => {
+        if (user) {
+          try {
+            // Hard delete as per user request ("delete from both sides")
+            // In a real app we might ask, but here the requirement is specific
+            await chatService.deleteChatThread(threadId, user.id, true);
+            fetchChatThreads();
+            setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+          } catch (error) {
+            console.error("Error deleting chat thread:", error);
+          }
+        }
+      }
+    });
+  };
+
+  const handleDisableAlertById = (alertId: string, alertName: string) => {
+    setConfirmationModal({
+      isOpen: true,
+      title: 'ביטול התראה',
+      message: `האם ברצונך להפסיק לקבל התראות עבור "${alertName}"?`,
+      confirmText: 'כן, בטל התראה',
+      isDestructive: false,
+      onConfirm: async () => {
+        if (user) {
+          try {
+            await notificationService.updateJobAlertPreference(user.id, alertId, { isActive: false });
+            fetchJobAlerts(); // Refresh alerts list
+            setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+          } catch (error) {
+            console.error("Error disabling alert:", error);
+          }
+        }
+      }
+    });
+  };
+
   const handleMarkAllMessagesAsRead = async () => {
     if (!user || chatThreads.length === 0) return;
-
     try {
-      // Mark all unread messages as read for all chat threads
       for (const thread of chatThreads) {
         if (thread.unreadMessages && thread.unreadMessages[user.id] > 0) {
           await chatService.markThreadAsRead(thread.id, user.id);
         }
       }
-
-      // Refresh the chat threads to update the UI
       await fetchChatThreads();
       refreshTotalUnreadCount();
-
       alert('כל ההודעות סומנו כנקראו');
     } catch (error) {
       console.error("Error marking all messages as read:", error);
@@ -279,6 +383,14 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
     }
   };
 
+  const handleNotificationClick = (notif: Notification) => {
+    if (notif.link) {
+      window.open(notif.link, '_blank');
+    }
+    if (!notif.isRead) {
+      handleMarkAsRead(notif.id);
+    }
+  };
 
   const TabButton: React.FC<{ label: string, icon: React.ReactNode, isActive: boolean, onClick: () => void, count?: number }> =
     ({ label, icon, isActive, onClick, count }) => (
@@ -299,162 +411,195 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
       </button>
     );
 
-
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6 sm:space-y-8 py-4 sm:py-8 px-2 sm:px-0">
-      <div className="flex justify-between items-center mb-4 sm:mb-6 px-2 sm:px-0">
+    <div className="w-full max-w-4xl mx-auto space-y-6 sm:space-y-8 py-4 sm:py-8 px-4 sm:px-0">
+      <div className="flex justify-between items-center mb-4 sm:mb-6 px-0">
         <h1 className="text-2xl sm:text-3xl font-bold text-royal-blue flex items-center">
           <BellIcon className="w-8 h-8 mr-3 rtl:ml-3 rtl:mr-0 text-deep-pink" />
           התראות והודעות
         </h1>
       </div>
 
-      <div className="flex border-b border-light-blue/30 bg-light-blue/10 sm:rounded-t-lg shadow-sm">
+      <div className="flex border-b border-light-blue/30 bg-light-blue/10 sm:rounded-t-lg shadow-sm overflow-x-auto">
         <TabButton
-          label="הודעות האתר"
+          label="הודעות ממשתמשים"
           icon={<ChatBubbleLeftEllipsisIcon className="w-5 h-5" />}
           isActive={activeTab === 'messages'}
           onClick={() => setActiveTab('messages')}
           count={chatThreads.reduce((sum, t) => sum + (t.unreadMessages[user?.id || ''] || 0), 0)}
         />
         <TabButton
-          label="התראות מערכת"
+          label="התראות על משרות"
+          icon={<BriefcaseIcon className="w-5 h-5" />}
+          isActive={activeTab === 'job_alerts'}
+          onClick={() => setActiveTab('job_alerts')}
+          count={systemNotifications.filter(n => !n.isRead && n.type === 'job_alert_match').length}
+        />
+        <TabButton
+          label="עדכוני מערכת"
           icon={<BellIcon className="w-5 h-5" />}
-          isActive={activeTab === 'alerts'}
-          onClick={() => setActiveTab('alerts')}
-          count={systemNotifications.filter(n => !n.isRead).length}
+          isActive={activeTab === 'system'}
+          onClick={() => setActiveTab('system')}
+          count={systemNotifications.filter(n => !n.isRead && n.type === 'system_update').length}
         />
       </div>
 
-      {activeTab === 'alerts' && (
+      {/* Messages Tab */}
+      {activeTab === 'messages' && (
         <div className="space-y-6 sm:space-y-8 animate-fade-in-down">
           <div className="bg-white p-3 sm:p-6 rounded-xl shadow-xl">
             <div className="flex justify-between items-center mb-4 sm:mb-6 pb-3 sm:pb-4 border-b">
-              <h2 className="text-xl sm:text-2xl font-semibold text-royal-blue">התראות על עבודות חדשות</h2>
-              {systemNotifications.some(n => !n.isRead) && (
-                <Button onClick={handleMarkAllSystemNotificationsAsRead} variant="outline" size="sm">סמן הכל כנקרא</Button>
+              <h2 className="text-xl sm:text-2xl font-semibold text-royal-blue flex items-center">
+                <ChatBubbleLeftEllipsisIcon className="w-6 h-6 mr-2 rtl:ml-2 rtl:mr-0 text-deep-pink" />
+                הודעות שקיבלת ממשתמשים
+              </h2>
+              {chatThreads.some(t => t.unreadMessages[user?.id || ''] > 0) && (
+                <Button onClick={handleMarkAllMessagesAsRead} variant="outline" size="sm">סמן הכל כנקרא</Button>
               )}
             </div>
-            {loadingSystemNotifications ? (
-              <p className="text-center text-gray-500 py-4">טוען התראות...</p>
-            ) : systemNotifications.length === 0 ? (
-              <p className="text-center text-gray-500 py-4">אין לך התראות מערכת או משרות כרגע.</p>
+            {loadingChatThreads ? (
+              <p className="text-center text-gray-500 py-4">טוען הודעות...</p>
+            ) : chatThreads.length === 0 ? (
+              <div className="text-center py-8 bg-gray-50 rounded-lg">
+                <ChatBubbleLeftEllipsisIcon className="w-12 h-12 mx-auto text-gray-300 mb-2" />
+                <p className="text-gray-500">תיבת ההודעות שלך ריקה.</p>
+              </div>
             ) : (
               <ul className="space-y-3">
-                {systemNotifications.map(notif => (
-                  <li key={notif.id} className={`p-3 sm:p-4 rounded-lg border ${notif.isRead ? 'bg-gray-50 border-gray-200' : 'bg-light-blue border-royal-blue shadow-sm'}`}>
-                    <div className="flex justify-between items-start">
-                      <div className="flex-grow">
-                        <h3 className={`font-semibold ${notif.isRead ? 'text-gray-700' : 'text-royal-blue'}`}>{notif.title}</h3>
-                        <p className={`text-sm ${notif.isRead ? 'text-gray-600' : 'text-gray-800'}`}>{notif.message}</p>
-                        <p className="text-xs text-gray-400 mt-1">{formatRelativePostedDate(notif.createdAt, authCtx?.datePreference || 'hebrew')}</p>
-                      </div>
-                      <div className="flex-shrink-0 ml-3 rtl:mr-3 rtl:ml-0 flex flex-col sm:flex-row gap-2 self-center">
-                        {!notif.isRead && (
-                          <Button onClick={() => handleMarkAsRead(notif.id)} variant="outline" size="sm" className="!px-3 !py-1.5">קראתי</Button>
-                        )}
-                        {notif.type === 'system_update' ? (
-                          <Button onClick={() => { setSelectedSystemNotification(notif); setShowSystemNotificationModal(true); if (!notif.isRead) handleMarkAsRead(notif.id); }} variant="secondary" size="sm" className="!px-3 !py-1.5 bg-royal-blue text-white hover:bg-blue-700">
-                            צפה
-                          </Button>
-                        ) : notif.link && (
-                          <Button onClick={() => { if (notif.link?.startsWith('#/')) { window.location.hash = notif.link; } else if (notif.link) { window.open(notif.link, '_blank'); } if (!notif.isRead) handleMarkAsRead(notif.id); }} variant="secondary" size="sm" className="!px-3 !py-1.5">
-                            {notif.type === 'job_alert_match' ? 'צפה במשרה' : 'פתח קישור'}
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </li>
+                {chatThreads.sort((a, b) => {
+                  const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
+                  const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
+                  return timeB - timeA;
+                }).map(thread => (
+                  <ChatThreadListItem
+                    key={thread.id}
+                    thread={thread}
+                    currentUserId={user?.id || ''}
+                    onClick={handleChatThreadClick}
+                    onDelete={handleDeleteChat}
+                  />
                 ))}
               </ul>
             )}
           </div>
+        </div>
+      )
+      }
 
-          <div className="bg-white p-3 sm:p-6 rounded-xl shadow-xl">
-            <div className="flex justify-between items-center mb-4 sm:mb-6 pb-3 sm:pb-4 border-b">
-              <h2 className="text-xl sm:text-2xl font-semibold text-royal-blue flex items-center">
-                <SearchIcon className="w-6 h-6 mr-2 rtl:ml-2 rtl:mr-0 text-deep-pink" />
-                ניהול התראות על משרות (סינונים שמורים)
-              </h2>
-              <Button onClick={() => setCurrentPage('createJobAlert')} variant="primary" icon={<PlusCircleIcon className="w-5 h-5" />}>
-                הוסף התראה
-              </Button>
-            </div>
-            {loadingAlerts ? (
-              <p className="text-center text-gray-500 py-4">טוען הגדרות התראה...</p>
-            ) : jobAlerts.length === 0 ? (
-              <p className="text-center text-gray-500 py-4">עדיין לא הגדרת התראות על משרות. לחץ על "הוסף התראה" כדי להתחיל.</p>
-            ) : (
-              <div className="space-y-4">
-                {jobAlerts.map(alert => (
-                  <div key={alert.id} className="p-4 border rounded-lg bg-gray-50 shadow-sm">
-                    <div className="flex flex-col sm:flex-row justify-between items-start">
-                      <div className="flex-grow mb-3 sm:mb-0">
-                        <h4 className="font-semibold text-royal-blue text-lg">{alert.name} {alert.isActive ? <span className="text-xs text-green-600">(פעילה)</span> : <span className="text-xs text-red-600">(לא פעילה)</span>}</h4>
-                        <div className="text-sm text-gray-600 space-y-0.5 mt-1">
-                          {alert.location && <p><strong>אזור:</strong> {alert.location}</p>}
-                          {alert.difficulty && <p><strong>קושי:</strong> {alert.difficulty}</p>}
-                          <p><strong>תדירות:</strong> {JobAlertFrequencyOptions.find(f => f.value === alert.frequency)?.label || alert.frequency}</p>
-                          <p className="text-xs text-gray-500"><strong>אמצעי קבלה:</strong> אתר בלבד (אפשרויות נוספות בפיתוח)</p>
+      {/* Job Alerts Tab - SPLIT: Notifications vs Settings */}
+      {
+        activeTab === 'job_alerts' && (
+          <div className="space-y-6 sm:space-y-8 animate-fade-in-down">
+
+
+
+            {/* View: My Alerts Management (Default and only view) */}
+            <div className="bg-white p-3 sm:p-6 rounded-xl shadow-xl animate-fade-in">
+              <div className="flex justify-between items-center mb-4 sm:mb-6 pb-3 sm:pb-4 border-b">
+                <h2 className="text-xl sm:text-2xl font-semibold text-royal-blue flex items-center">
+                  <SearchIcon className="w-6 h-6 mr-2 rtl:ml-2 rtl:mr-0 text-deep-pink" />
+                  ניהול ההתראות שלי
+                  {jobAlerts.length > 0 && <span className="mr-3 text-sm font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">({jobAlerts.filter(a => a.isActive).length} פעילות)</span>}
+                </h2>
+                <Button onClick={() => setCurrentPage('createJobAlert')} variant="primary" icon={<PlusCircleIcon className="w-5 h-5" />}>
+                  יצירת התראה חדשה
+                </Button>
+              </div>
+              {loadingAlerts ? (
+                <p className="text-center text-gray-500 py-4">טוען הגדרות...</p>
+              ) : jobAlerts.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-600 mb-4">לא הוגדרו התראות עדיין.</p>
+                  <Button onClick={() => setCurrentPage('createJobAlert')} variant="primary">צור התראה ראשונה</Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {jobAlerts.map(alert => (
+                    <div key={alert.id} className={`p-4 border rounded-lg shadow-sm transition-colors ${alert.isActive ? 'bg-white border-royal-blue/20' : 'bg-gray-50 border-gray-200 opacity-75'}`}>
+                      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                        <div className="flex-grow">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h4 className="font-bold text-royal-blue text-lg">{alert.name}</h4>
+                            <label className="relative inline-flex items-center cursor-pointer flex-shrink-0" dir="ltr">
+                              <input type="checkbox" checked={alert.isActive} onChange={() => handleToggleAlertActive(alert)} className="sr-only peer" />
+                              <div className="w-[44px] h-[24px] bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                              <span className={`ml-2 text-xs font-medium ${alert.isActive ? 'text-green-600' : 'text-gray-500'}`}>{alert.isActive ? 'פעיל' : 'מושהה'}</span>
+                            </label>
+                          </div>
+                          <div className="flex flex-wrap gap-2 text-sm text-gray-600">
+                            {alert.location && <span className="bg-gray-100 px-2 py-0.5 rounded-md text-gray-800">{alert.location}</span>}
+                            {alert.difficulty && <span className="bg-gray-100 px-2 py-0.5 rounded-md text-gray-800">{alert.difficulty}</span>}
+                            <span className="text-gray-400">|</span>
+                            <span>{JobAlertFrequencyOptions.find(o => o.value === alert.frequency)?.label || alert.frequency}</span>
+                          </div>
                         </div>
-                        <p className="text-xs text-gray-400 mt-2">בדיקה אחרונה: {alert.lastChecked ? formatRelativePostedDate(alert.lastChecked, authCtx?.datePreference || 'hebrew') : 'טרם נבדק'}</p>
-                      </div>
-                      <div className="flex space-x-3 rtl:space-x-reverse self-start sm:self-center flex-shrink-0">
-                        <Button onClick={() => openEditAlertPage(alert)} size="sm" variant="outline" icon={<EditIcon className="w-4 h-4" />}>ערוך</Button>
-                        <Button onClick={() => handleDeleteAlert(alert.id)} size="sm" variant="danger" icon={<TrashIcon className="w-4 h-4" />}>מחק</Button>
+
+                        <div className="flex gap-2 self-end sm:self-center">
+                          <Button onClick={() => openEditAlertPage(alert)} variant="outline" size="sm" icon={<EditIcon className="w-4 h-4" />}>ערוך</Button>
+                          <button onClick={() => handleDeleteAlert(alert.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors" title="מחק התראה">
+                            <TrashIcon className="w-5 h-5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-      {activeTab === 'messages' && (
-        <div className="bg-white p-3 sm:p-6 rounded-xl shadow-xl animate-fade-in-down">
-          <div className="flex justify-between items-center mb-4 sm:mb-6 pb-3 sm:pb-4 border-b">
-            <h2 className="text-xl sm:text-2xl font-semibold text-royal-blue">ההודעות שלי</h2>
-            {chatThreads.length > 0 && (
-              <Button
-                onClick={handleMarkAllMessagesAsRead}
-                className="bg-deep-pink hover:bg-pink-600 text-white"
-                icon={<CheckCircleIcon className="w-4 h-4" />}
-              >
-                קראתי הכל
-              </Button>
-            )}
+      {/* System Messages Tab */}
+      {
+        activeTab === 'system' && (
+          <div className="space-y-6 sm:space-y-8 animate-fade-in-down">
+            <div className="bg-white p-3 sm:p-6 rounded-xl shadow-xl border-t-4 border-royal-blue">
+              <div className="flex justify-between items-center mb-4 sm:mb-6 pb-3 sm:pb-4 border-b">
+                <h2 className="text-xl sm:text-2xl font-semibold text-royal-blue flex items-center">
+                  <BellIcon className="w-6 h-6 mr-2 rtl:ml-2 rtl:mr-0 text-royal-blue" />
+                  הודעות ועדכוני מערכת
+                </h2>
+                {systemNotifications.some(n => !n.isRead && n.type !== 'job_alert_match') && (
+                  <Button onClick={handleMarkAllSystemNotificationsAsRead} variant="outline" size="sm">סמן הכל כנקרא</Button>
+                )}
+              </div>
+
+              {loadingSystemNotifications ? (
+                <p className="text-center text-gray-500 py-4">טוען הודעות...</p>
+              ) : systemNotifications.filter(n => n.type !== 'job_alert_match').length === 0 ? (
+                <div className="text-center py-8 bg-gray-50 rounded-lg">
+                  <BellIcon className="w-12 h-12 mx-auto text-gray-300 mb-2" />
+                  <p className="text-gray-500">אין הודעות מערכת חדשות.</p>
+                </div>
+              ) : (
+                <ul className="space-y-3">
+                  {systemNotifications.filter(n => n.type !== 'job_alert_match').map(notif => (
+                    <li key={notif.id} className={`p-3 sm:p-4 rounded-lg border ${notif.isRead ? 'bg-gray-50 border-gray-200' : 'bg-light-blue/30 border-royal-blue/30 shadow-sm'}`}>
+                      <div className="flex justify-between items-start">
+                        <div className="flex-grow">
+                          <h3 className={`font-semibold ${notif.isRead ? 'text-gray-700' : 'text-royal-blue'}`}>{notif.title}</h3>
+                          <p className={`text-sm ${notif.isRead ? 'text-gray-600' : 'text-gray-800'}`}>{notif.message}</p>
+                          <p className="text-xs text-gray-400 mt-1">{formatRelativePostedDate(notif.createdAt, authCtx?.datePreference || 'hebrew')}</p>
+                        </div>
+                        <div className="flex-shrink-0 ml-3 rtl:mr-3 rtl:ml-0 flex flex-col sm:flex-row gap-2 self-center">
+                          {!notif.isRead && (<Button onClick={() => handleMarkAsRead(notif.id)} variant="outline" size="sm" className="!px-3 !py-1.5">קראתי</Button>)}
+                          {notif.type === 'system_update' ? (
+                            <Button onClick={() => { setSelectedSystemNotification(notif); setShowSystemNotificationModal(true); if (!notif.isRead) handleMarkAsRead(notif.id); }} variant="secondary" size="sm" className="!px-3 !py-1.5 bg-royal-blue text-white hover:bg-blue-700">צפה</Button>
+                          ) : notif.link && (
+                            <Button onClick={() => { if (notif.link) window.open(notif.link, '_blank'); if (!notif.isRead) handleMarkAsRead(notif.id); }} variant="secondary" size="sm" className="!px-3 !py-1.5">פתח</Button>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
-          {loadingChatThreads ? (
-            <p className="text-center text-gray-500 py-4">טוען הודעות...</p>
-          ) : chatThreads.length === 0 ? (
-            <p className="text-center text-gray-500 py-4">אין לך הודעות עדיין.</p>
-          ) : (
-            <ul className="space-y-3">
-              {chatThreads.map(thread => {
-                try {
-                  if (!user || !user.id) {
-                    console.warn("User or user.id is missing");
-                    return null;
-                  }
-                  return (
-                    <ChatThreadListItem
-                      key={thread.id}
-                      thread={thread}
-                      currentUserId={user.id}
-                      onClick={handleChatThreadClick}
-                    />
-                  );
-                } catch (error) {
-                  console.error("Error rendering chat thread:", thread.id, error);
-                  return null;
-                }
-              })}
-            </ul>
-          )}
-        </div>
-      )}
+        )
+      }
+
 
 
       {/* System Notification Modal */}
@@ -470,10 +615,28 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
               </div>
 
               <div className="bg-gray-50 p-4 rounded-md mb-6 text-gray-800 whitespace-pre-wrap leading-relaxed max-h-[60vh] overflow-y-auto">
+                {selectedSystemNotification.relatedAlertName && (
+                  <p className="text-xs text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md inline-block mb-3 border border-indigo-100 font-bold">
+                    🔔 התקבל מהתראה: {selectedSystemNotification.relatedAlertName}
+                  </p>
+                )}
                 {selectedSystemNotification.message}
               </div>
 
-              <div className="flex justify-end pt-2 border-t border-gray-100">
+              <div className="flex justify-between items-center pt-2 border-t border-gray-100 mt-4">
+                <div className="flex-grow">
+                  {selectedSystemNotification.relatedAlertId && (
+                    <button
+                      onClick={() => {
+                        setShowSystemNotificationModal(false);
+                        handleDisableAlertById(selectedSystemNotification.relatedAlertId!, selectedSystemNotification.relatedAlertName || 'התראה');
+                      }}
+                      className="text-xs text-red-500 hover:underline"
+                    >
+                      בטל התראה זו (הפסק לקבל עדכונים)
+                    </button>
+                  )}
+                </div>
                 <Button onClick={() => setShowSystemNotificationModal(false)} variant="primary" className="min-w-[100px]">
                   סגור
                 </Button>
@@ -482,6 +645,37 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
           </div>
         )
       }
-    </div >
+
+      {/* General Confirmation Modal */}
+      {
+        confirmationModal.isOpen && (
+          <Modal
+            isOpen={confirmationModal.isOpen}
+            onClose={() => setConfirmationModal(prev => ({ ...prev, isOpen: false }))}
+            title={confirmationModal.title}
+          >
+            <div className="p-4 text-center">
+              <p className="text-gray-700 mb-6 text-lg">{confirmationModal.message}</p>
+              <div className="flex justify-center gap-4">
+                <Button
+                  onClick={() => setConfirmationModal(prev => ({ ...prev, isOpen: false }))}
+                  variant="outline"
+                  className="w-24"
+                >
+                  {confirmationModal.cancelText || 'ביטול'}
+                </Button>
+                <Button
+                  onClick={confirmationModal.onConfirm}
+                  variant={confirmationModal.isDestructive ? 'primary' : 'primary'}
+                  className={`w-24 ${confirmationModal.isDestructive ? 'bg-red-600 hover:bg-red-700 border-red-600 text-white' : ''}`}
+                >
+                  {confirmationModal.confirmText || 'אישור'}
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )
+      }
+    </div>
   );
 };

@@ -22,7 +22,7 @@ export const Input: React.FC<InputProps> = ({
   ...props
 }) => {
   const baseInputStyle =
-    'mt-1 block w-full px-4 py-3 text-base bg-gray-50/50 border border-gray-100 focus:outline-none focus:bg-white focus-visible:ring-8 focus-visible:ring-royal-blue/5 focus:border-royal-blue sm:text-sm text-dark-text rounded-2xl transition-all disabled:bg-gray-100';
+    'mt-1 block w-full px-4 py-3 text-base bg-white border border-gray-300 focus:outline-none focus:bg-white focus-visible:ring-4 focus-visible:ring-royal-blue/10 focus:border-royal-blue sm:text-sm text-dark-text rounded-2xl transition-all disabled:bg-gray-100 hover:border-gray-400';
   const errorInputStyle = error ? 'border-red-500 focus-visible:ring-red-500 focus:border-red-500' : '';
   const describedById = errorId || (error && id ? `${id}-error` : undefined);
 

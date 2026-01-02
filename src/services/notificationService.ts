@@ -61,6 +61,151 @@ const saveStoredJobAlertPreferences = (userId: string, userPrefs: JobAlertPrefer
   localStorage.setItem(JOB_ALERT_PREFERENCES_KEY, JSON.stringify(allPrefsGlobal));
 };
 
+// Helper to get ALL job alert preferences (for all users) - used when a new job is posted
+const getAllStoredJobAlertPreferences = (): JobAlertPreference[] => {
+  const allPrefsJson = localStorage.getItem(JOB_ALERT_PREFERENCES_KEY);
+  let allPrefs: JobAlertPreference[] = allPrefsJson ? JSON.parse(allPrefsJson) : [];
+  // Ensure selectedPaymentMethods is a Set
+  allPrefs = allPrefs.map(pref => ({
+    ...pref,
+    selectedPaymentMethods: new Set(pref.selectedPaymentMethods || []),
+  }));
+  return allPrefs;
+};
+
+// Helper function to check if a job matches an alert preference
+const doesJobMatchAlert = (job: Job, pref: JobAlertPreference): boolean => {
+  // Location - empty means any
+  if (pref.location && pref.location !== '') {
+    if (job.area !== pref.location) return false;
+  }
+
+  // Difficulty - empty/undefined means any
+  if (pref.difficulty) {
+    if (job.difficulty !== pref.difficulty) return false;
+  }
+
+  // DateType - empty/undefined means any
+  if (pref.dateType) {
+    if (pref.dateType === 'specificDate' && pref.specificDateStart) {
+      const startDate = new Date(pref.specificDateStart);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = pref.specificDateEnd ? new Date(pref.specificDateEnd) : startDate;
+      endDate.setHours(23, 59, 59, 999);
+      if (!job.specificDate) return false;
+      const jobDate = new Date(job.specificDate);
+      if (jobDate < startDate || jobDate > endDate) return false;
+    } else if (pref.dateType === 'today') {
+      const todayISO = getTodayGregorianISO();
+      if (job.specificDate !== todayISO && job.dateType !== 'today') return false;
+    } else if (pref.dateType === 'comingWeek') {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const oneWeekFromToday = new Date(today); oneWeekFromToday.setDate(today.getDate() + 7); oneWeekFromToday.setHours(23, 59, 59, 999);
+      if (job.dateType !== 'comingWeek' && job.dateType !== 'flexibleDate') {
+        if (!job.specificDate) return false;
+        const jobDate = new Date(job.specificDate);
+        if (jobDate < today || jobDate > oneWeekFromToday) return false;
+      }
+    } else if (pref.dateType === 'flexibleDate') {
+      if (job.dateType !== 'flexibleDate') return false;
+    }
+  }
+
+  // Duration range
+  const minDuration = pref.minEstimatedDurationHours ? parseFloat(pref.minEstimatedDurationHours) : undefined;
+  const maxDuration = pref.maxEstimatedDurationHours ? parseFloat(pref.maxEstimatedDurationHours) : undefined;
+  if (minDuration !== undefined && (job.estimatedDurationHours === undefined || job.estimatedDurationHours < minDuration)) return false;
+  if (maxDuration !== undefined && (job.estimatedDurationHours === undefined || job.estimatedDurationHours > maxDuration)) return false;
+  if (pref.filterDurationFlexible && pref.filterDurationFlexible !== 'any') {
+    if (job.estimatedDurationIsFlexible !== (pref.filterDurationFlexible === 'yes')) return false;
+  }
+
+  // Payment Kind - 'any' or empty means any
+  if (pref.paymentKind && pref.paymentKind !== 'any') {
+    if (job.paymentType !== pref.paymentKind) return false;
+  }
+
+  // Payment rates (apply only if relevant payment kind)
+  const minHR = pref.minHourlyRate ? parseFloat(pref.minHourlyRate) : undefined;
+  const maxHR = pref.maxHourlyRate ? parseFloat(pref.maxHourlyRate) : undefined;
+  const minGP = pref.minGlobalPayment ? parseFloat(pref.minGlobalPayment) : undefined;
+  const maxGP = pref.maxGlobalPayment ? parseFloat(pref.maxGlobalPayment) : undefined;
+
+  if (job.paymentType === PaymentType.HOURLY) {
+    if (minHR !== undefined && (job.hourlyRate === undefined || job.hourlyRate < minHR)) return false;
+    if (maxHR !== undefined && (job.hourlyRate === undefined || job.hourlyRate > maxHR)) return false;
+  } else if (job.paymentType === PaymentType.GLOBAL) {
+    if (minGP !== undefined && (job.globalPayment === undefined || job.globalPayment < minGP)) return false;
+    if (maxGP !== undefined && (job.globalPayment === undefined || job.globalPayment > maxGP)) return false;
+  }
+
+  // Payment Methods - empty set means any
+  if (pref.selectedPaymentMethods && pref.selectedPaymentMethods.size > 0) {
+    if (!job.paymentMethod || !pref.selectedPaymentMethods.has(job.paymentMethod)) return false;
+  }
+
+  // People Needed
+  const minPN = pref.minPeopleNeeded ? parseInt(pref.minPeopleNeeded, 10) : undefined;
+  const maxPN = pref.maxPeopleNeeded ? parseInt(pref.maxPeopleNeeded, 10) : undefined;
+  if (minPN !== undefined && (job.numberOfPeopleNeeded === undefined || job.numberOfPeopleNeeded < minPN)) return false;
+  if (maxPN !== undefined && (job.numberOfPeopleNeeded === undefined || job.numberOfPeopleNeeded > maxPN)) return false;
+
+  // Suitability - 'any' or empty means any
+  if (pref.suitabilityFor && pref.suitabilityFor !== 'any') {
+    if (pref.suitabilityFor === 'men' && !job.suitability.men) return false;
+    if (pref.suitabilityFor === 'women' && !job.suitability.women) return false;
+    if (pref.suitabilityFor === 'general' && !job.suitability.general) return false;
+  }
+
+  // Age range
+  const minAgeNum = pref.minAge ? parseInt(pref.minAge, 10) : undefined;
+  const maxAgeNum = pref.maxAge ? parseInt(pref.maxAge, 10) : undefined;
+  // If alert wants minAge 18+, job with minAge 10 SHOULD match (job accepts younger people, which includes 18+)
+  // If alert wants maxAge 40, job with minAge 50 should NOT match (job requires 50+, which is above 40)
+  if (minAgeNum !== undefined && job.suitability.minAge !== undefined && job.suitability.minAge > minAgeNum) return false;
+  if (maxAgeNum !== undefined && job.suitability.minAge !== undefined && job.suitability.minAge > maxAgeNum) return false;
+
+  return true;
+};
+
+// NEW: Check all users' alerts when a new job is posted
+export const checkAllAlertsForNewJob = (newJob: Job): void => {
+  const allPrefs = getAllStoredJobAlertPreferences();
+
+  for (const pref of allPrefs) {
+    if (!pref.isActive) continue;
+    // Don't notify the job poster about their own job
+    if (pref.userId === newJob.postedBy.id) continue;
+
+    if (doesJobMatchAlert(newJob, pref)) {
+      // Get existing notifications for this user
+      let userNotifications = getStoredNotifications(pref.userId);
+
+      // Check for duplicate - use both jobId AND alertId to prevent duplicates
+      const existingNotification = userNotifications.find(
+        n => n.type === 'job_alert_match' &&
+          n.link === `#/jobDetails?jobId=${newJob.id}` &&
+          n.id.includes(newJob.id) && n.id.includes(pref.id)
+      );
+
+      if (!existingNotification) {
+        userNotifications.push({
+          id: `notif_${pref.id}_${newJob.id}_${Date.now()}`,
+          userId: pref.userId,
+          type: 'job_alert_match',
+          title: `משרה חדשה בהתראת '${pref.name}'`,
+          message: `"${newJob.title}" באזור ${newJob.area}.`,
+          link: `#/jobDetails?jobId=${newJob.id}`,
+          isRead: false,
+          createdAt: new Date().toISOString(),
+        });
+        saveStoredNotifications(pref.userId, userNotifications);
+      }
+    }
+  }
+};
+
+
 
 // --- Notification Functions (System & Job Alerts) ---
 
@@ -168,7 +313,7 @@ export const addJobAlertPreference = (userId: string, preferenceData: Omit<JobAl
         ...preferenceData,
         id: `alert_${Date.now()}`,
         userId: userId,
-        lastChecked: new Date(0).toISOString(),
+        lastChecked: new Date().toISOString(), // Start checking from NOW, ignore old jobs
         notificationDays: preferenceData.notificationDays || defaultNotificationDays,
         doNotDisturbHours: preferenceData.doNotDisturbHours || defaultDoNotDisturbHours,
         deliveryMethods: { site: true, email: false, whatsapp: false, tzintuk: false }, // Force site:true, others false
@@ -237,8 +382,10 @@ export const generateJobAlertMatches = async (userId: string): Promise<void> => 
 
     const matchingJobs = allJobs.filter(job => {
       const jobPostedTime = new Date(job.postedDate).getTime();
-      if (jobPostedTime <= lastCheckedTime) return false;
-      if (job.postedBy.id === userId) return false; // Don't notify user about their own jobs
+      // Use a safety buffer (e.g., 15 minutes) to avoid missing jobs due to latency or varying clock synchronization
+      // Duplicate notifications are prevented by the check 'existingNotification' below.
+      if (jobPostedTime <= lastCheckedTime - 15 * 60 * 1000) return false;
+      // if (job.postedBy.id === userId) return false; // Allowed for testing purposes as per user feedback
 
       let match = true;
 
@@ -320,7 +467,9 @@ export const generateJobAlertMatches = async (userId: string): Promise<void> => 
       }
       const minAgeNum = pref.minAge ? parseInt(pref.minAge, 10) : undefined;
       const maxAgeNum = pref.maxAge ? parseInt(pref.maxAge, 10) : undefined;
-      if (minAgeNum !== undefined) match = match && (job.suitability.minAge === undefined || job.suitability.minAge >= minAgeNum);
+      // If alert wants minAge 18+, job with minAge 10 SHOULD match (job accepts younger, which includes 18+)
+      // If alert wants maxAge 40, job with minAge 50 should NOT match (job requires 50+, above 40)
+      if (minAgeNum !== undefined) match = match && (job.suitability.minAge === undefined || job.suitability.minAge <= minAgeNum);
       if (maxAgeNum !== undefined) match = match && (job.suitability.minAge === undefined || job.suitability.minAge <= maxAgeNum);
 
       return match;
@@ -333,12 +482,15 @@ export const generateJobAlertMatches = async (userId: string): Promise<void> => 
       // but not used for sending yet.
 
       for (const job of matchingJobs) {
+        // Check for duplicate using both jobId and alertId
         const existingNotification = userSystemNotifications.find(
-          n => n.type === 'job_alert_match' && n.link === `#/jobDetails?jobId=${job.id}` && n.message.includes(pref.name)
+          n => n.type === 'job_alert_match' &&
+            n.link === `#/jobDetails?jobId=${job.id}` &&
+            n.id.includes(job.id) && n.id.includes(pref.id)
         );
         if (!existingNotification) {
           userSystemNotifications.push({
-            id: `notif_jobalert_${Date.now()}_${job.id}_${Math.random().toString(16).slice(2)}`,
+            id: `notif_${pref.id}_${job.id}_${Date.now()}`,
             userId: userId,
             type: 'job_alert_match',
             title: `משרה חדשה בהתראת '${pref.name}'`,
@@ -346,6 +498,8 @@ export const generateJobAlertMatches = async (userId: string): Promise<void> => 
             link: `#/jobDetails?jobId=${job.id}`,
             isRead: false,
             createdAt: new Date().toISOString(),
+            relatedAlertId: pref.id,
+            relatedAlertName: pref.name,
           });
           newNotificationsGenerated = true;
         }

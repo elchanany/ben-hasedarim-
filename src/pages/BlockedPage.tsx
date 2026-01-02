@@ -43,14 +43,14 @@ export const BlockedPage: React.FC<BlockedPageProps> = ({ user, onLogout }) => {
 
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4 rtl">
-            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-8 text-center animate-fade-in">
+            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 sm:p-8 text-center animate-fade-in">
                 <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
                     <svg className="w-10 h-10 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                     </svg>
                 </div>
 
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">החשבון שלך נחסם</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">החשבון שלך נחסם</h1>
                 <p className="text-gray-600 mb-6">
                     מנהל המערכת חסם את הגישה שלך לאתר.
                 </p>

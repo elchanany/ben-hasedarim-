@@ -8,7 +8,7 @@ export interface User {
 
   // שדות חדשים שחסרים לך וגורמים לאדום:
   role?: 'user' | 'moderator' | 'admin' | 'super_admin' | 'support';
-  datePreference?: 'hebrew' | 'gregorian';
+  datePreference?: 'hebrew' | 'gregorian' | 'both';
   isEmployer?: boolean;
   createdAt?: string;
 
@@ -87,6 +87,8 @@ export enum PaymentMethod {
   CASH_ON_COMPLETION = 'בסוף העבודה במזומן',
   BANK_TRANSFER = 'בהעברה בנקאית',
   PAYSLIP = 'בתלוש',
+  BIT_PAYBOX = 'ביט | פייבוקס',
+  OTHER = 'אחר',
 }
 
 export interface PreferredContactMethods {
@@ -111,6 +113,7 @@ export interface Job {
   hourlyRate?: number;
   globalPayment?: number;
   paymentMethod?: PaymentMethod;
+  customPaymentMethod?: string; // For "Other" payment method
   paymentDueDate?: string;
   numberOfPeopleNeeded?: number;
   specialRequirements?: string;
@@ -122,10 +125,12 @@ export interface Job {
   contactWhatsapp?: string;
   contactEmail?: string;
   preferredContactMethods: PreferredContactMethods;
+  address?: string;
   postedBy: JobPosterInfo;
   postedDate: string;
   views: number;
   contactAttempts: number;
+  applicationCount?: number; // Number of times contact methods were clicked
   isFlagged?: boolean;
   flagReason?: string;
 }
@@ -146,6 +151,8 @@ export interface Notification {
   link?: string;
   isRead: boolean;
   createdAt: string;
+  relatedAlertId?: string;
+  relatedAlertName?: string;
 }
 
 export interface JobAlertDeliveryMethods {
@@ -252,6 +259,7 @@ export interface ChatThread {
   unreadMessages: Record<string, number>;
   createdAt: string;
   updatedAt: string;
+  blockedBy?: string[];
 }
 
 export interface ContactMessage {
@@ -269,7 +277,7 @@ export interface AdminLog {
   id: string;
   adminId: string;
   adminName: string;
-  action: 'delete_job' | 'ban_user' | 'unban_user' | 'delete_message' | 'update_role' | 'reply_contact' | 'resolve_report' | 'dismiss_report';
+  action: 'delete_job' | 'ban_user' | 'unban_user' | 'delete_message' | 'update_role' | 'reply_contact' | 'resolve_report' | 'dismiss_report' | 'block_contact' | 'unblock_contact';
   targetId: string;
   targetType: 'job' | 'user' | 'message' | 'chat';
   reason: string;

@@ -5,7 +5,7 @@ import { CheckboxGroup } from '../components/CheckboxGroup';
 import type { PageProps } from '../App';
 import { useAuth } from '../hooks/useAuth';
 import { User, ContactPreference, Job } from '../types';
-import { UserIcon, BriefcaseIcon, BellIcon, PlusCircleIcon, CheckCircleIcon, XCircleIcon, ExclamationCircleIcon, TrashIcon } from '../components/icons';
+import { UserIcon, BriefcaseIcon, BellIcon, PlusCircleIcon, CheckCircleIcon, XCircleIcon, ExclamationCircleIcon, TrashIcon, EyeIcon } from '../components/icons';
 import { Modal } from '../components/Modal';
 import { gregSourceToHebrewString, formatGregorianString, formatDateByPreference } from '../utils/dateConverter';
 import * as authService from '../services/authService';
@@ -222,12 +222,12 @@ export const ProfilePage: React.FC<PageProps> = ({ setCurrentPage }) => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
-      <div className="bg-white p-6 sm:p-8 rounded-xl shadow-2xl">
+    <div className="max-w-4xl mx-auto py-8 px-4 space-y-6 sm:space-y-8">
+      <div className="bg-white p-4 sm:p-8 rounded-xl shadow-2xl">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 pb-4 border-b">
           <div className="flex items-center mb-3 sm:mb-0">
             <UserIcon className="w-12 h-12 text-royal-blue mr-4 rtl:ml-4 rtl:mr-0" />
-            <h1 className="text-3xl font-bold text-royal-blue">אזור אישי - {user.fullName}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-royal-blue">אזור אישי - {user.fullName}</h1>
           </div>
 
           <div className="flex space-x-2 rtl:space-x-reverse self-start sm:self-center bg-gray-100 p-1 rounded-lg invisible">
@@ -290,15 +290,15 @@ export const ProfilePage: React.FC<PageProps> = ({ setCurrentPage }) => {
       </div>
 
       <div className="bg-light-blue/10 p-6 sm:p-8 rounded-xl shadow-2xl border border-light-blue/20">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 pb-4 border-b border-light-blue/30">
-          <h2 className="text-2xl font-bold text-royal-blue flex items-center mb-3 sm:mb-0">
-            <BriefcaseIcon className="w-8 h-8 mr-3 rtl:ml-3 rtl:mr-0" />
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 pb-4 border-b border-light-blue/30 gap-4">
+          <h2 className="text-xl sm:text-2xl font-bold text-royal-blue flex items-center">
+            <BriefcaseIcon className="w-8 h-8 ml-3 rtl:mr-3 rtl:ml-0" />
             העבודות שפרסמתי
           </h2>
-          <div className="flex items-center space-x-2 rtl:space-x-reverse self-start sm:self-center">
-            <span className="text-sm text-gray-600">מיין לפי:</span>
-            <Button size="sm" variant={sortOrder === 'newest' ? 'primary' : 'outline'} onClick={() => setSortOrder('newest')}>חדש לישן</Button>
-            <Button size="sm" variant={sortOrder === 'oldest' ? 'primary' : 'outline'} onClick={() => setSortOrder('oldest')}>ישן לחדש</Button>
+          <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto no-scrollbar pb-1 sm:pb-0">
+            <span className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">מיין לפי:</span>
+            <Button size="sm" variant={sortOrder === 'newest' ? 'primary' : 'outline'} onClick={() => setSortOrder('newest')} className="whitespace-nowrap flex-grow sm:flex-grow-0">חדש לישן</Button>
+            <Button size="sm" variant={sortOrder === 'oldest' ? 'primary' : 'outline'} onClick={() => setSortOrder('oldest')} className="whitespace-nowrap flex-grow sm:flex-grow-0">ישן לחדש</Button>
           </div>
         </div>
         {loadingJobs ? (
@@ -314,23 +314,29 @@ export const ProfilePage: React.FC<PageProps> = ({ setCurrentPage }) => {
           <div className="space-y-4">
             {sortedJobs.map(job => {
               const isActive = jobService.isJobDateValidForSearch(job);
+              const displayId = job.serialNumber || (job.id && job.id.substring(0, 8));
               return (
-                <div key={job.id} className={`p-4 border rounded-lg ${isActive ? 'bg-green-50/80 border-green-200/60' : 'bg-light-pink/40 border-light-pink/60 opacity-75'}`}>
-                  <div className="flex flex-col sm:flex-row justify-between items-start">
-                    <div className="flex-grow">
-                      <div className="flex items-baseline space-x-2 rtl:space-x-reverse">
-                        <h3 className="text-lg font-semibold text-royal-blue hover:text-deep-pink cursor-pointer" onClick={() => setCurrentPage('jobDetails', { jobId: job.id })}>{job.title}</h3>
-                        <span className="text-sm text-gray-400 font-mono">#{job.id}</span>
+                <div key={job.id} className={`p-4 border rounded-lg transition-all duration-300 hover:shadow-md ${isActive ? 'bg-green-50/80 border-green-200/60' : 'bg-light-pink/40 border-light-pink/60 opacity-75'}`}>
+                  <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                    <div className="flex-grow min-w-0 w-full">
+                      <div className="flex flex-wrap items-baseline gap-x-2">
+                        <h3 className="text-lg font-bold text-royal-blue hover:text-deep-pink cursor-pointer truncate max-w-[200px] sm:max-w-none" onClick={() => setCurrentPage('jobDetails', { jobId: job.id })}>{job.title}</h3>
+                        <span className="text-xs text-gray-400 font-mono">#{displayId}</span>
                       </div>
-                      <p className="text-sm text-gray-500">פורסם ב: {formatDateByPreference(job.postedDate, authCtx?.datePreference || 'hebrew')}</p>
-                      <p className={`text-sm font-medium ${isActive ? 'text-green-700' : 'text-red-700'}`}>
-                        סטטוס: {isActive ? 'פעילה' : 'לא רלוונטית / הסתיימה'}
-                      </p>
-                      <p className="text-xs text-gray-400">צפיות: {job.views || 0}</p>
+                      <p className="text-sm text-gray-500 mt-1">פורסם ב: {formatDateByPreference(job.postedDate, authCtx?.datePreference || 'hebrew')}</p>
+                      <div className="flex flex-wrap items-center gap-3 mt-2">
+                        <p className={`text-xs font-bold px-2 py-0.5 rounded-full ${isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {isActive ? 'פעילה' : 'הסתיימה'}
+                        </p>
+                        <p className="text-xs text-gray-500 flex items-center">
+                          <EyeIcon className="w-3.5 h-3.5 ml-1" />
+                          {job.views || 0} צפיות
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex space-x-2 rtl:space-x-reverse mt-3 sm:mt-0 self-start sm:self-center flex-shrink-0">
-                      <Button size="sm" variant="outline" onClick={() => handleEditJob(job.id)}>ערוך</Button>
-                      <Button size="sm" variant="danger" onClick={() => handleDeleteJob(job.id)}>מחק</Button>
+                    <div className="flex gap-2 w-full sm:w-auto sm:self-center">
+                      <Button size="sm" variant="outline" onClick={() => handleEditJob(job.id)} className="flex-1 sm:flex-none">ערוך</Button>
+                      <Button size="sm" variant="danger" onClick={() => handleDeleteJob(job.id)} className="flex-1 sm:flex-none">מחק</Button>
                     </div>
                   </div>
                 </div>

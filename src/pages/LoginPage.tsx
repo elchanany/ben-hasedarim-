@@ -97,11 +97,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ setCurrentPage, message })
   };
 
   return (
-    <div className="min-h-[calc(100vh-250px)] flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-light-blue/10 p-8 sm:p-10 rounded-xl shadow-2xl border border-light-blue/20">
+    <div className="min-h-[calc(100vh-250px)] flex flex-col items-center justify-center py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8 bg-light-blue/10 p-6 sm:p-10 rounded-xl shadow-2xl border border-light-blue/20">
         <div className="text-center">
           <LoginIcon className="mx-auto h-12 w-auto text-royal-blue" />
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-royal-blue">
+          <h2 className="mt-6 text-center text-2xl sm:text-3xl font-extrabold text-royal-blue">
             התחברות לחשבון
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">

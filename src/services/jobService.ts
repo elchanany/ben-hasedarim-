@@ -26,6 +26,7 @@ import {
 import { ISRAELI_CITIES, DEFAULT_USER_DISPLAY_NAME, SortById } from '../constants';
 import { getTodayGregorianISO } from '../utils/dateConverter';
 import * as adminLogService from './adminLogService';
+import * as notificationService from './notificationService';
 import { AdminLog } from '../types';
 
 const JOBS_COLLECTION = 'jobs';
@@ -144,19 +145,45 @@ export const isJobDateValidForSearch = (job: Job): boolean => {
 
 export const getHotJobs = async (jobLimit: number = 4): Promise<Job[]> => {
   const jobsCol = collection(db, JOBS_COLLECTION);
+
+  // Fetch more jobs than needed, sorted by recent first
+  // We'll calculate engagement score client-side since Firestore can't do calculated fields
   const q = query(jobsCol,
     where("postedDate", "<=", new Date().toISOString()),
-    orderBy("views", "desc"),
     orderBy("postedDate", "desc"),
-    limit(jobLimit * 2));
+    limit(jobLimit * 3)); // Fetch 3x to have enough candidates
 
   const querySnapshot = await getDocs(q);
   const jobs: Job[] = [];
+
   querySnapshot.forEach((docSnap) => {
     jobs.push({ id: docSnap.id, ...convertTimestamps(docSnap.data()) } as Job);
   });
 
-  return jobs.filter(isJobDateValidForSearch).slice(0, jobLimit);
+  // Filter to valid jobs first
+  const validJobs = jobs.filter(isJobDateValidForSearch);
+
+  // Calculate engagement score for each job
+  // Score = (views × 1.0) + (applicationCount × 3.0)
+  // Applications are weighted 3x because they show stronger user interest
+  const jobsWithScore = validJobs.map(job => ({
+    job,
+    score: (job.views || 0) * 1.0 + (job.applicationCount || 0) * 3.0
+  }));
+
+  // Sort by engagement score descending
+  jobsWithScore.sort((a, b) => b.score - a.score);
+
+  // Check if all jobs have zero engagement
+  const allZeroEngagement = jobsWithScore.every(item => item.score === 0);
+
+  if (allZeroEngagement) {
+    // Fallback: return most recent jobs
+    return validJobs.slice(0, jobLimit);
+  }
+
+  // Return top jobs by engagement
+  return jobsWithScore.slice(0, jobLimit).map(item => item.job);
 };
 
 export interface SearchCriteria extends JobSearchFilters { }
@@ -404,7 +431,14 @@ export const addJob = async (jobData: Omit<Job, 'id' | 'postedDate' | 'views' | 
         displayName: jobData.postedBy.posterDisplayName // Ensure name exists for new/dormant users
       }, { merge: true });
 
-      return { ...cleanJobPayload, id: newJobRef.id, postedDate: new Date().toISOString() } as Job;
+      const createdJob = { ...cleanJobPayload, id: newJobRef.id, postedDate: new Date().toISOString() } as Job;
+
+      // Trigger notifications for all users with matching job alerts
+      setTimeout(() => {
+        notificationService.checkAllAlertsForNewJob(createdJob);
+      }, 100); // Small delay to ensure transaction commits
+
+      return createdJob;
     });
 
   } catch (error) {
@@ -449,12 +483,15 @@ export const updateJob = async (jobId: string, updatedData: Partial<Job>): Promi
 };
 
 export const getJobsByUserId = async (userId: string): Promise<Job[]> => {
-  const q = query(collection(db, JOBS_COLLECTION), where("postedBy.id", "==", userId), orderBy("postedDate", "desc"));
+  // Query without orderBy to avoid requiring a composite index in Firestore
+  const q = query(collection(db, JOBS_COLLECTION), where("postedBy.id", "==", userId));
   const querySnapshot = await getDocs(q);
   const jobs: Job[] = [];
   querySnapshot.forEach((docSnap) => {
     jobs.push({ id: docSnap.id, ...convertTimestamps(docSnap.data()) } as Job);
   });
+  // Sort client-side by postedDate descending (newest first)
+  jobs.sort((a, b) => new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime());
   return jobs;
 };
 
@@ -515,4 +552,11 @@ export const getAllJobs = async (): Promise<Job[]> => {
     jobs.push({ id: docSnap.id, ...convertTimestamps(docSnap.data()) } as Job);
   });
   return jobs;
+};
+
+export const incrementApplicationCount = async (jobId: string) => {
+  const jobRef = doc(db, 'jobs', jobId);
+  await updateDoc(jobRef, {
+    applicationCount: increment(1)
+  });
 };

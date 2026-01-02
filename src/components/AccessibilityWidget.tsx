@@ -179,13 +179,13 @@ export const AccessibilityWidget: React.FC<{ onAccessibilityStatementClick: () =
     <>
       <button
         ref={buttonRef}
-        className="accessibility-widget-button"
+        className={`accessibility-widget-button ${isOpen ? 'open' : ''}`}
         onClick={() => setIsOpen(!isOpen)}
-        aria-label={isOpen ? "סגור תפריט נגישות" : "פתח תפריט נגישות"}
+        aria-label="תפריט נגישות"
         aria-expanded={isOpen}
         aria-controls="accessibility-panel-content"
       >
-        <AccessibilityIcon className="w-7 h-7" />
+        <AccessibilityIcon className={`w-6 h-6 ${isOpen ? 'rotate-12' : ''} transition-transform duration-300`} />
       </button>
 
       <div

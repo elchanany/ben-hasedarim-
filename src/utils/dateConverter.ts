@@ -177,7 +177,7 @@ export const GREGORIAN_FORMAT_SETTINGS: Intl.DateTimeFormatOptions = {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
 };
 
-export type DateDisplayPreference = 'hebrew' | 'gregorian';
+export type DateDisplayPreference = 'hebrew' | 'gregorian' | 'both';
 
 export const formatGregorianString = (isoOrDate?: string | Date | null, includeWeekday = false): string => {
     if (!isoOrDate) return 'תאריך לא זמין';
@@ -200,9 +200,15 @@ export const formatDateByPreference = (
     preference: DateDisplayPreference = 'hebrew',
     includeWeekday = false
 ): string => {
-    return preference === 'gregorian'
-        ? formatGregorianString(isoOrDate || null, includeWeekday)
-        : gregSourceToHebrewString(isoOrDate || null, includeWeekday);
+    if (preference === 'gregorian') {
+        return formatGregorianString(isoOrDate || null, includeWeekday);
+    } else if (preference === 'both') {
+        const hebrewStr = gregSourceToHebrewString(isoOrDate || null, includeWeekday);
+        const gregorianStr = formatGregorianString(isoOrDate || null, false); // No weekday for gregorian in both mode
+        return `${hebrewStr} (${gregorianStr})`;
+    } else {
+        return gregSourceToHebrewString(isoOrDate || null, includeWeekday);
+    }
 };
 
 export const gregSourceToHebrewString = (isoOrDate?: string | Date | null, includeWeekday = false): string => {

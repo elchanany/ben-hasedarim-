@@ -34,3 +34,5 @@ export { ChevronDownIcon } from './ChevronDownIcon';
 export { XIcon } from './XIcon';
 export { RefreshIcon } from './RefreshIcon';
 export { AdjustmentsIcon } from './AdjustmentsIcon';
+export { ExclamationTriangleIcon } from './ExclamationTriangleIcon';
+export { InformationCircleIcon } from './InformationCircleIcon';

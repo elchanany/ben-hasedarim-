@@ -4,7 +4,7 @@ import { PageProps } from '../App';
 export const AccessibilityStatementPage: React.FC<PageProps> = () => {
     return (
         <div className="container mx-auto p-4 md:p-8 max-w-4xl text-right dir-rtl">
-            <h1 className="text-3xl font-bold mb-6 text-royal-blue">הצהרת נגישות</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-royal-blue">הצהרת נגישות</h1>
             <p className="mb-4 text-gray-600">עודכן לאחרונה: {new Date().toLocaleDateString('he-IL')}</p>
 
             <div className="space-y-6 text-dark-text">

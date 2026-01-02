@@ -7,7 +7,9 @@ import { Select } from '../components/Select';
 import { CheckboxGroup } from '../components/CheckboxGroup';
 import type { PageProps } from '../App';
 import { useAuth } from '../hooks/useAuth';
-import { ISRAELI_CITIES, DEFAULT_USER_DISPLAY_NAME } from '../constants';
+import { CustomSelect } from '../components/CustomSelect'; // Import CustomSelect
+import { SearchableSelect } from '../components/SearchableSelect';
+import { ISRAELI_CITIES, DEFAULT_USER_DISPLAY_NAME, getCityOptions } from '../constants';
 import { Modal } from '../components/Modal';
 import {
   CalendarDaysIcon,
@@ -19,7 +21,8 @@ import {
   PlusCircleIcon,
   SaveIcon,
   LightBulbIcon,
-  EyeIcon
+  EyeIcon,
+  XCircleIcon
 } from '../components/icons';
 import { HebrewDatePicker } from '../components/HebrewDatePicker';
 import { getTodayGregorianISO, gregSourceToHebrewString, formatGregorianString } from '../utils/dateConverter';
@@ -27,6 +30,16 @@ import { useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { useTodayLabel } from '../constants';
 import * as jobService from '../services/jobService';
+
+// ... (existing helper functions)
+
+// ... (existing helper functions)
+
+
+// ...
+
+
+
 
 const PAYMENT_METHOD_OPTIONS = Object.values(PaymentMethod).map(pm => ({ value: pm, label: pm }));
 
@@ -67,6 +80,7 @@ const fieldLabels: Record<string, string> = {
   specialRequirements: "דרישות מיוחדות",
   startTime: "שעת התחלה",
   paymentDueDate: "תאריך תשלום משוער",
+  customPaymentMethod: "פירוט אמצעי תשלום",
   allowSiteMessages: "אפשר פנייה דרך מערכת ההודעות של האתר"
 };
 
@@ -106,6 +120,9 @@ const validateJobForm = (formData: Partial<Job>, userFullName?: string): Record<
   if (formData.dateType === 'specificDate' && !formData.specificDate) errors.specificDate = 'יש לבחור תאריך ספציפי.';
 
   if (!formData.paymentMethod) errors.paymentMethod = 'יש לבחור אופן תשלום.';
+  if (formData.paymentMethod === PaymentMethod.OTHER && !formData.customPaymentMethod?.trim()) {
+    errors.customPaymentMethod = 'יש לפרט את אופן התשלום.';
+  }
 
   if (!formData.contactInfoSource) errors.contactInfoSource = "יש לבחור מקור פרטי יצירת קשר."
 
@@ -193,6 +210,7 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
       dateType: 'today',
       specificDate: undefined,
       paymentMethod: PaymentMethod.CASH_ON_COMPLETION,
+      customPaymentMethod: '',
       paymentDueDate: undefined,
       specialRequirements: '',
       contactInfoSource: 'currentUser',
@@ -238,6 +256,22 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
   const [showContactRedirectModal, setShowContactRedirectModal] = useState(false);
   const [contactRedirectMessage, setContactRedirectMessage] = useState('');
   const [onContactRedirectConfirm, setOnContactRedirectConfirm] = useState<(() => void) | null>(null);
+
+  // Address logic
+  const [showAddressField, setShowAddressField] = useState(false);
+
+  useEffect(() => {
+    if ((isEditMode || submissionCompletedSuccessfully) && formData.address) {
+      setShowAddressField(true);
+    }
+  }, [isEditMode, submissionCompletedSuccessfully, formData.address]);
+
+  // Custom handler for CustomSelect
+  const handleDifficultyChange = (value: string | number) => {
+    setFormData(prev => ({ ...prev, difficulty: value as JobDifficulty }));
+    if (errors.difficulty) setErrors(prev => ({ ...prev, difficulty: '' }));
+    if (globalErrorSummary) setGlobalErrorSummary('');
+  };
 
 
   useEffect(() => {
@@ -509,6 +543,7 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
         specificDate: jobSpecificDate,
         startTime: formData.startTime,
         paymentMethod: formData.paymentMethod,
+        customPaymentMethod: formData.paymentMethod === PaymentMethod.OTHER ? formData.customPaymentMethod : undefined,
         paymentDueDate: formData.paymentMethod === PaymentMethod.CASH_ON_COMPLETION ? undefined : formData.paymentDueDate,
         specialRequirements: formData.specialRequirements,
 
@@ -549,12 +584,12 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
 
   };
 
-  const cityOptions = ISRAELI_CITIES.map(city => ({ value: city.name, label: city.name }));
+  const cityOptions = getCityOptions().filter(opt => opt.value !== '');
   const difficultyOptions = Object.values(JobDifficulty).map(d => ({ value: d, label: d }));
   const todayLabel = useTodayLabel();
   const dateTypeOptions = [
     { value: 'today', label: todayLabel },
-    { value: 'comingWeek', label: 'לשבוע הקרוב' },
+    { value: 'comingWeek', label: 'בשבוע הקרוב' },
     { value: 'flexibleDate', label: 'לא משנה (תאריך גמיש)' },
     { value: 'specificDate', label: 'לתאריך ספציפי' },
   ];
@@ -585,54 +620,136 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
     }`;
 
 
+  /* State for notice banner */
+  const [showNoticeBanner, setShowNoticeBanner] = useState(false);
+
+  useEffect(() => {
+    // Check local storage for banner status
+    try {
+      const isPermanentlyDismissed = localStorage.getItem('job_post_notice_dismissed');
+      const viewCount = parseInt(localStorage.getItem('job_post_notice_views') || '0', 10);
+
+      if (!isPermanentlyDismissed && viewCount < 5) {
+        setShowNoticeBanner(true);
+        localStorage.setItem('job_post_notice_views', (viewCount + 1).toString());
+      }
+    } catch (error) {
+      console.error("Error accessing localStorage (banner logic):", error);
+    }
+  }, []);
+
+  const handleDismissNotice = () => {
+    try {
+      localStorage.setItem('job_post_notice_dismissed', 'true');
+      setShowNoticeBanner(false);
+    } catch (error) {
+      console.error("Error setting localStorage (dismiss banner):", error);
+    }
+  };
+
+
   return (
-    <div className="max-w-3xl mx-auto bg-white p-6 sm:p-8 rounded-xl shadow-2xl my-8">
+    <div className="max-w-3xl mx-auto bg-white p-4 sm:p-8 rounded-xl shadow-2xl my-4 sm:my-8">
       <style>{`
         .tap-highlight-transparent {
           -webkit-tap-highlight-color: transparent;
         }
       `}</style>
-      <h1 className="text-3xl font-bold text-royal-blue mb-6 text-center border-b pb-4">{pageTitle}</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold text-royal-blue mb-6 text-center border-b pb-4">{pageTitle}</h1>
 
       {/* הודעה חשובה */}
-      <div className="bg-gradient-to-r from-royal-blue to-deep-pink p-6 rounded-xl mb-8 flex items-center text-white shadow-lg">
-        <ClockIcon className="w-8 h-8 ml-3 rtl:mr-3 rtl:ml-0 text-white flex-shrink-0" />
-        <p className="text-sm">
-          <strong>לתשומת לבכם:</strong> פלטפורמת 'בין הסדורים' מיועדת לפרסום עבודות זמניות, חד-פעמיות או מזדמנות בלבד, ולא למשרות קבועות או ארוכות טווח. אנא הקפידו על כך.
-        </p>
-      </div>
+      {showNoticeBanner && (
+        <div className="bg-gradient-to-r from-royal-blue to-deep-pink p-4 sm:p-6 rounded-xl mb-8 text-white shadow-lg animate-fade-in-down">
+          <div className="flex items-start">
+            <ClockIcon className="w-8 h-8 ml-3 rtl:mr-3 rtl:ml-0 text-white flex-shrink-0 mt-1" />
+            <div>
+              <p className="text-sm leading-relaxed mb-4">
+                <strong>לתשומת לבכם:</strong> פלטפורמת 'בין הסדורים' מיועדת לפרסום עבודות זמניות, חד-פעמיות או מזדמנות בלבד, ולא למשרות קבועות או ארוכות טווח. אנא הקפידו על כך.
+              </p>
+              <Button
+                onClick={handleDismissNotice}
+                size="sm"
+                className="bg-white/20 hover:bg-white/30 text-white border-white/40 !py-1 !px-4 text-xs backdrop-blur-sm"
+              >
+                הבנתי
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6" noValidate>
 
         {/* פרטי העבודה הבסיסיים */}
-        <div className="bg-gray-50 p-6 rounded-xl shadow-lg">
-          <h2 className="text-2xl font-bold text-royal-blue mb-6 text-center">פרטי העבודה הבסיסיים</h2>
+        <div className="bg-gray-50 p-4 sm:p-6 rounded-xl shadow-lg">
+          <h2 className="text-xl sm:text-2xl font-bold text-royal-blue mb-6 text-center">פרטי העבודה הבסיסיים</h2>
           <div className="space-y-4">
-            <Input label="כותרת העבודה" id="title" name="title" value={formData.title || ''} onChange={handleChange} error={errors.title} maxLength={70} required labelClassName={royalBlueLabelClassName} />
+            <Input label="כותרת העבודה" id="title" name="title" value={formData.title || ''} onChange={handleChange} error={errors.title} maxLength={70} required labelClassName={royalBlueLabelClassName} inputClassName="text-base" />
 
             <div>
-              <label htmlFor="area" className={royalBlueLabelClassName}>באיזו עיר מדובר?</label>
-              <input list="israeli-cities" id="area" name="area" value={formData.area || ''} onChange={handleChange} className={`mt-1 block w-full px-3 py-2 bg-white border ${errors.area ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-royal-blue focus:border-royal-blue sm:text-sm text-royal-blue`} placeholder="התחל להקליד או בחר מהרשימה..." required />
-              <datalist id="israeli-cities">{ISRAELI_CITIES.map(city => (<option key={city.id} value={city.name} />))}</datalist>
+              <SearchableSelect
+                label="באיזו עיר מדובר?"
+                options={cityOptions}
+                value={formData.area || ''}
+                onChange={(val) => handleChange({ target: { name: 'area', value: val } } as any)}
+                placeholder="התחל להקליד או בחר מהרשימה..."
+                className="mb-1"
+              />
               {errors.area && <p className="mt-1 text-xs text-red-600 text-right">{errors.area}</p>}
             </div>
 
-            <Textarea label="פירוט של העבודה (מה היא דורשת בדיוק)" id="description" name="description" value={formData.description || ''} onChange={handleChange} error={errors.description} required rows={5} labelClassName={royalBlueLabelClassName} />
+            <div className="md:col-span-2">
+              {!showAddressField ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAddressField(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-royal-blue text-sm font-medium rounded-lg hover:bg-gray-50 hover:border-royal-blue transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-royal-blue/20"
+                >
+                  <PlusCircleIcon className="w-4 h-4" />
+                  הוסף כתובת מדוייקת (אופציונלי)
+                </button>
+              ) : (
+                <div className="animate-fade-in space-y-2">
+                  <Input
+                    label="כתובת מדוייקת (אופציונלי)"
+                    name="address"
+                    value={formData.address || ''}
+                    onChange={handleChange}
+                    placeholder="לדוגמה: רחוב הרצל 15"
+                    inputClassName="text-base"
+                    labelClassName={royalBlueLabelClassName}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddressField(false);
+                      setFormData(prev => ({ ...prev, address: '' }));
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-red-600 text-xs font-medium bg-red-50 border border-red-200 rounded-md hover:bg-red-100 transition-colors duration-150"
+                  >
+                    <XCircleIcon className="w-4 h-4" />
+                    הסר כתובת
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <Textarea label="פירוט של העבודה (מה היא דורשת בדיוק)" id="description" name="description" value={formData.description || ''} onChange={handleChange} error={errors.description} required rows={8} labelClassName={royalBlueLabelClassName} textareaClassName="!min-h-[200px] !bg-white border-2 border-gray-300 text-base" />
           </div>
         </div>
 
         {/* תשלום */}
-        <div className="bg-gray-50 p-6 rounded-xl shadow-lg">
-          <h2 className="text-2xl font-bold text-royal-blue mb-6 text-center">תשלום</h2>
+        <div className="bg-gray-50 p-4 sm:p-6 rounded-xl shadow-lg">
+          <h2 className="text-xl sm:text-2xl font-bold text-royal-blue mb-6 text-center">תשלום</h2>
           <fieldset className="p-4 border border-gray-200 rounded-md">
             <legend className={royalBlueLegendClassName}>סוג תשלום</legend>
-            <div className="flex justify-end gap-4 mt-2 mb-4">
+            <div className="grid grid-cols-2 sm:flex sm:justify-end gap-3 sm:gap-4 mt-2 mb-4">
               <button
                 type="button"
                 onClick={() => setFormData(prev => ({ ...prev, paymentType: PaymentType.HOURLY }))}
-                className={`px-6 py-2.5 rounded-lg text-sm font-semibold border-2 transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-opacity-50
+                className={`py-2.5 rounded-lg text-sm font-semibold border-2 transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-opacity-50 w-full sm:w-auto px-6
                   ${formData.paymentType === PaymentType.HOURLY
-                    ? 'bg-royal-blue text-white border-royal-blue shadow-lg transform scale-105 ring-royal-blue/70'
+                    ? 'bg-royal-blue text-white border-royal-blue shadow-lg transform sm:scale-105 ring-royal-blue/70'
                     : 'bg-white text-royal-blue border-gray-300 hover:border-royal-blue hover:shadow-md'
                   }`}
               >
@@ -641,9 +758,9 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
               <button
                 type="button"
                 onClick={() => setFormData(prev => ({ ...prev, paymentType: PaymentType.GLOBAL }))}
-                className={`px-6 py-2.5 rounded-lg text-sm font-semibold border-2 transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-opacity-50
+                className={`py-2.5 rounded-lg text-sm font-semibold border-2 transition-all duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-opacity-50 w-full sm:w-auto px-6
                   ${formData.paymentType === PaymentType.GLOBAL
-                    ? 'bg-royal-blue text-white border-royal-blue shadow-lg transform scale-105 ring-royal-blue/70'
+                    ? 'bg-royal-blue text-white border-royal-blue shadow-lg transform sm:scale-105 ring-royal-blue/70'
                     : 'bg-white text-royal-blue border-gray-300 hover:border-royal-blue hover:shadow-md'
                   }`}
               >
@@ -665,7 +782,7 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
             {errors.paymentType && <p className="mt-2 text-xs text-red-600 text-right">{errors.paymentType}</p>}
           </fieldset>
 
-          <fieldset className="p-4 border border-gray-200 rounded-md">
+          <fieldset className="p-4 border border-gray-200 rounded-md mt-6">
             <legend className={royalBlueLegendClassName}>למי העבודה מיועדת</legend>
             <div className="flex flex-wrap justify-end gap-3 mb-3">
               {SUITABILITY_OPTIONS_SINGLE_SELECT.map(opt => (
@@ -684,10 +801,20 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
               ))}
             </div>
             {errors.suitability && <p className="text-xs text-red-600 text-right mb-2">{errors.suitability}</p>}
-            <Input type="number" label="מגיל (אופציונלי, לדוגמה: 18)" id="minAge" name="minAge" value={formData.suitability?.minAge || ''} onChange={handleChange} error={errors.minAge} min="14" max="99" containerClassName="mt-3" labelClassName={royalBlueLabelClassName} inputClassName="text-royal-blue" />
+            <Input type="number" label="מגיל (אופציונלי, לדוגמה: 18)" id="minAge" name="minAge" value={formData.suitability?.minAge || ''} onChange={handleChange} error={errors.minAge} min="14" max="99" containerClassName="mt-3" labelClassName={royalBlueLabelClassName} inputClassName="text-royal-blue text-base" />
           </fieldset>
 
-          <Select label="קושי העבודה" id="difficulty" name="difficulty" options={difficultyOptions} value={formData.difficulty} onChange={handleChange} error={errors.difficulty} required labelClassName={royalBlueLabelClassName} />
+          <CustomSelect
+            id="difficulty"
+            label="קושי העבודה"
+            options={difficultyOptions}
+            value={formData.difficulty}
+            onChange={handleDifficultyChange}
+            error={errors.difficulty}
+            placeholder="בחר רמת קושי"
+            required
+            labelClassName={royalBlueLabelClassName}
+          />
 
           <Input type="number" label="כמה אנשים דרושים?" id="numberOfPeopleNeeded" name="numberOfPeopleNeeded" value={formData.numberOfPeopleNeeded || ''} onChange={handleChange} error={errors.numberOfPeopleNeeded} required min="1" labelClassName={royalBlueLabelClassName} />
 
@@ -719,7 +846,17 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
 
         <fieldset className="p-4 border border-gray-200 rounded-md">
           <legend className={royalBlueLegendClassName}>מתי העבודה דרושה?</legend>
-          <Select options={dateTypeOptions} name="dateType" id="dateType" value={formData.dateType} onChange={handleChange} error={errors.dateType} required labelClassName="sr-only" />
+          <CustomSelect
+            id="dateType"
+            label="מתי העבודה דרושה?"
+            options={dateTypeOptions}
+            value={formData.dateType || ''}
+            onChange={(val) => handleChange({ target: { name: 'dateType', value: val } } as any)}
+            error={errors.dateType}
+            placeholder="בחר מתי העבודה דרושה"
+            required
+            labelClassName="sr-only"
+          />
           {formData.dateType === 'specificDate' && (
             <HebrewDatePicker label="בחר תאריך ספציפי" id="specificDate" value={formData.specificDate || null} onChange={handleDateChange} error={errors.specificDate} containerClassName="mt-3" required labelClassName={royalBlueLabelClassName} />
           )}
@@ -727,7 +864,32 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
 
         <fieldset className="p-4 border border-gray-200 rounded-md">
           <legend className={royalBlueLegendClassName}>אופן ומועד התשלום</legend>
-          <Select label="אופן התשלום" id="paymentMethod" name="paymentMethod" options={PAYMENT_METHOD_OPTIONS} value={formData.paymentMethod} onChange={handleChange} error={errors.paymentMethod} required labelClassName={royalBlueLabelClassName} />
+          <CustomSelect
+            id="paymentMethod"
+            label="אופן התשלום"
+            options={PAYMENT_METHOD_OPTIONS}
+            value={formData.paymentMethod || ''}
+            onChange={(val) => handleChange({ target: { name: 'paymentMethod', value: val } } as any)}
+            error={errors.paymentMethod}
+            placeholder="בחר אופן תשלום"
+            required
+            labelClassName={royalBlueLabelClassName}
+          />
+
+          {formData.paymentMethod === PaymentMethod.OTHER && (
+            <div className="animate-fade-in-down mt-2">
+              <Input
+                label="פירוט אופן התשלום"
+                name="customPaymentMethod"
+                value={formData.customPaymentMethod || ''}
+                onChange={handleChange}
+                placeholder="לדוגמה: צ'ק, העברה בנקאית, ביט..."
+                error={errors.customPaymentMethod}
+                labelClassName={royalBlueLabelClassName}
+              />
+            </div>
+          )}
+
           {formData.paymentMethod !== PaymentMethod.CASH_ON_COMPLETION && (
             <HebrewDatePicker
               label="תאריך תשלום משוער (אופציונלי)"

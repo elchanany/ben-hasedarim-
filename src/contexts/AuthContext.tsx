@@ -34,6 +34,8 @@ export interface AuthContextType {
   refreshTotalUnreadCount: () => Promise<void>;
   datePreference: DateDisplayPreference;
   setDatePreference: (pref: DateDisplayPreference) => void;
+  adminUnreadContacts: number;
+  adminPendingReports: number;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,7 +50,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [totalUnreadCount, setTotalUnreadCount] = useState(0);
   const [datePreference, setDatePreferenceState] = useState<DateDisplayPreference>(() => {
     const saved = localStorage.getItem('datePreference');
-    return (saved === 'gregorian' || saved === 'hebrew') ? (saved as DateDisplayPreference) : 'hebrew';
+    return (saved === 'gregorian' || saved === 'hebrew' || saved === 'both') ? (saved as DateDisplayPreference) : 'hebrew';
   });
 
   const setDatePreference = (pref: DateDisplayPreference) => {
@@ -58,7 +60,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === 'datePreference' && (e.newValue === 'gregorian' || e.newValue === 'hebrew')) {
+      if (e.key === 'datePreference' && (e.newValue === 'gregorian' || e.newValue === 'hebrew' || e.newValue === 'both')) {
         setDatePreferenceState(e.newValue as DateDisplayPreference);
       }
     };
@@ -112,6 +114,39 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       unsubscribeNotifs();
     };
   }, [user?.id]);
+
+  // Admin Notification Listeners
+  const [adminUnreadContacts, setAdminUnreadContacts] = useState(0);
+  const [adminPendingReports, setAdminPendingReports] = useState(0);
+
+  useEffect(() => {
+    if (!user || (user.role !== 'admin' && user.role !== 'super_admin' && user.email?.toLowerCase() !== 'eyceyceyc139@gmail.com')) {
+      setAdminUnreadContacts(0);
+      setAdminPendingReports(0);
+      return;
+    }
+
+    if (!USE_FIREBASE_BACKEND) return;
+
+    // Listen for unread contact messages
+    const contactsCol = collection(db, 'contacts');
+    const qContacts = query(contactsCol, where("status", "==", "new"));
+    const unsubContacts = onSnapshot(qContacts, (snap) => {
+      setAdminUnreadContacts(snap.size);
+    }, err => console.error("Error listening to contacts:", err));
+
+    // Listen for pending reports
+    const reportsCol = collection(db, 'reports');
+    const qReports = query(reportsCol, where("status", "==", "pending"));
+    const unsubReports = onSnapshot(qReports, (snap) => {
+      setAdminPendingReports(snap.size);
+    }, err => console.error("Error listening to reports:", err));
+
+    return () => {
+      unsubContacts();
+      unsubReports();
+    };
+  }, [user]);
 
   // Combine counts
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
@@ -276,7 +311,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       totalUnreadCount,
       refreshTotalUnreadCount,
       datePreference,
-      setDatePreference
+      setDatePreference,
+      adminUnreadContacts,
+      adminPendingReports
     }}>
       {children}
     </AuthContext.Provider>

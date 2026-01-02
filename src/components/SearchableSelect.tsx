@@ -71,7 +71,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
     };
 
     return (
-        <div className={`relative z-[60] ${className}`} ref={containerRef}>
+        <div className={`relative z-[40] ${className}`} ref={containerRef}>
             {label && (
                 <label className="block text-[9px] md:text-sm font-bold text-gray-500 mb-1 md:mb-2 uppercase tracking-widest text-right px-1">
                     {label}

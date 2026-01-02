@@ -449,10 +449,12 @@ export const SearchResultsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
             <p>מחפש משרות...</p>
           </div>
         ) : displayedJobs.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4 justify-items-center justify-center">
-            {displayedJobs.map((job) => (
-              <JobCard key={job.id} job={job} setCurrentPage={setCurrentPage} onJobDeleted={handleJobDeleted} />
-            ))}
+          <div className="px-4 md:px-0">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4 justify-items-center justify-center">
+              {displayedJobs.map((job) => (
+                <JobCard key={job.id} job={job} setCurrentPage={setCurrentPage} onJobDeleted={handleJobDeleted} />
+              ))}
+            </div>
           </div>
         ) : (
           <div className="text-center py-12 px-4 bg-light-pink/40 rounded-xl border border-light-pink/40">
@@ -473,6 +475,7 @@ export const SearchResultsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
             </Button>
           </div>
         )}
+        <div className="h-24 w-full"></div>
       </section>
     </div>
   );

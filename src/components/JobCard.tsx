@@ -361,7 +361,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, setCurrentPage, isHotJob 
           <p className="text-lg text-gray-800 font-medium mb-6">
             האם אתה בטוח שברצונך למחוק את המשרה "{job.title}"? לא ניתן לשחזר פעולה זו.
           </p>
-          <div className="flex justify-center gap-3 rtl:space-x-reverse">
+          <div className="flex justify-center gap-8 rtl:space-x-reverse">
             <Button variant="outline" onClick={() => setShowDeleteConfirmModal(false)} aria-label="ביטול מחיקת משרה" size="lg" className="px-6 py-2">
               ביטול
             </Button>

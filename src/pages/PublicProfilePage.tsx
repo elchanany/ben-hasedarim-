@@ -167,24 +167,25 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userId, se
     // 3. If visitor IS logged in: Show "Click to view" -> on click show details.
 
     return (
-        <div className="max-w-2xl mx-auto py-12 px-4">
+        <div className="max-w-2xl mx-auto py-8 sm:py-12 px-4">
             <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
 
                 {/* Header Background (Gradient) */}
                 <div className="h-24 bg-gradient-to-r from-royal-blue to-blue-500"></div>
 
-                <div className="px-8 pb-8">
-                    <div className="relative flex justify-between items-end -mt-12 mb-6">
-                        <UserAvatar name={profile.displayName} size="xl" className="border-4 border-white shadow-md z-10" />
+                <div className="px-4 pb-4 sm:px-8 sm:pb-8">
+                    <div className="relative flex justify-between items-end -mt-8 sm:-mt-12 mb-4 sm:mb-6">
+                        <UserAvatar name={profile.displayName} size="lg" className="sm:hidden border-4 border-white shadow-md z-10" />
+                        <UserAvatar name={profile.displayName} size="xl" className="hidden sm:block border-4 border-white shadow-md z-10" />
                     </div>
 
-                    <h1 className="text-3xl font-bold text-gray-900 mb-1">{profile.displayName}</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{profile.displayName}</h1>
                     <p className="text-sm text-gray-500 mb-6 flex items-center">
                         <UserIcon className="w-4 h-4 ml-1" />
                         {profile.role === 'admin' || profile.role === 'super_admin' ? 'מנהל מערכת' : 'משתמש רשום'}
                     </p>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-8">
                         <div className="flex items-center p-3 bg-gray-50 rounded-lg">
                             <CalendarDaysIcon className="w-5 h-5 text-blue-500 ml-3" />
                             <div>

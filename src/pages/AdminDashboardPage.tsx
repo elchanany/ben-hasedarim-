@@ -3,6 +3,7 @@ import React, { useEffect, useState, useContext } from 'react';
 import type { PageProps } from '../App';
 import { Job, User, Report, ContactMessage } from '../types';
 import { BriefcaseIcon, UserIcon, PlusCircleIcon, LightBulbIcon, EnvelopeIcon, SearchIcon, ExclamationCircleIcon } from '../components/icons';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { formatDateByPreference } from '../utils/dateConverter';
 import * as jobService from '../services/jobService';
 import * as userService from '../services/userService';
@@ -59,9 +60,30 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
   const [isContactBlocked, setIsContactBlocked] = useState(false);
 
   // Contact Reply State
+
+  // Contact Reply State
   const [selectedMessage, setSelectedMessage] = useState<ContactMessage | null>(null);
   const [replyText, setReplyText] = useState('');
   const [showReplyModal, setShowReplyModal] = useState(false);
+
+  // Confirm Modal State
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type?: 'danger' | 'success' | 'info';
+    confirmText?: string;
+    cancelText?: string;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    type: 'info',
+  });
+
+  const closeConfirmModal = () => setConfirmModal(prev => ({ ...prev, isOpen: false }));
 
   // Fetch data - isBackgroundRefresh prevents loading state from showing on auto-refresh
   const fetchAllData = async (isBackgroundRefresh = false) => {
@@ -120,9 +142,17 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
 
   const openBlockModal = (user: User) => {
     if (user.isBlocked) {
-      if (window.confirm(`האם לבטל את החסימה של ${user.fullName}?`)) {
-        handleBlockAction(user, false, 'Unblocked by admin', '');
-      }
+      setConfirmModal({
+        isOpen: true,
+        title: 'ביטול חסימה',
+        message: `האם אתה בטוח שברצונך לבטל את החסימה של ${user.fullName}?`,
+        confirmText: 'בטל חסימה',
+        type: 'info',
+        onConfirm: () => {
+          handleBlockAction(user, false, 'Unblocked by admin', '');
+          closeConfirmModal();
+        }
+      });
     } else {
       // Block flow - open modal
       setUserToBlock(user);
@@ -145,7 +175,7 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
         user.id,
         shouldBlock,
         adminReason,           // Admin reason (for logs/internal)
-        userReason || undefined // User-visible reason (optional - only if provided)
+        userReason.trim() ? userReason : undefined // User-visible reason (optional - only if provided)
       );
 
       // Log with admin reason
@@ -201,69 +231,73 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
 
   const handleRoleChange = async (userId: string, newRole: User['role']) => {
     if (!isSuperAdmin) {
-      alert('אין לך הרשאה לשינוי תפקידים');
+      showToast('אין לך הרשאה לשינוי תפקידים', 'error');
       return;
     }
-    if (!window.confirm(`האם לשנות את תפקיד המשתמש ל-${newRole}?`)) return;
-    try {
-      await userService.updateUserRole(userId, newRole);
-      setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
 
-      // Log role change
-      if (currentUser) {
-        await adminLogService.logAction({
-          adminId: currentUser.id,
-          adminName: currentUser.fullName,
-          action: 'update_role',
-          targetId: userId,
-          targetType: 'user',
-          reason: `Role changed to ${newRole}`,
-          details: `Changed role to ${newRole}`
-        });
+    setConfirmModal({
+      isOpen: true,
+      title: 'שינוי תפקיד משתמש',
+      message: `האם אתה בטוח שברצונך לשנות את תפקיד המשתמש ל-${newRole}?`,
+      confirmText: 'שנה תפקיד',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          await userService.updateUserRole(userId, newRole);
+          setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
+
+          // Log role change
+          if (currentUser) {
+            await adminLogService.logAction({
+              adminId: currentUser.id,
+              adminName: currentUser.fullName,
+              action: 'update_role',
+              targetId: userId,
+              targetType: 'user',
+              reason: `Role changed to ${newRole}`,
+              details: `Changed role to ${newRole}`
+            });
+          }
+          showToast('תפקיד שונה בהצלחה', 'success');
+        } catch (error) {
+          showToast('שגיאה בשינוי תפקיד', 'error');
+        }
+        closeConfirmModal();
       }
-    } catch (error) {
-      alert('שגיאה בשינוי תפקיד');
-    }
+    });
   };
 
   const handleDeleteJob = async (jobId: string) => {
-    if (!window.confirm('האם למחוק את המשרה לצמיתות?')) return;
-    try {
-      await jobService.deleteJob(jobId, {
-        adminId: currentUser?.id || 'unknown',
-        adminName: currentUser?.fullName || 'Admin',
-        action: 'delete_job',
-        targetId: jobId,
-        targetType: 'job',
-        reason: 'Direct deletion from list'
-      });
-      setJobs(jobs.filter(j => j.id !== jobId));
-    } catch (error) {
-      alert('שגיאה במחיקת המשרה');
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'מחיקת משרה',
+      message: 'האם אתה בטוח שברצונך למחוק את המשרה לצמיתות? פעולה זו אינה הפיכה.',
+      confirmText: 'מחק משרה',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          await jobService.deleteJob(jobId, {
+            adminId: currentUser?.id || 'unknown',
+            adminName: currentUser?.fullName || 'Admin',
+            action: 'delete_job',
+            targetId: jobId,
+            targetType: 'job',
+            reason: 'Direct deletion from list'
+          });
+          setJobs(jobs.filter(j => j.id !== jobId));
+          showToast('משרה נמחקה בהצלחה', 'success');
+        } catch (error) {
+          showToast('שגיאה במחיקת המשרה', 'error');
+        }
+        closeConfirmModal();
+      }
+    });
   };
 
-  const handleReplySubmit = async () => {
-    if (!selectedMessage || !replyText.trim()) return;
-
+  // Helper to process the reply after validation
+  const processReply = async () => {
+    if (!selectedMessage) return;
     try {
-      // If user is registered, send system notification
-      if (selectedMessage.userId) {
-        await notificationService.sendSystemNotification(
-          selectedMessage.userId,
-          `תשובה לפנייתך: ${selectedMessage.subject}`,
-          replyText,
-          '#/contact' // Or link to a thread if we had one
-        );
-      } else {
-        // Just mark as replied + log (admin should have emailed manually)
-        // But user asked for "Reply in site", which implies notification.
-        // If no user ID, we can't notify in-site.
-        if (!window.confirm("המשתמש אינו רשום ולכן לא יקבל התראה באתר. האם ברצונך לסמן כ'הושב' בכל זאת? (יש לשלוח מייל ידנית)")) {
-          return;
-        }
-      }
-
       // Update message status using service
       await contactService.markAsRead(selectedMessage.id); // Mark as read/handled
 
@@ -284,11 +318,49 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
       setShowReplyModal(false);
       setReplyText('');
       setSelectedMessage(null);
-      alert('התשובה נשלחה/נרשמה בהצלחה');
+      showToast('התשובה נשלחה/נרשמה בהצלחה', 'success');
 
     } catch (e) {
       console.error(e);
-      alert('שגיאה בשליחת התשובה');
+      showToast('שגיאה בשליחת התשובה', 'error');
+    }
+  };
+
+  const handleReplySubmit = async () => {
+    if (!selectedMessage || !replyText.trim()) return;
+
+    try {
+      // If user is registered, send system notification
+      if (selectedMessage.userId) {
+        await notificationService.sendSystemNotification(
+          selectedMessage.userId,
+          `תשובה לפנייתך: ${selectedMessage.subject}`,
+          replyText,
+          '#/contact' // Or link to a thread if we had one
+        );
+        processReply();
+      } else {
+        // Just mark as replied + log (admin should have emailed manually)
+        // But user asked for "Reply in site", which implies notification.
+        // If no user ID, we can't notify in-site.
+        // Replacement for window.confirm
+        setConfirmModal({
+          isOpen: true,
+          title: 'משתמש לא רשום',
+          message: "המשתמש אינו רשום ולכן לא יקבל התראה באתר. האם ברצונך לסמן כ'הושב' בכל זאת? (עליך לשלוח מייל ידנית)",
+          confirmText: 'כן, סמן כהושב',
+          cancelText: 'ביטול',
+          type: 'info',
+          onConfirm: () => {
+            processReply();
+            closeConfirmModal();
+          }
+        });
+      }
+
+    } catch (e) {
+      console.error(e);
+      showToast('שגיאה בשליחת התשובה', 'error');
     }
   };
 
@@ -315,13 +387,13 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
   return (
     <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
       <div className="flex flex-col md:flex-row justify-between items-center border-b pb-4 gap-4">
-        <h1 className="text-3xl font-bold text-royal-blue">לוח בקרה למנהל</h1>
-        <div className="flex bg-white rounded-lg p-1 shadow-sm border text-sm">
+        <h1 className="text-2xl sm:text-3xl font-bold text-royal-blue">לוח בקרה למנהל</h1>
+        <div className="flex bg-white rounded-lg p-1 shadow-sm border text-sm overflow-x-auto w-full md:w-auto no-scrollbar">
           {(['overview', 'users', 'jobs', 'reports', 'contact', 'logs'] as Tab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`relative px-4 py-2 rounded-md transition-colors font-medium ${activeTab === tab ? 'bg-royal-blue text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}
+              className={`relative px-4 py-2 rounded-md transition-colors font-medium whitespace-nowrap flex-shrink-0 ${activeTab === tab ? 'bg-royal-blue text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}
             >
               {tab === 'overview' && 'סקירה'}
               {tab === 'users' && 'משתמשים'}
@@ -444,6 +516,35 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
                           >
                             {user.isBlocked ? 'בטל חסימה' : 'חסום'}
                           </button>
+                          {/* Toggle Contact Block (only for blocked users) */}
+                          {user.isBlocked && (
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const newContactBlockedState = !user.isContactBlocked;
+                                  await userService.updateUserBlockContact(user.id, newContactBlockedState);
+                                  setUsers(users.map(u => u.id === user.id ? { ...u, isContactBlocked: newContactBlockedState } : u));
+                                  showToast(newContactBlockedState ? 'המשתמש נחסם משליחת ערעורים' : 'המשתמש יכול לשלוח ערעורים', 'success');
+                                  if (currentUser) {
+                                    await adminLogService.logAction({
+                                      adminId: currentUser.id,
+                                      adminName: currentUser.fullName,
+                                      action: newContactBlockedState ? 'block_contact' : 'unblock_contact',
+                                      targetId: user.id,
+                                      targetType: 'user',
+                                      reason: newContactBlockedState ? 'Blocked from sending appeals' : 'Allowed to send appeals'
+                                    });
+                                  }
+                                } catch (error) {
+                                  showToast('שגיאה בעדכון הגדרות קשר', 'error');
+                                }
+                              }}
+                              className={`${user.isContactBlocked ? 'text-orange-600 hover:text-orange-900' : 'text-yellow-600 hover:text-yellow-900'}`}
+                              title={user.isContactBlocked ? 'אפשר שליחת ערעור' : 'חסום שליחת ערעור'}
+                            >
+                              {user.isContactBlocked ? 'אפשר ערעור' : 'חסום ערעור'}
+                            </button>
+                          )}
                           {/* Role Change Button (Only for Super Admin) */}
                           {isSuperAdmin && (
                             <button onClick={() => handleRoleChange(user.id, user.role === 'admin' ? 'user' : 'admin')} className="text-blue-600 hover:text-blue-800">
@@ -810,7 +911,7 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
                 </label>
                 <textarea
                   className="w-full border rounded-md p-2 h-16 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                  placeholder="הסבר קצר שיוצג למשתמש... (אם ריק, תוצג הסיבה הפנימית)"
+                  placeholder="הסבר קצר שיוצג למשתמש... (אם ריק, המשתמש יראה הודעה כללית)"
                   value={blockReasonUser}
                   onChange={e => setBlockReasonUser(e.target.value)}
                 ></textarea>
@@ -854,6 +955,18 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
           </div>
         </div>
       )}
+
+      {/* Reusable Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={closeConfirmModal}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
+        type={confirmModal.type}
+      />
 
       {/* Toast Notification */}
       {toast && (

@@ -320,7 +320,8 @@ html.font-accessible button {
   position: fixed !important;
   bottom: 80px !important;
   left: 0 !important;
-  z-index: 9998 !important;
+  z-index: 10000 !important;
+  /* Higher than panel to sit on top */
   background-color: var(--button-bg-color-var);
   color: var(--button-text-color-var);
   border-radius: 0 50% 50% 0;
@@ -357,6 +358,19 @@ html.font-accessible button {
   width: 60px;
 }
 
+.accessibility-widget-button.open {
+  background-color: var(--body-bg-color-var);
+  /* Match panel background */
+  color: var(--royal-blue);
+  width: 45px;
+  /* Slightly wider to cover border */
+  border-right: none;
+  border-radius: 4px 0 0 4px;
+  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+  /* Left shadow only */
+  z-index: 10000 !important;
+}
+
 html.high-contrast .accessibility-widget-button {
   background-color: var(--hc-button-bg-color-var) !important;
   color: var(--hc-button-text-color-var) !important;
@@ -375,22 +389,33 @@ html.high-contrast .accessibility-widget-button svg {
   visibility: hidden;
   opacity: 0;
   z-index: 9999;
+  /* Lower than button */
   background-color: var(--body-bg-color-var);
   color: var(--body-text-color-var);
   border: 2px solid var(--border-color-var);
   border-radius: 8px;
-  width: 280px;
+  width: 18rem;
+  /* Use rem to scale with font size */
   max-width: calc(100vw - 40px);
+  max-height: 70vh;
+  /* Prevent overflowing screen height */
+  overflow-y: auto;
+  /* Allow scrolling if content gets too tall */
+  scrollbar-width: thin;
+  /* Nice scrollbar for firefox */
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
   padding: 16px;
+  padding-left: 30px;
+  /* Make space for button overlap */
   display: flex;
   flex-direction: column;
   gap: 12px;
-  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .accessibility-panel.open {
-  left: 20px;
+  left: 25px;
+  /* Slight overlap with button (width 40px) */
   visibility: visible;
   opacity: 1;
 }
@@ -398,15 +423,19 @@ html.high-contrast .accessibility-widget-button svg {
 /* Mobile condensed version */
 @media (max-width: 640px) {
   .accessibility-panel {
-    width: 200px;
+    width: 13rem;
+    /* Use rem for scaling on mobile too */
     padding: 10px;
+    padding-left: 20px;
+    /* Space for button overlap */
     gap: 6px;
     border-radius: 10px;
     bottom: 70px;
   }
 
   .accessibility-panel.open {
-    left: 10px;
+    left: 20px;
+    /* Overlap with mobile button (width 32px) */
   }
 
   .accessibility-panel h2 {
