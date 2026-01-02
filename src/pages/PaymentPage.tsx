@@ -394,10 +394,8 @@ export const PaymentPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
                                                     },
                                                     custom_id: `${type}_${jobId || 'sub'}`
                                                 }],
-                                                intent: "CAPTURE",
-                                                application_context: {
-                                                    shipping_preference: "NO_SHIPPING" // Remove shipping address requirement
-                                                }
+                                                intent: "CAPTURE"
+                                                // Removed NO_SHIPPING to allow address input
                                             });
                                         }}
                                         onApprove={handleApprove}
