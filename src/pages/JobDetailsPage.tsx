@@ -77,10 +77,12 @@ const DetailItem: React.FC<{
   );
 };
 
-export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, pageParams }) => {
+export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, pageParams, jobId: propJobId }) => {
   const { user, refreshTotalUnreadCount } = useAuth();
   const authCtx = useContext(AuthContext);
-  const jobId = pageParams?.jobId as string;
+  // jobId is now available as propJobId, but we'll use it in useEffect logic primarily
+  // or we can assign it here for convenience if needed later outside useEffect
+  const jobId = propJobId || pageParams?.jobId as string;
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,39 +116,56 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
 
   // Real-time listener for job updates
   useEffect(() => {
+    // Prioritize the direct jobId prop, then fall back to pageParams
+    const effectiveJobId = jobId || pageParams?.jobId || (pageParams as any)?.id;
+
+    if (!effectiveJobId) {
+      console.warn("No job ID found in props or pageParams");
+      setError("מזהה משרה לא תקין.");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
-    const jobRef = doc(db, 'jobs', jobId);
 
-    const unsubscribe = onSnapshot(jobRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        const convertedJob = {
-          id: docSnap.id,
-          ...data,
-          postedDate: data.postedDate?.toDate?.()?.toISOString() || data.postedDate,
-        } as Job;
+    try {
+      const jobRef = doc(db, 'jobs', effectiveJobId);
+      const unsubscribe = onSnapshot(jobRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const convertedJob = {
+            id: docSnap.id,
+            ...data,
+            postedDate: data.postedDate?.toDate?.()?.toISOString() || data.postedDate,
+          } as Job;
 
-        setJob(convertedJob);
-        setError(null);
-      } else {
-        setError("המשרה לא נמצאה או שהיא הוסרה.");
-        setJob(null);
-      }
+          setJob(convertedJob);
+          setError(null);
+        } else {
+          console.error("Job document not found for ID:", effectiveJobId);
+          setError("המשרה לא נמצאה או שהיא הוסרה.");
+          setJob(null);
+        }
+        setLoading(false);
+      }, (err) => {
+        console.error("Error fetching job realtime:", err);
+        setError("אירעה שגיאה בטעינת פרטי המשרה.");
+        setLoading(false);
+      });
+
+      return () => unsubscribe();
+    } catch (err) {
+      console.error("Invalid job ID or other error:", err);
+      setError("שגיאה במזהה המשרה.");
       setLoading(false);
-    }, (err) => {
-      console.error("Error fetching job realtime:", err);
-      setError("אירעה שגיאה בטעינת פרטי המשרה.");
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [jobId]);
+    }
+  }, [pageParams]); // Changed dependency to pageParams to catch updates
 
   // View count logic
   useEffect(() => {
     const incrementView = async () => {
       if (!job) return;
-      if (user && user.id === job.postedBy.id) return;
+      if (user && job.postedBy && user.id === job.postedBy.id) return;
 
       const viewedJobsKey = 'viewedJobs';
       const viewedJobs = JSON.parse(sessionStorage.getItem(viewedJobsKey) || '[]');
@@ -193,7 +212,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
 
   const handleStartChat = async () => {
     if (!user || !job) return;
-    if (user.id === job.postedBy.id) {
+    if (job.postedBy && user.id === job.postedBy.id) {
       setConfirmModal({
         isOpen: true,
         title: 'שגיאה',
@@ -211,15 +230,15 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
       const isAnonymous = job.contactInfoSource === 'anonymous';
       const thread = await chatService.getOrCreateChatThread(
         user.id,
-        job.postedBy.id,
+        job.postedBy?.id || 'unknown',
         job.id,
         job.title,
         isAnonymous,
-        job.postedBy.id
+        job.postedBy?.id || 'unknown'
       );
       setCurrentPage('chatThread', {
         threadId: thread.id,
-        otherParticipantName: isAnonymous ? "משתמש אנונימי" : job.postedBy.posterDisplayName,
+        otherParticipantName: isAnonymous ? "משתמש אנונימי" : (job.postedBy?.posterDisplayName || "משתמש"),
         jobTitle: job.title,
         jobId: job.id,
       });
@@ -326,7 +345,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
     }
   };
 
-  const isOwner = user?.id === job?.postedBy.id;
+  const isOwner = user?.id === job?.postedBy?.id;
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin' || user?.email?.toLowerCase() === 'eyceyceyc139@gmail.com';
 
   if (loading) {
@@ -344,11 +363,11 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
   };
 
   const suitabilityParts = [];
-  if (job.suitability.men) suitabilityParts.push("גברים");
-  if (job.suitability.women) suitabilityParts.push("נשים");
-  if (job.suitability.general) suitabilityParts.push("כללי");
+  if (job.suitability?.men) suitabilityParts.push("גברים");
+  if (job.suitability?.women) suitabilityParts.push("נשים");
+  if (job.suitability?.general) suitabilityParts.push("כללי");
   let suitabilityText = suitabilityParts.join(' / ');
-  if (job.suitability.minAge) {
+  if (job.suitability?.minAge) {
     suitabilityText += `, מגיל ${job.suitability.minAge}`;
   }
 
@@ -427,10 +446,10 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
               <p className="flex items-center">
                 <UserIcon className="w-4 h-4 ml-2 rtl:mr-2 rtl:ml-0 text-gray-400" />
                 פורסם ע"י <button
-                  onClick={() => setCurrentPage('publicProfile', { userId: job.postedBy.id })}
+                  onClick={() => setCurrentPage('publicProfile', { userId: job.postedBy?.id || 'unknown' })}
                   className="mr-1 font-medium text-royal-blue hover:underline focus:outline-none"
                 >
-                  {job.postedBy.posterDisplayName}
+                  {job.postedBy?.posterDisplayName || 'משתמש לא ידוע'}
                 </button>
               </p>
             ) : (
@@ -634,7 +653,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                     animationType="default"
                   />
                 )}
-                {user && user.id !== job.postedBy.id && job.preferredContactMethods?.allowSiteMessages && (
+                {user && job.postedBy && user.id !== job.postedBy.id && job.preferredContactMethods?.allowSiteMessages && (
                   <DetailItem
                     icon={<ChatBubbleLeftEllipsisIcon className="w-7 h-7" />}
                     label="מערכת ההודעות של האתר"
@@ -733,7 +752,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                 animationType="default"
               />
             )}
-            {user && user.id !== job.postedBy.id && job.preferredContactMethods?.allowSiteMessages && (
+            {user && job.postedBy && user.id !== job.postedBy.id && job.preferredContactMethods?.allowSiteMessages && (
               <DetailItem
                 icon={<ChatBubbleLeftEllipsisIcon className="w-6 h-6" />}
                 label="מערכת ההודעות של האתר"
