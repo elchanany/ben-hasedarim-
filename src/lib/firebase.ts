@@ -45,33 +45,4 @@ export const initAnalytics = async () => {
 export { app };
 
 
-// Helper to safely log environment variables status
-const logEnvStatus = () => {
-  const envVars = [
-    'VITE_FIREBASE_API_KEY',
-    'VITE_FIREBASE_AUTH_DOMAIN',
-    'VITE_FIREBASE_PROJECT_ID',
-    'VITE_FIREBASE_STORAGE_BUCKET',
-    'VITE_FIREBASE_MESSAGING_SENDER_ID',
-    'VITE_FIREBASE_APP_ID'
-  ];
 
-  console.group('Firebase Environment Variables Check');
-  let allPresent = true;
-  envVars.forEach(key => {
-    const value = import.meta.env[key];
-    const isPresent = !!value && value.length > 0;
-    if (!isPresent) allPresent = false;
-    console.log(`${key}: ${isPresent ? '✅ Present' : '❌ MISSING'} (${isPresent ? value.substring(0, 4) + '***' : 'N/A'})`);
-  });
-
-  if (!allPresent) {
-    console.error('CRITICAL: Missing required Firebase environment variables! Check your .env.local file.');
-    console.warn('Did you restart the server after creating .env.local?');
-  } else {
-    console.log('All required environment variables appear to be present.');
-  }
-  console.groupEnd();
-};
-
-logEnvStatus();

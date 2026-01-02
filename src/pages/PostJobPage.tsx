@@ -24,6 +24,7 @@ import {
   EyeIcon,
   XCircleIcon
 } from '../components/icons';
+// import { PaymentModal } from '../components/PaymentModal'; // Removed
 import { HebrewDatePicker } from '../components/HebrewDatePicker';
 import { getTodayGregorianISO, gregSourceToHebrewString, formatGregorianString } from '../utils/dateConverter';
 import { useContext } from 'react';
@@ -256,6 +257,10 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
   const [showContactRedirectModal, setShowContactRedirectModal] = useState(false);
   const [contactRedirectMessage, setContactRedirectMessage] = useState('');
   const [onContactRedirectConfirm, setOnContactRedirectConfirm] = useState<(() => void) | null>(null);
+
+  // Payment State (Handled by PaymentPage now)
+  // const [showPaymentModal, setShowPaymentModal] = useState(false);
+  // const [pendingJobData, setPendingJobData] = useState<any>(null);
 
   // Address logic
   const [showAddressField, setShowAddressField] = useState(false);
@@ -560,29 +565,33 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
       if (isEditMode && editJobId) {
         await jobService.updateJob(editJobId, jobPayload);
         tempJobId = editJobId;
+        setLastPostedJobId(tempJobId);
+        setShowSuccessModal(true);
+        setErrors({});
+        setGlobalErrorSummary('');
       } else {
-        const newJobData: Omit<Job, 'id' | 'postedDate' | 'views' | 'contactAttempts'> = {
+        // For new jobs -> Save Draft & Navigate to Payment Page
+        const newJobDataPrePayment = {
           ...jobPayload,
           postedBy: jobPosterInfo,
-        } as Omit<Job, 'id' | 'postedDate' | 'views' | 'contactAttempts'>;
-        const addedJob = await jobService.addJob(newJobData);
-        tempJobId = addedJob.id;
-        setSubmissionCompletedSuccessfully(true);
-      }
+        };
 
-      setLastPostedJobId(tempJobId);
-      setShowSuccessModal(true);
-      setErrors({});
-      setGlobalErrorSummary('');
+        localStorage.setItem('pendingJobDraft', JSON.stringify(newJobDataPrePayment));
+        setIsLoading(false);
+        setCurrentPage('payment', { type: 'post_job', jobTitle: jobPayload.title, amount: 5 });
+        return;
+      }
 
     } catch (error) {
       console.error(`Error ${isEditMode ? 'updating' : 'posting'} job:`, error);
       setErrors({ form: `אירעה שגיאה ב${isEditMode ? 'עדכון' : 'פרסום'} העבודה. נסה שוב.` });
     } finally {
-      setIsLoading(false);
+      if (isEditMode) setIsLoading(false);
     }
 
   };
+
+  // Removed handlePaymentSuccess - logic moved to PaymentPage
 
   const cityOptions = getCityOptions().filter(opt => opt.value !== '');
   const difficultyOptions = Object.values(JobDifficulty).map(d => ({ value: d, label: d }));
@@ -1188,6 +1197,8 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
           </div>
         </div>
       </Modal>
+
+      {/* PaymentModal removed - using PaymentPage instead */}
     </div>
   );
 };

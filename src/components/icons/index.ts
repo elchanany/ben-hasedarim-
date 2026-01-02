@@ -36,3 +36,8 @@ export { RefreshIcon } from './RefreshIcon';
 export { AdjustmentsIcon } from './AdjustmentsIcon';
 export { ExclamationTriangleIcon } from './ExclamationTriangleIcon';
 export { InformationCircleIcon } from './InformationCircleIcon';
+export { LockClosedIcon } from './LockClosedIcon';
+export { StarIcon } from './StarIcon';
+export { SparklesIcon } from './SparklesIcon';
+export { CreditCardIcon } from './CreditCardIcon';
+export { ShieldCheckIcon } from './ShieldCheckIcon';

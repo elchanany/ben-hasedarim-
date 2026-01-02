@@ -10,6 +10,7 @@ import { Modal } from '../components/Modal';
 import * as authService from '../services/authService';
 import { AuthContext } from '../contexts/AuthContext';
 import type { DateDisplayPreference } from '../utils/dateConverter';
+import { cancelUserSubscription } from '../services/userService';
 
 export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
     const { user, updateUserContext, loadingAuth } = useAuth();
@@ -34,6 +35,11 @@ export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
     const [showContactRedirectModal, setShowContactRedirectModal] = useState(false);
     const [contactRedirectMessage, setContactRedirectMessage] = useState('');
     const [onContactRedirectConfirm, setOnContactRedirectConfirm] = useState<(() => void) | null>(null);
+
+    // Subscription Cancel State
+    const [showCancelSubModal, setShowCancelSubModal] = useState(false);
+    const [cancelReason, setCancelReason] = useState('');
+    const [isCancellingSub, setIsCancellingSub] = useState(false);
 
     // Sync with global preference
     useEffect(() => {
@@ -149,6 +155,23 @@ export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
         );
     };
 
+    const handleCancelSubscription = async () => {
+        if (!user?.id) return;
+        setIsCancellingSub(true);
+        try {
+            await cancelUserSubscription(user.id, cancelReason || 'No reason provided');
+            // Refresh user context or local state
+            updateUserContext({ ...user, subscription: { ...user.subscription, isActive: false } } as any);
+            setSuccessMessage('המנוי בוטל בהצלחה.');
+            setShowCancelSubModal(false);
+        } catch (error) {
+            console.error(error);
+            setErrorMessage('שגיאה בביטול המנוי.');
+        } finally {
+            setIsCancellingSub(false);
+        }
+    };
+
     const contactCheckboxes = [
         { id: 'showPhone', label: 'הצג טלפון', value: 'showPhone' },
         { id: 'showWhatsapp', label: 'הצג וואטסאפ', value: 'showWhatsapp' },
@@ -174,6 +197,36 @@ export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
                     <form onSubmit={handleSettingsSubmit} className="space-y-6" noValidate>
 
                         {/* Job Alerts Settings Link */}
+
+                        {/* Subscription Management (Only for Subscribers) */}
+                        {user?.subscription?.isActive && (
+                            <div className="bg-blue-50/50 p-6 rounded-lg border border-blue-100 mb-6 relative overflow-hidden">
+                                <div className="absolute top-0 left-0 w-2 h-full bg-blue-500"></div>
+                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                    <div>
+                                        <h3 className="font-bold text-lg text-royal-blue flex items-center mb-2">
+                                            <CheckCircleIcon className="w-5 h-5 ml-2 text-blue-500" />
+                                            מנוי PRO פעיל
+                                        </h3>
+                                        <p className="text-sm text-gray-600 mb-1">
+                                            תוקף המנוי: <span className="font-semibold">{new Date(user.subscription.expiresAt).toLocaleDateString('he-IL')}</span>
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                            תהנה מגישה מלאה לכל המשרות ופרטי הקשר באתר.
+                                        </p>
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        type="button"
+                                        onClick={() => setShowCancelSubModal(true)}
+                                        className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 w-full md:w-auto"
+                                    >
+                                        ביטול מנוי
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
                         <div className="bg-yellow-50/50 p-4 rounded-lg border border-yellow-100 mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
                             <div>
                                 <h3 className="font-semibold text-yellow-800 mb-1 flex items-center">
@@ -360,6 +413,45 @@ export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
                     </div>
                 </div>
             </Modal>
-        </div >
+
+            {/* Cancel Subscription Modal */}
+            <Modal
+                isOpen={showCancelSubModal}
+                onClose={() => setShowCancelSubModal(false)}
+                title="ביטול מנוי PRO"
+            >
+                <div className="p-6">
+                    <p className="text-gray-600 mb-6">
+                        אנו מצטערים לשמוע שברצונך לבטל את המנוי. האם תרצה לשתף אותנו בסיבה?
+                        <span className="block text-xs text-gray-400 mt-1">(המשוב שלך עוזר לנו להשתפר)</span>
+                    </p>
+
+                    <textarea
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-royal-blue focus:border-transparent mb-6 text-sm"
+                        placeholder="כתוב כאן את סיבת הביטול (אופציונלי)..."
+                        rows={3}
+                        value={cancelReason}
+                        onChange={(e) => setCancelReason(e.target.value)}
+                    />
+
+                    <div className="flex justify-end gap-3 rtl:space-x-reverse">
+                        <Button
+                            onClick={() => setShowCancelSubModal(false)}
+                            variant="outline"
+                        >
+                            חזור
+                        </Button>
+                        <Button
+                            onClick={handleCancelSubscription}
+                            variant="primary"
+                            isLoading={isCancellingSub}
+                            className="bg-red-600 hover:bg-red-700 text-white border-transparent"
+                        >
+                            אישור ביטול
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+        </div>
     );
 };

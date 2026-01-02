@@ -59,8 +59,14 @@ service cloud.firestore {
       
       // Chat Messages
       match /messages/{messageId} {
-        allow read, create: if isLoggedIn();
-        // Ideally should check if parent thread has user as participant
+        allow read: if isLoggedIn() && 
+          request.auth.uid in get(/databases/$(database)/documents/chats/$(threadId)).data.participantIds;
+        
+        allow create: if isLoggedIn() && 
+          // Check if user is the sender
+          request.resource.data.senderId == request.auth.uid &&
+          // Check if user is a participant in the parent thread
+          request.auth.uid in get(/databases/$(database)/documents/chats/$(threadId)).data.participantIds;
       }
     }
   }

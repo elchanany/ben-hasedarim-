@@ -19,6 +19,9 @@ import * as reportService from '../services/reportService';
 import { ReportModal } from '../components/ReportModal';
 import { TimeAgo } from '../components/TimeAgo';
 import { AuthContext } from '../contexts/AuthContext';
+// import { PaymentModal } from '../components/PaymentModal'; // Removed
+import { PricingModal } from '../components/PricingModal';
+import { unlockJobForUser, addUserSubscription } from '../services/userService';
 
 interface JobDetailsPageProps extends PageProps {
   jobId: string;
@@ -114,6 +117,14 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
   const hasIncrementedContact = useRef(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
 
+
+
+  // Payment Logic State
+  const [showPricingModal, setShowPricingModal] = useState(false);
+  // const [showPaymentModal, setShowPaymentModal] = useState(false); // Removed
+  // const [selectedPlan, setSelectedPlan] = useState<'single' | 'monthly'>('single');
+  // const [paymentAmount, setPaymentAmount] = useState(0);
+
   // Real-time listener for job updates
   useEffect(() => {
     // Prioritize the direct jobId prop, then fall back to pageParams
@@ -206,9 +217,41 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
       setCurrentPage('login', { message: 'עליך להתחבר כדי לראות פרטי יצירת קשר.' });
       return;
     }
-    setShowContactModal(true);
-    handleContactAttempt();
+
+    // For testing purposes, we treated admin as regular user if they want to test payment
+    // const isAdmin = user.role === 'admin' || user.role === 'super_admin' || user.email?.toLowerCase() === 'eyceyceyc139@gmail.com';
+    // User requested to remove automatic admin privilege for contact viewing until manually enabled.
+
+    // Explicitly disabling admin bypass for now
+    const isAdmin = false;
+
+    const isOwner = user.id === job?.postedBy?.id;
+    const hasSingleUnlock = user.unlockedJobs?.includes(jobId);
+    const hasActiveSubscription = user.subscription?.isActive && new Date(user.subscription.expiresAt) > new Date();
+
+    if (isOwner || hasSingleUnlock || hasActiveSubscription) {
+      setShowContactModal(true);
+      handleContactAttempt();
+    } else {
+      setShowPricingModal(true);
+    }
   };
+
+  const handleSelectPlan = (plan: 'single' | 'monthly') => {
+    setShowPricingModal(false);
+    // Navigate to payment page instead of opening modal
+    const amount = plan === 'single' ? 5 : 15;
+    const type = plan === 'single' ? 'view_contact' : 'subscription';
+
+    setCurrentPage('payment', {
+      type,
+      jobId,
+      jobTitle: job?.title,
+      amount
+    });
+  };
+
+  // handlePaymentSuccess removed - handled by PaymentPage logic now
 
   const handleStartChat = async () => {
     if (!user || !job) return;
@@ -581,10 +624,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                 <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 mb-4">
                   <p className="text-lg text-gray-700 mb-4">לחץ על הכפתור כדי לראות את פרטי יצירת הקשר</p>
                   <button
-                    onClick={() => {
-                      setShowContactDetails(true);
-                      handleContactAttempt();
-                    }}
+                    onClick={handleContactClick}
                     className="bg-deep-pink text-white px-6 py-3 rounded-lg hover:bg-pink-600 transition-colors duration-300 font-semibold"
                   >
                     הצג פרטי איש קשר
@@ -789,6 +829,14 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
         onSubmit={handleReportSubmit}
         title="דיווח על משרה"
       />
+
+      <PricingModal
+        isOpen={showPricingModal}
+        onClose={() => setShowPricingModal(false)}
+        onSelectPlan={handleSelectPlan}
+      />
+
+      {/* PaymentModal removed */}
     </>
   );
 };

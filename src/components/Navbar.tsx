@@ -73,7 +73,8 @@ const pageDisplayNames: Record<Page, string> = {
   accessibility: 'הצהרת נגישות',
   publicProfile: 'פרופיל משתמש',
   settings: 'הגדרות מערכת',
-  'reset-password': 'איפוס סיסמה'
+  'reset-password': 'איפוס סיסמה',
+  payment: 'תשלום'
 };
 
 interface NavbarProps extends Pick<PageProps, 'setCurrentPage'> {
@@ -107,6 +108,9 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
   // Poll for admin messages if user is admin
   React.useEffect(() => {
   }, [user]);
+
+  // Check if user is Pro
+  const isPro = user?.subscription?.isActive && new Date(user.subscription.expiresAt) > new Date();
 
   const handleLogout = async () => {
     await logout();
@@ -212,19 +216,26 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
                 setIsMenuPinned(true);
               }
             }}
-            className={`flex items-center gap-2 focus:outline-none p-1.5 rounded-full transition-all duration-200 ${userMenuOpen ? 'bg-white/10 ring-2 ring-white/30' : 'hover:bg-white/5'}`}
+            className={`flex items-center gap-2 focus:outline-none p-1.5 rounded-full transition-all duration-200 ${userMenuOpen ? 'bg-white/10 ring-2 ring-white/30' : 'hover:bg-white/5'} ${isPro ? 'ring-2 ring-yellow-400/50 bg-gradient-to-r from-yellow-400/10 to-transparent' : ''}`}
             aria-expanded={userMenuOpen}
             aria-haspopup="true"
           >
             <div className="hidden lg:flex flex-col items-end text-white leading-tight">
-              <span className="text-[10px] opacity-80 font-light">שלום,</span>
+              <span className="text-[10px] opacity-80 font-light flex items-center">
+                שלום,
+              </span>
               <span className="text-sm font-medium">{user.fullName?.split(' ')[0] || 'אורח'}</span>
             </div>
             <div className="relative">
-              <UserAvatar name={user.fullName || 'User'} size="md" className="ring-2 ring-white/20 shadow-md" />
+              <UserAvatar name={user.fullName || 'User'} size="md" className={`shadow-md ${isPro ? 'ring-2 ring-yellow-400' : 'ring-2 ring-white/20'}`} />
               <div className={`absolute -bottom-1 -left-1 bg-white rounded-full p-0.5 text-royal-blue shadow-sm transition-transform duration-300 ${userMenuOpen ? 'rotate-180' : ''}`}>
                 <ChevronDownIcon className="w-3 h-3" />
               </div>
+              {isPro && (
+                <div className="absolute -top-1 -right-1 bg-yellow-400 text-royal-blue text-[8px] font-bold px-1 rounded-full shadow-sm border border-white">
+                  PRO
+                </div>
+              )}
             </div>
           </button>
 
@@ -260,6 +271,30 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
                   <EyeIcon className="w-4 h-4 ml-3 text-gray-500" />
                   צפייה בפרופיל
                 </button>
+
+                <div className="border-t border-gray-100 my-1"></div>
+
+                {isPro ? (
+                  <button
+                    onClick={() => { setCurrentPage('settings'); setUserMenuOpen(false); }}
+                    className="w-full text-right px-5 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 flex items-center transition-colors"
+                    role="menuitem"
+                  >
+                    <BriefcaseIcon className="w-4 h-4 ml-3 text-gray-500" />
+                    ניהול מנוי
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => { setCurrentPage('payment', { type: 'subscription' }); setUserMenuOpen(false); }}
+                    className="w-full text-right px-5 py-3 text-sm text-royal-blue bg-blue-50/50 hover:bg-blue-100 flex items-center transition-colors font-medium "
+                    role="menuitem"
+                  >
+                    <img src="/assets/logo.svg" className="w-4 h-4 ml-3" alt="" />
+                    שדרוג ל-PRO
+                  </button>
+                )}
+
+                <div className="border-t border-gray-100 my-1"></div>
 
                 <button
                   onClick={() => { handleLogout(); setUserMenuOpen(false); }}
@@ -426,7 +461,10 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
                 <div className="flex items-center mb-3">
                   <UserAvatar name={user.fullName || 'User'} size="sm" className="ring-1 ring-white/20" />
                   <div className="mr-2 rtl:mr-2 text-white">
-                    <div className="font-bold text-sm">{user.fullName}</div>
+                    <div className="font-bold text-sm flex items-center">
+                      {user.fullName}
+                      {isPro && <span className="mr-2 bg-yellow-400 text-royal-blue text-[10px] font-bold px-1.5 rounded-full">PRO</span>}
+                    </div>
                     <div className="text-[10px] opacity-70 flex items-center">
                       <span className="w-1.5 h-1.5 bg-green-400 rounded-full ml-1 rtl:ml-1"></span>
                       מחובר

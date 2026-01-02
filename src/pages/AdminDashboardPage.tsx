@@ -14,6 +14,9 @@ import * as notificationService from '../services/notificationService';
 import { AuthContext } from '../contexts/AuthContext';
 import { AdminLog } from '../types';
 
+
+import { AdminPaymentTab } from '../components/admin/AdminPaymentTab';
+
 interface AdminStats {
   totalJobs: number;
   totalViews: number;
@@ -21,7 +24,7 @@ interface AdminStats {
   totalUsers: number;
 }
 
-type Tab = 'overview' | 'users' | 'jobs' | 'reports' | 'contact' | 'logs';
+type Tab = 'overview' | 'users' | 'jobs' | 'reports' | 'contact' | 'logs' | 'payments';
 
 export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pageParams }) => {
   const authCtx = useContext(AuthContext);
@@ -389,7 +392,7 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
       <div className="flex flex-col md:flex-row justify-between items-center border-b pb-4 gap-4">
         <h1 className="text-2xl sm:text-3xl font-bold text-royal-blue">לוח בקרה למנהל</h1>
         <div className="flex bg-white rounded-lg p-1 shadow-sm border text-sm overflow-x-auto w-full md:w-auto no-scrollbar">
-          {(['overview', 'users', 'jobs', 'reports', 'contact', 'logs'] as Tab[]).map((tab) => (
+          {(['overview', 'users', 'jobs', 'payments', 'reports', 'contact', 'logs'] as Tab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -398,6 +401,7 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
               {tab === 'overview' && 'סקירה'}
               {tab === 'users' && 'משתמשים'}
               {tab === 'jobs' && 'משרות'}
+              {tab === 'payments' && 'כספים ומנויים'}
               {tab === 'reports' && (
                 <>
                   דיווחים
@@ -429,11 +433,14 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
       {activeTab === 'overview' && (
         <div className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
             <StatCard title="סהכ משרות" value={stats.totalJobs} icon={<BriefcaseIcon className="w-6 h-6" />} />
             <StatCard title="צפיות במשרות" value={stats.totalViews} icon={<UserIcon className="w-6 h-6" />} />
             <StatCard title="פניות שבוצעו" value={stats.totalContactAttempts} icon={<PlusCircleIcon className="w-6 h-6" />} />
             <StatCard title="סהכ משתמשים" value={stats.totalUsers} icon={<UserIcon className="w-6 h-6" />} />
           </div>
+
+
 
           <section className="bg-gradient-to-l from-light-blue/20 to-transparent p-6 rounded-xl border border-light-blue/20">
             <h2 className="text-xl font-semibold text-royal-blue mb-4 flex items-center">
@@ -448,6 +455,11 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
             </div>
           </section>
         </div>
+      )}
+
+      {/* PAYMENTS TAB */}
+      {activeTab === 'payments' && (
+        <AdminPaymentTab />
       )}
 
       {/* USERS TAB */}

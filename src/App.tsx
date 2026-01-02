@@ -22,8 +22,10 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { CookieConsent } from './components/CookieConsent';
 import { useAuth } from './hooks/useAuth';
 import { AccessibilityWidget } from './components/AccessibilityWidget';
+import { PaymentPage } from './pages/PaymentPage';
+import { PayPalProvider } from './contexts/PayPalContext';
 
-export type Page = 'home' | 'login' | 'register' | 'postJob' | 'jobDetails' | 'profile' | 'publicProfile' | 'searchResults' | 'admin' | 'notifications' | 'settings' | 'chatThread' | 'createJobAlert' | 'privacy' | 'terms' | 'accessibility' | 'contact' | 'reset-password';
+export type Page = 'home' | 'login' | 'register' | 'postJob' | 'jobDetails' | 'profile' | 'publicProfile' | 'searchResults' | 'admin' | 'notifications' | 'settings' | 'chatThread' | 'createJobAlert' | 'privacy' | 'terms' | 'accessibility' | 'contact' | 'reset-password' | 'payment';
 
 export interface PageProps {
   setCurrentPage: (page: Page, params?: Record<string, any>) => void;
@@ -35,7 +37,7 @@ const App: React.FC = () => {
   const getInitialState = () => {
     const hash = window.location.hash.replace(/^#\//, '');
     const [pageString, paramStr] = hash.split('?');
-    const validPages: Page[] = ['home', 'login', 'register', 'postJob', 'jobDetails', 'profile', 'publicProfile', 'searchResults', 'admin', 'notifications', 'settings', 'chatThread', 'createJobAlert', 'privacy', 'terms', 'accessibility', 'contact', 'reset-password'];
+    const validPages: Page[] = ['home', 'login', 'register', 'postJob', 'jobDetails', 'profile', 'publicProfile', 'searchResults', 'admin', 'notifications', 'settings', 'chatThread', 'createJobAlert', 'privacy', 'terms', 'accessibility', 'contact', 'reset-password', 'payment'];
 
     // Default to home if invalid or empty
     let initialPage: Page = 'home';
@@ -79,7 +81,7 @@ const App: React.FC = () => {
       }
 
       const page = pageString as Page;
-      const validPages: Page[] = ['home', 'login', 'register', 'postJob', 'jobDetails', 'profile', 'publicProfile', 'searchResults', 'admin', 'notifications', 'settings', 'chatThread', 'createJobAlert', 'privacy', 'terms', 'accessibility', 'contact', 'reset-password'];
+      const validPages: Page[] = ['home', 'login', 'register', 'postJob', 'jobDetails', 'profile', 'publicProfile', 'searchResults', 'admin', 'notifications', 'settings', 'chatThread', 'createJobAlert', 'privacy', 'terms', 'accessibility', 'contact', 'reset-password', 'payment'];
 
       // Admin page access check based on user role
       const isUserAdmin = user?.role === 'admin' || user?.role === 'super_admin' || user?.email?.toLowerCase() === 'eyceyceyc139@gmail.com';
@@ -177,6 +179,8 @@ const App: React.FC = () => {
         return <AccessibilityStatementPage setCurrentPage={setCurrentPage} />;
       case 'contact':
         return <ContactPage setCurrentPage={setCurrentPage} />;
+      case 'payment':
+        return <PaymentPage setCurrentPage={setCurrentPage} pageParams={pageParams} />;
       default:
         return <HomePage setCurrentPage={setCurrentPage} />;
     }
@@ -230,30 +234,32 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className={appContainerClasses}>
-      <a href="#main-content" className="visually-hidden focus-visible:not-visually-hidden">
-        דלג לתוכן המרכזי
-      </a>
-      <Navbar setCurrentPage={setCurrentPage} currentPage={currentPage} />
-      <main id="main-content" role="main" tabIndex={-1} className={`${mainContainerClasses} focus:outline-none`}>
-        {renderPage()}
-      </main>
-      <AccessibilityWidget onAccessibilityStatementClick={() => setCurrentPage('accessibility')} />
-      <CookieConsent onPrivacyPolicyClick={() => setCurrentPage('privacy')} />
-      <footer role="contentinfo" className="bg-royal-blue text-white text-center p-6 mt-auto">
-        <p>&copy; {new Date().getFullYear()} בין הסדורים. כל הזכויות שמורות.</p>
-        <p className="text-sm text-light-blue mb-4">נבנה באהבה עבור ציבור בני התורה</p>
-        <div className="flex justify-center gap-4 text-sm text-blue-200">
-          <button onClick={() => setCurrentPage('terms')} className="hover:text-white hover:underline bg-transparent border-0 cursor-pointer p-0 font-inherit">תנאי שימוש</button>
-          <span>|</span>
-          <button onClick={() => setCurrentPage('privacy')} className="hover:text-white hover:underline bg-transparent border-0 cursor-pointer p-0 font-inherit">מדיניות פרטיות</button>
-          <span>|</span>
-          <button onClick={() => setCurrentPage('accessibility')} className="hover:text-white hover:underline bg-transparent border-0 cursor-pointer p-0 font-inherit">הצהרת נגישות</button>
-          <span>|</span>
-          <button onClick={() => setCurrentPage('contact')} className="hover:text-white hover:underline bg-transparent border-0 cursor-pointer p-0 font-inherit">צור קשר</button>
-        </div>
-      </footer>
-    </div>
+    <PayPalProvider>
+      <div className={appContainerClasses}>
+        <a href="#main-content" className="visually-hidden focus-visible:not-visually-hidden">
+          דלג לתוכן המרכזי
+        </a>
+        <Navbar setCurrentPage={setCurrentPage} currentPage={currentPage} />
+        <main id="main-content" role="main" tabIndex={-1} className={`${mainContainerClasses} focus:outline-none`}>
+          {renderPage()}
+        </main>
+        <AccessibilityWidget onAccessibilityStatementClick={() => setCurrentPage('accessibility')} />
+        <CookieConsent onPrivacyPolicyClick={() => setCurrentPage('privacy')} />
+        <footer role="contentinfo" className="bg-royal-blue text-white text-center p-6 mt-auto">
+          <p>&copy; {new Date().getFullYear()} בין הסדורים. כל הזכויות שמורות.</p>
+          <p className="text-sm text-light-blue mb-4">נבנה באהבה עבור ציבור בני התורה</p>
+          <div className="flex justify-center gap-4 text-sm text-blue-200">
+            <button onClick={() => setCurrentPage('terms')} className="hover:text-white hover:underline bg-transparent border-0 cursor-pointer p-0 font-inherit">תנאי שימוש</button>
+            <span>|</span>
+            <button onClick={() => setCurrentPage('privacy')} className="hover:text-white hover:underline bg-transparent border-0 cursor-pointer p-0 font-inherit">מדיניות פרטיות</button>
+            <span>|</span>
+            <button onClick={() => setCurrentPage('accessibility')} className="hover:text-white hover:underline bg-transparent border-0 cursor-pointer p-0 font-inherit">הצהרת נגישות</button>
+            <span>|</span>
+            <button onClick={() => setCurrentPage('contact')} className="hover:text-white hover:underline bg-transparent border-0 cursor-pointer p-0 font-inherit">צור קשר</button>
+          </div>
+        </footer>
+      </div>
+    </PayPalProvider>
   );
 };
 

@@ -260,29 +260,33 @@ export const searchJobs = async (criteria: Partial<SearchCriteria>): Promise<Job
     }
   }
 
-  // 5. Payment Kind & Rates
+  // 5. Payment Kind & Rates - FIXED: Now works with 'any' mode
   if (criteria.paymentKind && criteria.paymentKind !== 'any') {
     filteredJobs = filteredJobs.filter(job => job.paymentType === criteria.paymentKind);
+  }
 
-    if (criteria.paymentKind === PaymentType.HOURLY) {
-      if (criteria.minHourlyRate) {
-        const minRate = parseFloat(criteria.minHourlyRate);
-        filteredJobs = filteredJobs.filter(job => (job.hourlyRate || 0) >= minRate);
-      }
-      if (criteria.maxHourlyRate) {
-        const maxRate = parseFloat(criteria.maxHourlyRate);
-        filteredJobs = filteredJobs.filter(job => (job.hourlyRate || 0) <= maxRate);
-      }
-    } else if (criteria.paymentKind === PaymentType.GLOBAL) {
-      if (criteria.minGlobalPayment) {
-        const minPay = parseFloat(criteria.minGlobalPayment);
-        filteredJobs = filteredJobs.filter(job => (job.globalPayment || 0) >= minPay);
-      }
-      if (criteria.maxGlobalPayment) {
-        const maxPay = parseFloat(criteria.maxGlobalPayment);
-        filteredJobs = filteredJobs.filter(job => (job.globalPayment || 0) <= maxPay);
-      }
-    }
+  // Apply hourly rate filters (works in 'any' mode too)
+  if (criteria.minHourlyRate || criteria.maxHourlyRate) {
+    filteredJobs = filteredJobs.filter(job => {
+      if (job.paymentType !== PaymentType.HOURLY) return criteria.paymentKind === 'any'; // Include if 'any', exclude if specific
+
+      const rate = job.hourlyRate || 0;
+      const minOk = !criteria.minHourlyRate || rate >= parseFloat(criteria.minHourlyRate);
+      const maxOk = !criteria.maxHourlyRate || rate <= parseFloat(criteria.maxHourlyRate);
+      return minOk && maxOk;
+    });
+  }
+
+  // Apply global payment filters (works in 'any' mode too)
+  if (criteria.minGlobalPayment || criteria.maxGlobalPayment) {
+    filteredJobs = filteredJobs.filter(job => {
+      if (job.paymentType !== PaymentType.GLOBAL) return criteria.paymentKind === 'any';
+
+      const payment = job.globalPayment || 0;
+      const minOk = !criteria.minGlobalPayment || payment >= parseFloat(criteria.minGlobalPayment);
+      const maxOk = !criteria.maxGlobalPayment || payment <= parseFloat(criteria.maxGlobalPayment);
+      return minOk && maxOk;
+    });
   }
 
   // 6. Payment Methods
@@ -294,6 +298,20 @@ export const searchJobs = async (criteria: Partial<SearchCriteria>): Promise<Job
   if (criteria.filterDurationFlexible && criteria.filterDurationFlexible !== 'any') {
     const isFlexible = criteria.filterDurationFlexible === 'yes';
     filteredJobs = filteredJobs.filter(job => !!job.estimatedDurationIsFlexible === isFlexible);
+  }
+
+  // 7a. Estimated Duration Range (Hours) - ADDED: Was completely missing!
+  if (criteria.minEstimatedDurationHours) {
+    const min = parseFloat(criteria.minEstimatedDurationHours);
+    if (!isNaN(min)) {
+      filteredJobs = filteredJobs.filter(job => (job.estimatedDurationHours || 0) >= min);
+    }
+  }
+  if (criteria.maxEstimatedDurationHours) {
+    const max = parseFloat(criteria.maxEstimatedDurationHours);
+    if (!isNaN(max)) {
+      filteredJobs = filteredJobs.filter(job => (job.estimatedDurationHours || 0) <= max);
+    }
   }
 
   // 8. People Needed Range
@@ -314,14 +332,18 @@ export const searchJobs = async (criteria: Partial<SearchCriteria>): Promise<Job
     });
   }
 
-  // 10. Age Range
-  if (criteria.minAge) {
-    const min = parseInt(criteria.minAge);
-    filteredJobs = filteredJobs.filter(job => (job.suitability?.minAge || 0) >= min);
-  }
-  if (criteria.maxAge) {
-    const max = parseInt(criteria.maxAge);
-    filteredJobs = filteredJobs.filter(job => (job.suitability?.minAge || 0) <= max);
+  // 10. Age Range - FIXED: Was inverted logic!
+  if (criteria.minAge || criteria.maxAge) {
+    filteredJobs = filteredJobs.filter(job => {
+      if (!job.suitability?.minAge) return true; // No age restriction = suitable for all
+
+      const jobMinAge = job.suitability.minAge;
+      const userMinAge = criteria.minAge ? parseInt(criteria.minAge) : 0;
+      const userMaxAge = criteria.maxAge ? parseInt(criteria.maxAge) : 120;
+
+      // Check if job's minimum age falls within user's age range (with 2-year buffer)
+      return jobMinAge >= userMinAge - 2 && jobMinAge <= userMaxAge + 2;
+    });
   }
 
   // SORTING

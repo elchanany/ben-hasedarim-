@@ -22,6 +22,16 @@ export interface User {
   blockedUserIds?: string[];
   blockReason?: string; // Admin reason (for logs/internal)
   blockReasonUser?: string; // User-visible reason (optional)
+
+  // Payment / Subscription Fields
+  unlockedJobs?: string[]; // List of Job IDs unlocked by single payment
+  subscription?: {
+    isActive: boolean;
+    expiresAt: any; // Timestamp or ISO string
+    plan: 'monthly' | 'yearly';
+    startedAt: any;
+    lastPaymentId?: string;
+  };
 }
 
 export interface PublicProfile {
@@ -133,6 +143,16 @@ export interface Job {
   applicationCount?: number; // Number of times contact methods were clicked
   isFlagged?: boolean;
   flagReason?: string;
+
+  // Payment Fields
+  isPosted?: boolean; // True if active (paid or free), False if pending payment
+  paymentStatus?: 'paid' | 'pending' | 'free';
+  paymentDetails?: {
+    orderId: string;
+    amount: string;
+    paidAt: any; // Timestamp or ISO string
+    userId: string;
+  };
 }
 
 export interface City {
