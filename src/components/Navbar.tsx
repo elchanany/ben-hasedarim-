@@ -72,7 +72,8 @@ const pageDisplayNames: Record<Page, string> = {
   terms: 'תנאי שימוש',
   accessibility: 'הצהרת נגישות',
   publicProfile: 'פרופיל משתמש',
-  settings: 'הגדרות מערכת'
+  settings: 'הגדרות מערכת',
+  'reset-password': 'איפוס סיסמה'
 };
 
 interface NavbarProps extends Pick<PageProps, 'setCurrentPage'> {
@@ -170,25 +171,26 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
           badgeCount={adminUnreadContacts}
         />
       )}
-      {/* Contact Link moved here */}
-      <NavLink
-        {...createNavLinkProps(
-          'contact',
-          'צור קשר',
-          <EnvelopeIcon className="w-4 h-4" />,
-          undefined,
-          'text-xs px-2 py-1 bg-white/10 hover:bg-white/20' // Smaller style
-        )}
-      />
+      {!user && (
+        <NavLink
+          {...createNavLinkProps(
+            'contact',
+            'צור קשר',
+            <EnvelopeIcon className="w-3.5 h-3.5" />,
+            undefined,
+            'text-[10px] px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/10 opacity-90' // Much smaller style for logged-out
+          )}
+        />
+      )}
       {user ? (
-        <div className="relative ml-0 mr-auto pl-0" ref={userMenuRef}> {/* Strictly left */}
+        <div className="relative pl-0" ref={userMenuRef}>
           <button
             onClick={() => setUserMenuOpen(!userMenuOpen)}
             className={`flex items-center gap-2 focus:outline-none p-1.5 rounded-full transition-all duration-200 ${userMenuOpen ? 'bg-white/10 ring-2 ring-white/30' : 'hover:bg-white/5'}`}
             aria-expanded={userMenuOpen}
             aria-haspopup="true"
           >
-            <div className="hidden md:flex flex-col items-end text-white leading-tight">
+            <div className="hidden lg:flex flex-col items-end text-white leading-tight">
               <span className="text-[10px] opacity-80 font-light">שלום,</span>
               <span className="text-sm font-medium">{user.fullName?.split(' ')[0] || 'אורח'}</span>
             </div>
@@ -230,11 +232,20 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
 
                 <button
                   onClick={() => { handleLogout(); setUserMenuOpen(false); }}
-                  className="w-full text-right px-5 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center transition-colors font-medium"
+                  className="w-full text-right px-5 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center transition-colors font-medium border-b border-gray-100"
                   role="menuitem"
                 >
                   <ArrowRightIcon className="w-4 h-4 ml-3 text-red-400" />
                   התנתקות
+                </button>
+
+                <button
+                  onClick={() => { setCurrentPage('contact'); setUserMenuOpen(false); }}
+                  className="w-full text-right px-5 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-royal-blue flex items-center transition-colors"
+                  role="menuitem"
+                >
+                  <ChatBubbleLeftEllipsisIcon className="w-4 h-4 ml-3 text-gray-500" />
+                  צור קשר
                 </button>
               </div>
             </div>
@@ -262,10 +273,22 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
 
   return (
     <nav role="banner" aria-label="תפריט ראשי" className="bg-royal-blue shadow-lg sticky top-0 z-50">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-24"> {/* Increased height to h-24 (96px) */}
-          <div className="flex items-center">
-            <button onClick={() => setCurrentPage('home')} className="flex-shrink-0 flex items-center text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus-ring-color rounded-md" aria-label="דף הבית, בין הסדורים">
+      <div className="mx-auto px-4 sm:px-6 lg:px-8 max-w-[1700px]">
+        <div className="flex items-center h-18 md:h-20">
+          <div className="flex items-center flex-shrink-0">
+            {/* Mobile Back Button */}
+            {currentPage !== 'home' && (
+              <button
+                onClick={() => window.history.back()}
+                className="lg:hidden p-1.5 rounded-full text-white/80 hover:bg-white/10 active:bg-white/20 transition-all flex items-center justify-center -mr-1 ml-1 rtl:mr-1 rtl:-ml-1"
+                aria-label="חזרה לדף הקודם"
+              >
+                <svg className="w-5 h-5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+            <button onClick={() => setCurrentPage('home')} className="flex items-center text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus-ring-color rounded-md" aria-label="דף הבית, בין הסדורים">
               <div className="h-10 w-10 bg-white rounded-lg overflow-hidden flex items-center justify-center p-0.5">
                 <img src="/assets/logo.svg" alt="" className="w-full h-full object-cover transform scale-125" aria-hidden="true" />
               </div>
@@ -279,12 +302,21 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
               </span>
             </button>
           </div>
-          <div className="hidden md:flex items-center space-x-1 rtl:space-x-reverse" role="navigation" aria-label="ניווט ראשי - דסקטופ">
-            {navLinks}
-            <div className="w-px h-10 bg-gray-500/50 mx-3" aria-hidden="true"></div> {/* Adjusted separator height and margin */}
-            {authLinks}
+
+          <div className="flex-1 min-w-[1rem]"></div>
+
+          <div className="hidden lg:flex items-center space-x-1 rtl:space-x-reverse h-full" role="navigation" aria-label="ניווט ראשי - דסקטופ">
+            <div className="flex items-center space-x-1 rtl:space-x-reverse">
+              {navLinks}
+            </div>
+
+            <div className="w-px h-8 bg-gray-500/50 mx-2" aria-hidden="true"></div>
+
+            <div className="flex items-center space-x-1 rtl:space-x-reverse">
+              {authLinks}
+            </div>
           </div>
-          <div className="md:hidden flex items-center">
+          <div className="lg:hidden flex items-center">
             <button
               onClick={() => { setCurrentPage('notifications'); setMobileMenuOpen(false); }}
               className={`relative p-2 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus-ring-color
@@ -321,36 +353,160 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
         </div>
       </div>
 
+      {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
-        <div className="md:hidden" id="mobile-menu">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 flex flex-col items-stretch" role="menu" aria-orientation="vertical" aria-labelledby="mobile-menu-button">
-            {navLinks}
-            <hr className="border-gray-600 w-full my-2" aria-hidden="true" />
+        <div
+          className="lg:hidden fixed inset-0 z-[60] bg-black/20 backdrop-blur-sm transition-opacity duration-300"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
 
-            {/* Mobile Actions for Avatar/Settings */}
+      {/* Mobile Menu Content */}
+      <div
+        className={`lg:hidden fixed inset-x-0 top-0 z-[70] bg-royal-blue/95 backdrop-blur-md shadow-2xl transition-all duration-300 ease-in-out origin-top border-b border-white/10
+                    ${mobileMenuOpen ? 'opacity-100 translate-y-0 scale-y-100' : 'opacity-0 -translate-y-4 scale-y-95 pointer-events-none'}`}
+        id="mobile-menu"
+      >
+        <div className="flex flex-col h-full max-h-[90vh] overflow-y-auto">
+          {/* Header of Menu */}
+          <div className="flex justify-between items-center p-3 border-b border-white/10">
+            <div className="flex items-center">
+              <div className="h-7 w-7 bg-white rounded-lg overflow-hidden flex items-center justify-center p-0.5">
+                <img src="/assets/logo.svg" alt="" className="w-full h-full object-cover transform scale-125" />
+              </div>
+              <span className="font-bold text-white text-sm ml-2 rtl:mr-2 rtl:ml-0">{siteName}</span>
+            </div>
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="p-1.5 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+              aria-label="סגור תפריט"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="px-3 py-4 space-y-1.5">
+            {/* User Section (Logged In) */}
             {user ? (
-              <div className="space-y-1">
-                <div className="flex items-center px-2 py-2 text-white">
-                  <UserAvatar name={user.fullName || 'User'} size="sm" className="ml-3" />
-                  <div>
-                    <div className="font-bold">{user.fullName}</div>
-                    <div className="text-xs opacity-70">מחובר</div>
+              <div className="mb-4 bg-white/5 rounded-xl p-3 border border-white/5">
+                <div className="flex items-center mb-3">
+                  <UserAvatar name={user.fullName || 'User'} size="sm" className="ring-1 ring-white/20" />
+                  <div className="mr-2 rtl:mr-2 text-white">
+                    <div className="font-bold text-sm">{user.fullName}</div>
+                    <div className="text-[10px] opacity-70 flex items-center">
+                      <span className="w-1.5 h-1.5 bg-green-400 rounded-full ml-1 rtl:ml-1"></span>
+                      מחובר
+                    </div>
                   </div>
                 </div>
-                <button onClick={() => setCurrentPage('profile')} className="block w-full text-right px-3 py-2 text-base font-medium text-gray-300 hover:text-white hover:bg-royal-blue/70 rounded-md">אזור אישי ועדכון פרטים</button>
-                <button onClick={() => setCurrentPage('settings')} className="block w-full text-right px-3 py-2 text-base font-medium text-gray-300 hover:text-white hover:bg-royal-blue/70 rounded-md">הגדרות מערכת ותאריך</button>
-                <button onClick={() => setCurrentPage('publicProfile', { userId: user.id })} className="block w-full text-right px-3 py-2 text-base font-medium text-gray-300 hover:text-white hover:bg-royal-blue/70 rounded-md">צפייה בפרופיל</button>
-                <button onClick={handleLogout} className="block w-full text-right px-3 py-2 text-base font-medium text-red-400 hover:text-red-300 hover:bg-royal-blue/70 rounded-md">התנתקות</button>
+
+                <div className="grid grid-cols-1 gap-0.5">
+                  <button
+                    onClick={() => { setCurrentPage('profile'); setMobileMenuOpen(false); }}
+                    className="flex items-center px-2 py-2 rounded-lg text-white hover:bg-white/10 transition-colors text-right"
+                  >
+                    <UserIcon className="w-4 h-4 ml-2 opacity-70" />
+                    <span className="text-sm">אזור אישי</span>
+                  </button>
+                  <button
+                    onClick={() => { setCurrentPage('settings'); setMobileMenuOpen(false); }}
+                    className="flex items-center px-2 py-2 rounded-lg text-white hover:bg-white/10 transition-colors text-right"
+                  >
+                    <CogIcon className="w-4 h-4 ml-2 opacity-70" />
+                    <span className="text-sm">הגדרות</span>
+                  </button>
+                  <button
+                    onClick={() => { setCurrentPage('publicProfile', { userId: user.id }); setMobileMenuOpen(false); }}
+                    className="flex items-center px-2 py-2 rounded-lg text-white hover:bg-white/10 transition-colors text-right"
+                  >
+                    <EyeIcon className="w-4 h-4 ml-2 opacity-70" />
+                    <span className="text-sm">פרופיל</span>
+                  </button>
+                  <button
+                    onClick={() => { setCurrentPage('contact'); setMobileMenuOpen(false); }}
+                    className="flex items-center px-2 py-2 rounded-lg text-white hover:bg-white/10 transition-colors text-right"
+                  >
+                    <ChatBubbleLeftEllipsisIcon className="w-4 h-4 ml-2 opacity-70" />
+                    <span className="text-sm">צור קשר</span>
+                  </button>
+                  <button
+                    onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+                    className="flex items-center px-2 py-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors text-right font-medium"
+                  >
+                    <ArrowRightIcon className="w-4 h-4 ml-2 opacity-70 rotate-180" />
+                    <span className="text-sm">התנתקות</span>
+                  </button>
+                </div>
               </div>
-            ) : (
-              <>
-                <NavLink {...createNavLinkProps('login', 'התחברות', <LoginIcon className="w-5 h-5" />)} />
-                <NavLink {...createNavLinkProps('register', 'הרשמה', undefined)} />
-              </>
-            )}
+            ) : null}
+
+            {/* Main Navigation */}
+            <div className="space-y-1">
+              <p className="text-[9px] uppercase tracking-widest text-white/40 font-bold px-3 mb-1">ניווט</p>
+              <div className="grid grid-cols-1 gap-0.5">
+                <button
+                  onClick={() => { setCurrentPage('home'); setMobileMenuOpen(false); }}
+                  className={`flex items-center px-3 py-2.5 rounded-lg transition-all ${currentPage === 'home' ? 'bg-blue-600 text-white shadow-md' : 'text-white/80 hover:bg-white/5'}`}
+                >
+                  <BriefcaseIcon className="w-4 h-4 ml-3" />
+                  <span className="text-base font-bold">דף הבית</span>
+                </button>
+                <button
+                  onClick={() => { setCurrentPage('searchResults'); setMobileMenuOpen(false); }}
+                  className={`flex items-center px-3 py-2.5 rounded-lg transition-all ${currentPage === 'searchResults' ? 'bg-blue-600 text-white shadow-md' : 'text-white/80 hover:bg-white/5'}`}
+                >
+                  <SearchIcon className="w-4 h-4 ml-3" />
+                  <span className="text-base font-bold">חיפוש עבודות</span>
+                </button>
+                <button
+                  onClick={() => { setCurrentPage('postJob'); setMobileMenuOpen(false); }}
+                  className={`flex items-center px-3 py-2.5 rounded-lg transition-all bg-deep-pink text-white shadow-md shadow-pink-900/20 active:scale-95`}
+                >
+                  <PlusCircleIcon className="w-4 h-4 ml-3" />
+                  <span className="text-base font-bold">פרסום עבודה</span>
+                </button>
+
+                {/* Logged out only - explicitly */}
+                {!user && (
+                  <div className="pt-3 mt-3 border-t border-white/10 grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => { setCurrentPage('login'); setMobileMenuOpen(false); }}
+                      className="flex items-center justify-center p-2 rounded-lg border border-white/20 text-white font-bold text-sm hover:bg-white/10"
+                    >
+                      <LoginIcon className="w-4 h-4 ml-1.5" />
+                      התחברות
+                    </button>
+                    <button
+                      onClick={() => { setCurrentPage('register'); setMobileMenuOpen(false); }}
+                      className="flex items-center justify-center p-2 rounded-lg bg-light-pink text-royal-blue font-bold text-sm hover:bg-pink-300"
+                    >
+                      הרשמה
+                    </button>
+                  </div>
+                )}
+
+                {!user && (
+                  <button
+                    onClick={() => { setCurrentPage('contact'); setMobileMenuOpen(false); }}
+                    className="flex items-center px-3 py-2.5 rounded-lg text-white/80 hover:bg-white/5 mt-1"
+                  >
+                    <EnvelopeIcon className="w-4 h-4 ml-3" />
+                    <span className="text-base font-bold">צור קשר</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer of Menu */}
+          <div className="mt-auto p-4 text-center border-t border-white/5">
+            <p className="text-[10px] text-white/30 font-light">כל הזכויות שמורות &copy; {new Date().getFullYear()} {siteName}</p>
           </div>
         </div>
-      )}
+      </div>
     </nav>
   );
 };

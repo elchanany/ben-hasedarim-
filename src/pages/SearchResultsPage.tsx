@@ -16,7 +16,7 @@ import {
   DURATION_FLEXIBILITY_OPTIONS, SUITABILITY_FOR_OPTIONS, JOB_DIFFICULTY_FILTER_OPTIONS,
   getCityOptions, INITIAL_JOBS_DISPLAY_COUNT
 } from '../constants';
-import { SearchIcon, FilterIcon, RefreshIcon, XCircleIcon } from '../components/icons';
+import { SearchIcon, FilterIcon, RefreshIcon, XCircleIcon, XIcon, AdjustmentsIcon } from '../components/icons';
 import { countActiveFilters } from '../utils/filterUtils';
 import { useAuth } from '../hooks/useAuth';
 import * as jobService from '../services/jobService';
@@ -48,7 +48,10 @@ const initialFiltersState: JobSearchFilters = {
 export const SearchResultsPage: React.FC<PageProps> = ({ setCurrentPage, pageParams }) => {
   const { user } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [displayedJobs, setDisplayedJobs] = useState<Job[]>([]); // New state for pagination
+  const [displayLimit, setDisplayLimit] = useState(INITIAL_JOBS_DISPLAY_COUNT); // New state for pagination
   const [loading, setLoading] = useState(true);
+  const dateTypeOptions = useDateTypeOptions();
   const [filters, setFilters] = useState<JobSearchFilters>(() => {
     const defaultState = { ...initialFiltersState };
     if (pageParams) {
@@ -94,16 +97,23 @@ export const SearchResultsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
     if (!isRefresh) {
       setLoading(true);
       setJobs([]);
+      setDisplayedJobs([]);
     }
     try {
       const results = await jobService.searchJobs(currentFilters);
       setJobs(results);
+      setDisplayedJobs(results.slice(0, displayLimit));
     } catch (error) {
       console.error("Error searching jobs:", error);
       setJobs([]);
     }
     setLoading(false);
-  }, []);
+  }, [displayLimit]);
+
+  // Sync displayedJobs when jobs or limit changes
+  useEffect(() => {
+    setDisplayedJobs(jobs.slice(0, displayLimit));
+  }, [jobs, displayLimit]);
 
   useEffect(() => {
     const newFiltersFromParams = { ...initialFiltersState, sortBy: 'newest' as SortById };
@@ -232,10 +242,10 @@ export const SearchResultsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
   const activeFilterCount = countActiveFilters(filters, initialFiltersState);
 
   const filterFormContent = (
-    <form onSubmit={handleSearchSubmit} className="space-y-6" noValidate>
-      {/* Quick Search Row - The "Magic Bar" */}
-      <div className="bg-white/95 backdrop-blur-sm p-8 md:p-10 rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] border border-white/20 space-y-10 relative z-[100]">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
+    <form onSubmit={handleSearchSubmit} className="space-y-2 md:space-y-6" noValidate>
+      {/* Quick Search Row - CONDENSED on mobile */}
+      <div className="bg-white/95 backdrop-blur-sm p-2 md:p-10 rounded-xl md:rounded-[2.5rem] shadow-md md:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] border border-white/20 space-y-2 md:space-y-10 relative z-[100]">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-6 items-end">
           <div className="md:col-span-5 lg:col-span-6">
             <Input
               label="מה אתם מחפשים?"
@@ -243,10 +253,10 @@ export const SearchResultsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
               name="term"
               value={filters.term}
               onChange={handleFilterChange}
-              placeholder="לדוגמה: מלצרות, הובלה דחופה..."
+              placeholder="לדוגמה: מלצרות..."
               containerClassName="mb-0"
-              labelClassName="block text-sm font-bold text-gray-500 mb-3 uppercase tracking-widest text-right px-1"
-              inputClassName="!rounded-2xl !py-5 !px-8 border-gray-200 bg-white shadow-sm focus:border-royal-blue focus:ring-8 focus:ring-royal-blue/5 transition-all text-xl font-semibold placeholder:text-gray-300"
+              labelClassName="block text-[8px] md:text-sm font-bold text-gray-500 mb-0.5 md:mb-3 uppercase tracking-widest text-right px-1"
+              inputClassName="!rounded-lg md:!rounded-2xl !py-1.5 md:!py-5 !px-2 md:!px-8 border-gray-200 bg-white shadow-sm focus:border-royal-blue focus:ring-8 focus:ring-royal-blue/5 transition-all text-xs md:text-xl font-semibold placeholder:text-gray-300"
             />
           </div>
           <div className="md:col-span-4 lg:col-span-3">
@@ -264,25 +274,25 @@ export const SearchResultsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
               type="submit"
               variant="primary"
               size="lg"
-              icon={<SearchIcon className="w-6 h-6" />}
-              className="w-full !rounded-2xl !py-5 shadow-lg shadow-royal-blue/20 hover:shadow-royal-blue/40 transform hover:-translate-y-1 active:scale-[0.98] transition-all bg-gradient-to-r from-royal-blue to-blue-600 !text-xl font-bold"
+              icon={<SearchIcon className="w-4 h-4 md:w-6 md:h-6" />}
+              className="w-full !rounded-lg md:!rounded-2xl !py-2 md:!py-5 shadow-lg shadow-royal-blue/20 transform hover:-translate-y-1 active:scale-[0.98] transition-all bg-gradient-to-r from-royal-blue to-blue-600 text-xs md:text-xl font-bold"
             >
               מצא עבודה
             </Button>
           </div>
         </div>
 
-        {/* Sort & Quick Actions */}
-        <div className="flex flex-wrap items-center justify-between gap-6 pt-6 border-t border-gray-100/50">
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-bold text-gray-400 uppercase tracking-wider">מיין משרות:</span>
-            <div className="flex bg-gray-50 p-1.5 rounded-2xl border border-gray-100">
+        {/* Sort & Quick Actions - CONDENSED on mobile */}
+        <div className="flex flex-wrap items-center justify-between gap-2 md:gap-3 pt-2 md:pt-6 border-t border-gray-100/50">
+          <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-4">
+            <span className="text-[8px] md:text-sm font-bold text-gray-400 uppercase tracking-wider">מיין משרות:</span>
+            <div className="flex bg-gray-50 p-0.5 md:p-1 rounded-lg md:rounded-2xl border border-gray-100">
               {SORT_OPTIONS.map(opt => (
                 <button
                   key={opt.id}
                   type="button"
                   onClick={() => setFilters(prev => ({ ...prev, sortBy: opt.id as SortById }))}
-                  className={`px-5 py-2 text-sm font-bold rounded-xl transition-all ${filters.sortBy === opt.id
+                  className={`px-2 md:px-5 py-1 md:py-2 text-[9px] md:text-sm font-bold rounded-md md:rounded-xl transition-all ${filters.sortBy === opt.id
                     ? 'bg-white text-royal-blue shadow-md shadow-gray-200/50'
                     : 'text-gray-400 hover:text-gray-600'
                     }`}
@@ -292,92 +302,79 @@ export const SearchResultsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
               ))}
             </div>
           </div>
-          <div className="flex items-center">
+          <div className="flex items-center w-full md:w-auto">
             <button
               type="button"
               onClick={resetFilters}
-              className="px-6 py-2.5 text-sm font-bold text-red-500 bg-red-50 hover:bg-red-100/80 rounded-xl transition-all flex items-center gap-2 border border-red-100 shadow-sm active:scale-95"
+              className="w-full md:w-auto px-3 py-1.5 text-[9px] md:text-xs font-bold text-red-500 bg-red-50 hover:bg-red-100/80 rounded-lg transition-all flex items-center justify-center gap-1 border border-red-100 active:scale-95"
             >
-              <XCircleIcon className="w-4 h-4" />
-              איפוס כל המסננים
+              <XCircleIcon className="w-3 h-3 md:w-4 md:h-4" />
+              איפוס מסננים
             </button>
           </div>
         </div>
       </div>
 
-      <div className="flex justify-center -mt-4 relative z-20">
+      <div className="flex justify-center mt-4 relative z-20">
         <button
           type="button"
           onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-          className={`group flex items-center gap-3 px-8 py-3 rounded-2xl text-sm font-bold transition-all duration-300 shadow-lg hover:shadow-xl ${showAdvancedFilters
-            ? 'bg-royal-blue text-white ring-4 ring-royal-blue/20'
-            : 'bg-white text-royal-blue border border-gray-100 hover:border-royal-blue/30'
+          className={`group flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-300 shadow ${showAdvancedFilters
+            ? 'bg-royal-blue text-white'
+            : 'bg-white text-royal-blue border border-gray-200 hover:border-royal-blue/30'
             }`}
         >
-          <FilterIcon className={`w-5 h-5 transition-transform duration-500 ${showAdvancedFilters ? 'rotate-180' : 'group-hover:rotate-12'}`} />
-          {showAdvancedFilters ? 'הסתר אפשרויות סינון' : `אפשרויות סינון מתקדמות (${activeFilterCount} פעילים)`}
+          <AdjustmentsIcon className={`w-3.5 h-3.5 transition-transform duration-300 ${showAdvancedFilters ? 'text-white rotate-180' : 'text-royal-blue group-hover:rotate-12'}`} />
+          {showAdvancedFilters ? 'הסתר' : `סינון מתקדם (${activeFilterCount})`}
         </button>
       </div>
 
       {showAdvancedFilters && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in-down">
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
-            <h4 className="flex items-center gap-2 text-royal-blue font-bold mb-4 pb-2 border-b border-gray-50">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              זמן ומועד
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4 mt-2 md:mt-4 animate-fade-in-down">
+          <div className="bg-white p-3 md:p-4 rounded-xl shadow-sm border border-gray-100">
+            <h4 className="flex items-center gap-2 text-royal-blue font-bold mb-2 pb-2 border-b border-gray-50 text-xs md:text-sm">
+              <span className="w-1.5 md:w-2 h-1.5 md:h-2 rounded-full bg-emerald-500"></span>
+              זמן ותאריך
             </h4>
-            <div className="space-y-4 flex-grow">
-              <Select label="זמינות העבודה" name="dateType" options={useDateTypeOptions()} value={filters.dateType} onChange={handleFilterChange} className="!rounded-xl" />
+            <div className="space-y-2">
+              <Select label="תאריך" name="dateType" options={dateTypeOptions} value={filters.dateType} onChange={handleFilterChange} className="!rounded-lg !py-1.5 md:!py-2 !text-xs md:!text-sm" labelClassName="!text-[10px] md:!text-xs !mb-0.5" containerClassName="!mb-1" />
               {filters.dateType === 'specificDate' && (
-                <div className="grid grid-cols-1 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <HebrewDatePicker label="מתאריך" value={filters.specificDateStart} onChange={(date: any) => handleDateChange('specificDateStart', date)} id="search_specificDateStart" />
                   <HebrewDatePicker label="עד תאריך" value={filters.specificDateEnd} onChange={(date: any) => handleDateChange('specificDateEnd', date)} id="search_specificDateEnd" />
                 </div>
               )}
-              <RangeInputGroup
-                label="משך משוער (שעות)"
-                minName="minEstimatedDurationHours"
-                minValue={filters.minEstimatedDurationHours}
-                onMinChange={handleFilterChange}
-                maxName="maxEstimatedDurationHours"
-                maxValue={filters.maxEstimatedDurationHours}
-                onMaxChange={handleFilterChange}
-                unitSymbol="ש'"
-                disabled={filters.filterDurationFlexible === 'yes'}
-              />
-              <Select label="האם משך הזמן גמיש?" name="filterDurationFlexible" options={DURATION_FLEXIBILITY_OPTIONS} value={filters.filterDurationFlexible} onChange={handleFilterChange} className="!rounded-xl" />
+              <RangeInputGroup label="משך (שעות)" minName="minEstimatedDurationHours" minValue={filters.minEstimatedDurationHours} onMinChange={handleFilterChange} maxName="maxEstimatedDurationHours" maxValue={filters.maxEstimatedDurationHours} onMaxChange={handleFilterChange} unitSymbol="ש'" labelClassName="!text-[10px] md:!text-xs !mb-0.5" inputClassName="!py-1.5 md:!py-2 !text-xs md:!text-sm" disabled={filters.filterDurationFlexible === 'yes'} />
+              <Select label="משך גמיש?" name="filterDurationFlexible" options={DURATION_FLEXIBILITY_OPTIONS} value={filters.filterDurationFlexible} onChange={handleFilterChange} className="!rounded-lg !py-1.5 md:!py-2 !text-xs md:!text-sm" labelClassName="!text-[10px] md:!text-xs !mb-0.5" containerClassName="!mb-1" />
             </div>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
-            <h4 className="flex items-center gap-2 text-royal-blue font-bold mb-4 pb-2 border-b border-gray-50">
-              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+          <div className="bg-white p-3 md:p-4 rounded-xl shadow-sm border border-gray-100">
+            <h4 className="flex items-center gap-2 text-royal-blue font-bold mb-2 pb-2 border-b border-gray-50 text-xs md:text-sm">
+              <span className="w-1.5 md:w-2 h-1.5 md:h-2 rounded-full bg-amber-500"></span>
               תשלום ותנאים
             </h4>
-            <div className="space-y-4 flex-grow">
-              <Select label="סוג תשלום" name="paymentKind" options={PAYMENT_KIND_OPTIONS} value={filters.paymentKind} onChange={handleFilterChange} className="!rounded-xl" />
+            <div className="space-y-2">
+              <Select label="סוג תשלום" name="paymentKind" options={PAYMENT_KIND_OPTIONS} value={filters.paymentKind} onChange={handleFilterChange} className="!rounded-lg !py-1.5 md:!py-2 !text-xs md:!text-sm" labelClassName="!text-[10px] md:!text-xs !mb-0.5" containerClassName="!mb-1" />
               {(filters.paymentKind === 'any' || filters.paymentKind === PaymentType.HOURLY) && (
-                <RangeInputGroup label="שכר שעתי" minName="minHourlyRate" minValue={filters.minHourlyRate} onMinChange={handleFilterChange} maxName="maxHourlyRate" maxValue={filters.maxHourlyRate} onMaxChange={handleFilterChange} unitSymbol="₪/ש'" />
+                <RangeInputGroup label="שכר שעתי" minName="minHourlyRate" minValue={filters.minHourlyRate} onMinChange={handleFilterChange} maxName="maxHourlyRate" maxValue={filters.maxHourlyRate} onMaxChange={handleFilterChange} unitSymbol="₪/ש'" labelClassName="!text-[10px] md:!text-xs !mb-0.5" inputClassName="!py-1.5 md:!py-2 !text-xs md:!text-sm" />
               )}
               {(filters.paymentKind === 'any' || filters.paymentKind === PaymentType.GLOBAL) && (
-                <RangeInputGroup label="שכר גלובלי" minName="minGlobalPayment" minValue={filters.minGlobalPayment} onMinChange={handleFilterChange} maxName="maxGlobalPayment" maxValue={filters.maxGlobalPayment} onMaxChange={handleFilterChange} unitSymbol="₪" />
+                <RangeInputGroup label="שכר גלובלי" minName="minGlobalPayment" minValue={filters.minGlobalPayment} onMinChange={handleFilterChange} maxName="maxGlobalPayment" maxValue={filters.maxGlobalPayment} onMaxChange={handleFilterChange} unitSymbol="₪" labelClassName="!text-[10px] md:!text-xs !mb-0.5" inputClassName="!py-1.5 md:!py-2 !text-xs md:!text-sm" />
               )}
-              <div className="pt-2">
-                <CheckboxGroup legend="אופן תשלום" name="search_selectedPaymentMethods" options={PAYMENT_METHOD_FILTER_OPTIONS as any} selectedValues={filters.selectedPaymentMethods} onChange={handlePaymentMethodChange} legendClassName="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider" />
-              </div>
             </div>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
-            <h4 className="flex items-center gap-2 text-royal-blue font-bold mb-4 pb-2 border-b border-gray-50">
-              <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+          <div className="bg-white p-3 md:p-4 rounded-xl shadow-sm border border-gray-100">
+            <h4 className="flex items-center gap-2 text-royal-blue font-bold mb-2 pb-2 border-b border-gray-50 text-xs md:text-sm">
+              <span className="w-1.5 md:w-2 h-1.5 md:h-2 rounded-full bg-indigo-500"></span>
               קהל יעד ומורכבות
             </h4>
-            <div className="space-y-4 flex-grow">
-              <RangeInputGroup label="מספר אנשים דרושים" minName="minPeopleNeeded" minValue={filters.minPeopleNeeded} onMinChange={handleFilterChange} maxName="maxPeopleNeeded" maxValue={filters.maxPeopleNeeded} onMaxChange={handleFilterChange} unitSymbol="איש" />
-              <Select label="מיועד ל..." name="suitabilityFor" options={SUITABILITY_FOR_OPTIONS} value={filters.suitabilityFor} onChange={handleFilterChange} className="!rounded-xl" />
-              <RangeInputGroup label="גיל המועמד" minName="minAge" minValue={filters.minAge} onMinChange={handleFilterChange} maxName="maxAge" maxValue={filters.maxAge} onMaxChange={handleFilterChange} unitSymbol="ש'" />
-              <Select label="רמת קושי" id="search_difficulty" name="difficulty" options={JOB_DIFFICULTY_FILTER_OPTIONS} value={filters.difficulty} onChange={handleFilterChange} containerClassName="mb-0" className="!rounded-xl" />
+            <div className="space-y-2">
+              <RangeInputGroup label="מספר אנשים" minName="minPeopleNeeded" minValue={filters.minPeopleNeeded} onMinChange={handleFilterChange} maxName="maxPeopleNeeded" maxValue={filters.maxPeopleNeeded} onMaxChange={handleFilterChange} unitSymbol="איש" labelClassName="!text-[10px] md:!text-xs !mb-0.5" inputClassName="!py-1.5 md:!py-2 !text-xs md:!text-sm" />
+              <Select label="מיועד ל..." name="suitabilityFor" options={SUITABILITY_FOR_OPTIONS} value={filters.suitabilityFor} onChange={handleFilterChange} className="!rounded-lg !py-1.5 md:!py-2 !text-xs md:!text-sm" labelClassName="!text-[10px] md:!text-xs !mb-0.5" containerClassName="!mb-1" />
+              <RangeInputGroup label="גיל" minName="minAge" minValue={filters.minAge} onMinChange={handleFilterChange} maxName="maxAge" maxValue={filters.maxAge} onMaxChange={handleFilterChange} unitSymbol="ש'" labelClassName="!text-[10px] md:!text-xs !mb-0.5" inputClassName="!py-1.5 md:!py-2 !text-xs md:!text-sm" />
+              <Select label="רמת קושי" id="search_difficulty" name="difficulty" options={JOB_DIFFICULTY_FILTER_OPTIONS} value={filters.difficulty} onChange={handleFilterChange} containerClassName="!mb-0" className="!rounded-lg !py-1.5 md:!py-2 !text-xs md:!text-sm" labelClassName="!text-[10px] md:!text-xs !mb-0.5" />
             </div>
           </div>
         </div>
@@ -393,15 +390,18 @@ export const SearchResultsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
         >
           חפש משרות
         </Button>
-        <button
+        <Button
           type="button"
           onClick={resetFilters}
-          className="w-full sm:w-auto text-gray-400 hover:text-gray-600 font-bold transition-all px-4"
+          variant="outline"
+          size="sm"
+          icon={<XIcon className="w-3.5 h-3.5" />}
+          className="w-full sm:w-auto text-[10px] md:text-xs py-1.5 px-3 border-red-100 text-red-500 hover:bg-red-50"
         >
-          אפס הכל
-        </button>
+          איפוס מסננים
+        </Button>
       </div>
-    </form>
+    </form >
   );
 
   return (
@@ -414,8 +414,8 @@ export const SearchResultsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
             onClick={() => setIsMobileFilterSectionOpen(!isMobileFilterSectionOpen)}
             variant="secondary"
             size="lg"
-            className="w-full flex items-center justify-center relative"
-            icon={<FilterIcon className="w-5 h-5" />}
+            className="w-auto mx-auto flex items-center justify-center relative px-8 shadow-md"
+            icon={<AdjustmentsIcon className="w-5 h-5" />}
             aria-expanded={isMobileFilterSectionOpen}
             aria-controls="mobile-filter-section-search"
           >
@@ -448,9 +448,9 @@ export const SearchResultsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-royal-blue mx-auto mb-4"></div>
             <p>מחפש משרות...</p>
           </div>
-        ) : jobs.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {jobs.map((job) => (
+        ) : displayedJobs.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4 justify-items-center justify-center">
+            {displayedJobs.map((job) => (
               <JobCard key={job.id} job={job} setCurrentPage={setCurrentPage} onJobDeleted={handleJobDeleted} />
             ))}
           </div>
@@ -458,6 +458,19 @@ export const SearchResultsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
           <div className="text-center py-12 px-4 bg-light-pink/40 rounded-xl border border-light-pink/40">
             <h2 className="text-2xl font-semibold text-royal-blue mb-2">לא נמצאו משרות</h2>
             <p className="text-gray-600">נסו לשנות את תנאי החיפוש או לאפס את המסננים.</p>
+          </div>
+        )}
+
+        {/* Load More Button */}
+        {displayedJobs.length < jobs.length && (
+          <div className="flex justify-center mt-8 pb-4">
+            <Button
+              variant="outline"
+              onClick={() => setDisplayLimit(prev => prev + 12)}
+              className="!rounded-full px-8 py-2 border-royal-blue text-royal-blue hover:bg-royal-blue hover:text-white transition-all shadow-sm transform hover:scale-105"
+            >
+              טען עוד משרות
+            </Button>
           </div>
         )}
       </section>

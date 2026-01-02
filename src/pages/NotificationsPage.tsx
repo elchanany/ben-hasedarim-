@@ -301,7 +301,7 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
 
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8 py-4 sm:py-8 px-2 sm:px-0">
+    <div className="w-full max-w-4xl mx-auto space-y-6 sm:space-y-8 py-4 sm:py-8 px-2 sm:px-0">
       <div className="flex justify-between items-center mb-4 sm:mb-6 px-2 sm:px-0">
         <h1 className="text-2xl sm:text-3xl font-bold text-royal-blue flex items-center">
           <BellIcon className="w-8 h-8 mr-3 rtl:ml-3 rtl:mr-0 text-deep-pink" />

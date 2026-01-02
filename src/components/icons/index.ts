@@ -33,3 +33,4 @@ export { CopyIcon } from './CopyIcon';
 export { ChevronDownIcon } from './ChevronDownIcon';
 export { XIcon } from './XIcon';
 export { RefreshIcon } from './RefreshIcon';
+export { AdjustmentsIcon } from './AdjustmentsIcon';

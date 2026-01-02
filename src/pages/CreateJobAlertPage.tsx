@@ -239,27 +239,30 @@ export const CreateJobAlertPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
     }
 
     return (
-        <div className="max-w-3xl mx-auto bg-white p-6 sm:p-8 rounded-xl shadow-2xl my-8">
-            <h1 className="text-3xl font-bold text-royal-blue mb-6 text-center border-b pb-4">
-                {isEditMode ? "עריכת התראת עבודה" : "יצירת התראת עבודה חדשה"}
+        <div className="w-full max-w-3xl mx-auto bg-white p-0.5 sm:p-8 rounded sm:rounded-xl shadow-lg my-0.5 sm:my-8 border border-gray-100">
+            <h1 className="text-lg sm:text-3xl font-black text-royal-blue mb-2 text-center border-b pb-1">
+                {isEditMode ? "עריכת התראה" : "יצירת התראה"}
             </h1>
-            <form onSubmit={(e) => { e.preventDefault(); handleSaveAlert(); }} className="space-y-6" noValidate>
-                <fieldset className="p-4 border border-light-blue/30 rounded-md bg-light-blue/10">
-                    <legend className="text-lg font-semibold text-royal-blue mb-2 px-1">פרטי התראה בסיסיים</legend>
-                    <Input label="שם ההתראה (לזיהוי אישי)" name="name" value={alertFormData.name || ''} onChange={handleAlertFormChange} required />
-                    <Select label="תדירות קבלת התראות" name="frequency" options={JobAlertFrequencyOptions} value={alertFormData.frequency || 'daily'} onChange={handleAlertFormChange} />
-                    <div className="flex items-center justify-end mt-3">
-                        <label htmlFor="isActiveAlertPage" className="ml-2 rtl:mr-2 rtl:ml-0 text-sm text-gray-700">התראה פעילה</label>
+            <form onSubmit={(e) => { e.preventDefault(); handleSaveAlert(); }} className="space-y-2 sm:space-y-6" noValidate>
+                <fieldset className="p-1.5 sm:p-4 border border-light-blue/20 rounded bg-light-blue/5">
+                    <legend className="text-xs sm:text-lg font-bold text-royal-blue mb-0.5 px-1 uppercase tracking-wider">פרטי התראה</legend>
+                    <div className="grid grid-cols-2 gap-1.5 sm:gap-4">
+                        <Input label="שם ההתראה" name="name" value={alertFormData.name || ''} onChange={handleAlertFormChange} required containerClassName="mb-0.5" labelClassName="text-[10px] sm:text-sm mb-0" />
+                        <Select label="תדירות" name="frequency" options={JobAlertFrequencyOptions} value={alertFormData.frequency || 'daily'} onChange={handleAlertFormChange} containerClassName="mb-0.5" labelClassName="text-[10px] sm:text-sm mb-0" />
+                    </div>
+                    <div className="flex items-center justify-start space-x-2 rtl:space-x-reverse mt-1">
                         <input type="checkbox" id="isActiveAlertPage" name="isActive" checked={alertFormData.isActive ?? true} onChange={handleAlertFormChange} className="h-4 w-4 text-royal-blue border-gray-300 rounded focus:ring-royal-blue" />
+                        <label htmlFor="isActiveAlertPage" className="text-[10px] text-gray-700">התראה פעילה</label>
                     </div>
                 </fieldset>
 
-                <fieldset className="p-4 border border-light-blue/30 rounded-md bg-light-blue/10">
-                    <legend className="text-lg font-semibold text-royal-blue mb-2 px-1">סינון משרות</legend>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Select label="אזור" name="location" options={cityOptions} value={alertFormData.location || ''} onChange={handleAlertFormChange} />
-                        <Select label="רמת קושי" name="difficulty" options={JOB_DIFFICULTY_FILTER_OPTIONS} value={alertFormData.difficulty || ''} onChange={handleAlertFormChange} />
-                        <Select label="זמינות העבודה" name="dateType" options={useDateTypeOptions()} value={alertFormData.dateType || ''} onChange={handleAlertFormChange} />
+                <fieldset className="p-1.5 sm:p-4 border border-light-blue/20 rounded bg-light-blue/5">
+                    <legend className="text-xs sm:text-lg font-bold text-royal-blue mb-0.5 px-1 uppercase tracking-wider">סינון משרות</legend>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-4">
+                        <Select label="אזור" name="location" options={cityOptions} value={alertFormData.location || ''} onChange={handleAlertFormChange} containerClassName="mb-0.5" labelClassName="text-[10px] sm:text-sm mb-0" />
+                        <Select label="רמת קושי" name="difficulty" options={JOB_DIFFICULTY_FILTER_OPTIONS} value={alertFormData.difficulty || ''} onChange={handleAlertFormChange} containerClassName="mb-0.5" labelClassName="text-[10px] sm:text-sm mb-0" />
+                        <Select label="זמינות" name="dateType" options={useDateTypeOptions()} value={alertFormData.dateType || ''} onChange={handleAlertFormChange} containerClassName="mb-0.5" labelClassName="text-[10px] sm:text-sm mb-0" />
+                        <Select label="סוג תשלום" name="paymentKind" options={PAYMENT_KIND_OPTIONS} value={alertFormData.paymentKind || 'any'} onChange={handleAlertFormChange} containerClassName="mb-0.5" labelClassName="text-[10px] sm:text-sm mb-0" />
                     </div>
                     {alertFormData.dateType === 'specificDate' && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
@@ -267,49 +270,47 @@ export const CreateJobAlertPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
                             <HebrewDatePicker label="עד תאריך" value={alertFormData.specificDateEnd || null} onChange={(date) => handleAlertDateChange('specificDateEnd', date)} id="alert_specificDateEnd_page" />
                         </div>
                     )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                        <RangeInputGroup label="משך משוער (שעות)" minName="minEstimatedDurationHours" minValue={alertFormData.minEstimatedDurationHours || ''} onMinChange={handleAlertFormChange} maxName="maxEstimatedDurationHours" maxValue={alertFormData.maxEstimatedDurationHours || ''} onMaxChange={handleAlertFormChange} unitSymbol="שעות" disabled={alertFormData.filterDurationFlexible === 'yes'} />
-                        <Select label="האם משך הזמן גמיש?" name="filterDurationFlexible" options={DURATION_FLEXIBILITY_OPTIONS} value={alertFormData.filterDurationFlexible || 'any'} onChange={handleAlertFormChange} />
-                        <Select label="סוג תשלום" name="paymentKind" options={PAYMENT_KIND_OPTIONS} value={alertFormData.paymentKind || 'any'} onChange={handleAlertFormChange} />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-4 mt-1">
+                        <Select label="משך גמיש?" name="filterDurationFlexible" options={DURATION_FLEXIBILITY_OPTIONS} value={alertFormData.filterDurationFlexible || 'any'} onChange={handleAlertFormChange} containerClassName="mb-0.5" labelClassName="text-[10px] sm:text-sm mb-0" />
+                        <RangeInputGroup label="שעות" minName="minEstimatedDurationHours" minValue={alertFormData.minEstimatedDurationHours || ''} onMinChange={handleAlertFormChange} maxName="maxEstimatedDurationHours" maxValue={alertFormData.maxEstimatedDurationHours || ''} onMaxChange={handleAlertFormChange} unitSymbol="ש" disabled={alertFormData.filterDurationFlexible === 'yes'} labelClassName="text-[10px] sm:text-sm mb-0" />
                     </div>
                     {(alertFormData.paymentKind === 'any' || alertFormData.paymentKind === PaymentType.HOURLY) && (
-                        <RangeInputGroup containerClassName="mt-4" label="שכר שעתי" minName="minHourlyRate" minValue={alertFormData.minHourlyRate || ''} onMinChange={handleAlertFormChange} maxName="maxHourlyRate" maxValue={alertFormData.maxHourlyRate || ''} onMaxChange={handleAlertFormChange} unitSymbol="₪ לשעה" />
+                        <RangeInputGroup containerClassName="mt-2" label="שכר שעתי" minName="minHourlyRate" minValue={alertFormData.minHourlyRate || ''} onMinChange={handleAlertFormChange} maxName="maxHourlyRate" maxValue={alertFormData.maxHourlyRate || ''} onMaxChange={handleAlertFormChange} unitSymbol="₪" labelClassName="text-[10px] sm:text-sm mb-0" />
                     )}
                     {(alertFormData.paymentKind === 'any' || alertFormData.paymentKind === PaymentType.GLOBAL) && (
-                        <RangeInputGroup containerClassName="mt-4" label="שכר גלובלי" minName="minGlobalPayment" minValue={alertFormData.minGlobalPayment || ''} onMinChange={handleAlertFormChange} maxName="maxGlobalPayment" maxValue={alertFormData.maxGlobalPayment || ''} onMaxChange={handleAlertFormChange} unitSymbol="₪ סהכ" />
+                        <RangeInputGroup containerClassName="mt-2" label="שכר גלובלי" minName="minGlobalPayment" minValue={alertFormData.minGlobalPayment || ''} onMinChange={handleAlertFormChange} maxName="maxGlobalPayment" maxValue={alertFormData.maxGlobalPayment || ''} onMaxChange={handleAlertFormChange} unitSymbol="₪" labelClassName="text-[10px] sm:text-sm mb-0" />
                     )}
-                    <div className="mt-4">
-                        <CheckboxGroup legend="אופן תשלום" name="alert_selectedPaymentMethods_page" options={PAYMENT_METHOD_FILTER_OPTIONS} selectedValues={alertFormData.selectedPaymentMethods || new Set()} onChange={handleAlertPaymentMethodChange} legendClassName="text-sm font-medium text-gray-700 mb-1 text-right" />
+                    <div className="mt-2">
+                        <CheckboxGroup legend="אופן תשלום" name="alert_selectedPaymentMethods_page" options={PAYMENT_METHOD_FILTER_OPTIONS} selectedValues={alertFormData.selectedPaymentMethods || new Set()} onChange={handleAlertPaymentMethodChange} legendClassName="text-[10px] font-bold text-gray-700 mb-0.5 text-right" />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                        <RangeInputGroup label="מספר אנשים דרושים" minName="minPeopleNeeded" minValue={alertFormData.minPeopleNeeded || ''} onMinChange={handleAlertFormChange} maxName="maxPeopleNeeded" maxValue={alertFormData.maxPeopleNeeded || ''} onMaxChange={handleAlertFormChange} unitSymbol="אנשים" />
-                        <Select label="מיועד ל..." name="suitabilityFor" options={SUITABILITY_FOR_OPTIONS} value={alertFormData.suitabilityFor || 'any'} onChange={handleAlertFormChange} />
-                        <RangeInputGroup label="גיל המועמד" minName="minAge" minValue={alertFormData.minAge || ''} onMinChange={handleAlertFormChange} maxName="maxAge" maxValue={alertFormData.maxAge || ''} onMaxChange={handleAlertFormChange} unitSymbol="שנים" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-4 mt-2">
+                        <RangeInputGroup label="אנשים דרושים" minName="minPeopleNeeded" minValue={alertFormData.minPeopleNeeded || ''} onMinChange={handleAlertFormChange} maxName="maxPeopleNeeded" maxValue={alertFormData.maxPeopleNeeded || ''} onMaxChange={handleAlertFormChange} unitSymbol="א" labelClassName="text-[10px] sm:text-sm mb-0" />
+                        <Select label="מיועד ל..." name="suitabilityFor" options={SUITABILITY_FOR_OPTIONS} value={alertFormData.suitabilityFor || 'any'} onChange={handleAlertFormChange} labelClassName="text-[10px] sm:text-sm mb-0" />
+                        <RangeInputGroup label="גיל" minName="minAge" minValue={alertFormData.minAge || ''} onMinChange={handleAlertFormChange} maxName="maxAge" maxValue={alertFormData.maxAge || ''} onMaxChange={handleAlertFormChange} unitSymbol="ש" labelClassName="text-[10px] sm:text-sm mb-0" />
                     </div>
                 </fieldset>
 
-                <fieldset className="p-4 border border-light-blue/30 rounded-md bg-light-blue/10">
-                    <legend className="text-lg font-semibold text-royal-blue mb-2 px-1">תזמון קבלת התראות</legend>
+                <fieldset className="p-1.5 sm:p-4 border border-light-blue/20 rounded bg-light-blue/5">
+                    <legend className="text-xs sm:text-lg font-bold text-royal-blue mb-0.5 px-1 uppercase tracking-wider">תזמון</legend>
                     <CheckboxGroup
-                        legend="באילו ימים לקבל התראות?"
+                        legend="ימים"
                         name="notificationDaysGroupPage"
                         options={DAYS_OF_WEEK_OPTIONS}
                         selectedValues={new Set((alertFormData.notificationDays || []).map(String))}
                         onChange={handleNotificationDaysChange}
-                        legendClassName="text-sm font-medium text-gray-700 mb-1 text-right"
+                        legendClassName="text-[10px] font-bold text-gray-700 mb-0.5 text-right"
                     />
-                    <div className="mt-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1 text-right">שעות "נא לא להפריע" (התראות לא יישלחו בשעות אלו)</label>
-                        <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                            <Input type="time" name="doNotDisturbStart" value={alertFormData.doNotDisturbHours?.start || "22:00"} onChange={handleAlertFormChange} containerClassName="mb-0 flex-1" />
-                            <span className="text-gray-500">עד</span>
-                            <Input type="time" name="doNotDisturbEnd" value={alertFormData.doNotDisturbHours?.end || "07:00"} onChange={handleAlertFormChange} containerClassName="mb-0 flex-1" />
+                    <div className="mt-1 grid grid-cols-2 gap-1.5">
+                        <div className="col-span-2">
+                            <label className="block text-[10px] font-bold text-gray-700 mb-0 text-right">נא לא להפריע</label>
                         </div>
+                        <Input type="time" label="מ-" name="doNotDisturbStart" value={alertFormData.doNotDisturbHours?.start || "22:00"} onChange={handleAlertFormChange} containerClassName="mb-0" labelClassName="text-[10px] sm:text-sm mb-0" />
+                        <Input type="time" label="עד" name="doNotDisturbEnd" value={alertFormData.doNotDisturbHours?.end || "07:00"} onChange={handleAlertFormChange} containerClassName="mb-0" labelClassName="text-[10px] sm:text-sm mb-0" />
                     </div>
                 </fieldset>
 
-                <fieldset className="p-4 border border-light-blue/30 rounded-md bg-light-blue/10">
-                    <legend className="text-lg font-semibold text-royal-blue mb-2 px-1">אמצעי קבלת התראה (בנוסף לאתר)</legend>
+                <fieldset className="p-3 sm:p-4 border border-light-blue/30 rounded-md bg-light-blue/10">
+                    <legend className="text-base sm:text-lg font-semibold text-royal-blue mb-2 px-1">אמצעי קבלת התראה (בנוסף לאתר)</legend>
                     <p className="text-xs text-gray-500 mb-3">ההתראות יופיעו תמיד באזור "התראות מערכת" באתר. אפשרויות נוספות בפיתוח ויופיעו כאן לבחירה.</p>
 
                     {/* Email Alert Option */}
@@ -358,7 +359,7 @@ export const CreateJobAlertPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
                     </p>
                 </fieldset>
 
-                <div className="flex justify-end space-x-3 rtl:space-x-reverse pt-4">
+                <div className="flex justify-end space-x-1.5 sm:space-x-3 rtl:space-x-reverse pt-2 sm:pt-4">
                     <Button type="button" variant="outline" onClick={() => setCurrentPage('notifications', { tab: 'alerts' })}>ביטול</Button>
                     <Button type="submit" variant="primary" isLoading={isLoading} icon={isEditMode ? <SaveIcon className="w-5 h-5" /> : <PlusCircleIcon className="w-5 h-5" />}>
                         {isLoading ? (isEditMode ? 'מעדכן...' : 'יוצר...') : (isEditMode ? "שמור שינויים" : "צור התראה")}

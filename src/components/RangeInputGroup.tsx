@@ -5,19 +5,15 @@ import { Input } from './Input';
 interface RangeInputGroupProps {
   label: string;
   minName: string;
-  minValue: string;
+  minValue: string | number;
   onMinChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   maxName: string;
-  maxValue: string;
+  maxValue: string | number;
   onMaxChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  minPlaceholder?: string;
-  maxPlaceholder?: string;
   unitSymbol?: string;
-  minError?: string;
-  maxError?: string;
-  containerClassName?: string;
-  labelClassName?: string;
   disabled?: boolean;
+  labelClassName?: string;
+  inputClassName?: string;
 }
 
 export const RangeInputGroup: React.FC<RangeInputGroupProps> = ({
@@ -28,66 +24,41 @@ export const RangeInputGroup: React.FC<RangeInputGroupProps> = ({
   maxName,
   maxValue,
   onMaxChange,
-  minPlaceholder = "מ...",
-  maxPlaceholder = "עד...",
   unitSymbol,
-  minError,
-  maxError,
-  containerClassName = "",
-  labelClassName = "block text-sm font-medium text-dark-text mb-1 text-right", // Changed to dark-text
   disabled = false,
+  labelClassName = '',
+  inputClassName = '',
 }) => {
-  const minInputId = minName + "-range-min";
-  const maxInputId = maxName + "-range-max";
-  const describedByMin = minError ? `${minInputId}-error` : undefined;
-  const describedByMax = maxError ? `${maxInputId}-error` : undefined;
-  
   return (
-    <div className={`${containerClassName} ${disabled ? 'opacity-60' : ''}`}>
-      <span id={`${minName}-${maxName}-label`} className={labelClassName}>{label}</span>
-      <div className="flex items-center space-x-2 rtl:space-x-reverse mt-1">
+    <div className={`flex flex-col gap-1 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+      <label className={`text-sm font-medium text-gray-700 text-right ${labelClassName}`}>{label}</label>
+      <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Input
+          <input
             type="number"
             name={minName}
-            id={minInputId}
             value={minValue}
             onChange={onMinChange}
-            placeholder={minPlaceholder}
-            min="0"
-            inputClassName={`w-full ${unitSymbol ? 'pr-6 rtl:pl-6 rtl:pr-2' : ''}`}
-            containerClassName="mb-0"
-            error={minError}
+            placeholder="מ-"
+            className={`w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-royal-blue focus:border-transparent text-sm text-right ${inputClassName}`}
             disabled={disabled}
-            aria-labelledby={`${minName}-${maxName}-label`}
-            aria-describedby={describedByMin}
-            errorId={describedByMin}
-            label="מינימום" 
-            labelClassName="sr-only"
+            aria-label={`${label} מינימום`}
           />
-          {unitSymbol && <span className="absolute right-2 rtl:left-2 rtl:right-auto top-1/2 transform -translate-y-1/2 text-gray-500 text-sm" aria-hidden="true">{unitSymbol}</span>}
+          {unitSymbol && <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">{unitSymbol}</span>}
         </div>
-        <span className="text-gray-500" aria-hidden="true">–</span>
+        <span className="text-gray-400 font-bold">–</span>
         <div className="relative flex-1">
-          <Input
+          <input
             type="number"
             name={maxName}
-            id={maxInputId}
             value={maxValue}
             onChange={onMaxChange}
-            placeholder={maxPlaceholder}
-            min="0"
-            inputClassName={`w-full ${unitSymbol ? 'pr-6 rtl:pl-6 rtl:pr-2' : ''}`}
-            containerClassName="mb-0"
-            error={maxError}
+            placeholder="עד"
+            className={`w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-royal-blue focus:border-transparent text-sm text-right ${inputClassName}`}
             disabled={disabled}
-            aria-labelledby={`${minName}-${maxName}-label`}
-            aria-describedby={describedByMax}
-            errorId={describedByMax}
-            label="מקסימום"
-            labelClassName="sr-only"
+            aria-label={`${label} מקסימום`}
           />
-          {unitSymbol && <span className="absolute right-2 rtl:left-2 rtl:right-auto top-1/2 transform -translate-y-1/2 text-gray-500 text-sm" aria-hidden="true">{unitSymbol}</span>}
+          {unitSymbol && <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">{unitSymbol}</span>}
         </div>
       </div>
     </div>

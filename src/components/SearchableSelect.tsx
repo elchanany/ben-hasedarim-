@@ -73,21 +73,21 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
     return (
         <div className={`relative z-[60] ${className}`} ref={containerRef}>
             {label && (
-                <label className="block text-sm font-bold text-gray-400 mb-2 uppercase tracking-tight text-right px-1">
+                <label className="block text-[9px] md:text-sm font-bold text-gray-500 mb-1 md:mb-2 uppercase tracking-widest text-right px-1">
                     {label}
                 </label>
             )}
 
             <div
-                className={`flex items-center justify-between w-full px-6 py-4 bg-white border border-gray-200 rounded-2xl cursor-pointer shadow-sm transition-all duration-300 ${isOpen
+                className={`flex items-center justify-between w-full px-3 md:px-6 py-2.5 md:py-4 bg-white border border-gray-200 rounded-lg md:rounded-2xl cursor-pointer shadow-sm transition-all duration-300 ${isOpen
                     ? 'border-royal-blue ring-8 ring-royal-blue/5 shadow-md'
                     : 'hover:border-gray-300 hover:shadow-md'
                     }`}
                 onClick={handleToggle}
             >
-                <div className="flex items-center gap-3 overflow-hidden">
-                    <ChevronDownIcon className={`w-5 h-5 text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
-                    <span className={`truncate text-lg font-medium ${value === '' ? 'text-gray-400' : 'text-gray-900'}`}>
+                <div className="flex items-center gap-2 md:gap-3 overflow-hidden">
+                    <ChevronDownIcon className={`w-4 h-4 md:w-5 md:h-5 text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                    <span className={`truncate text-sm md:text-lg font-medium ${value === '' ? 'text-gray-400' : 'text-gray-900'}`}>
                         {currentLabel || placeholder}
                     </span>
                 </div>

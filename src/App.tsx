@@ -125,11 +125,8 @@ const App: React.FC = () => {
 
     const currentHash = window.location.hash.replace(/^#/, '');
     if (currentHash !== newHash) {
-      // Using replace vs assign is tricky, but generally replace is better for internal updates 
-      // to avoid clogging history with every keystroke if params update live (though here they don't seem to).
-      // However, if we want the user to be able to go back, we might want assign (default) or pushState logic.
-      // Stick with replace to avoid history loops for now, or ensure consistency.
-      window.location.replace(`#${newHash}`);
+      // Use pushState to add history entry for back button navigation
+      window.history.pushState(null, '', `#${newHash}`);
     }
   }, [currentPage, pageParams]);
 
@@ -185,8 +182,8 @@ const App: React.FC = () => {
     }
   };
 
-  const mainContainerClasses = "flex-grow container mx-auto p-0 sm:p-4 md:p-6";
-  const appContainerClasses = "min-h-screen flex flex-col font-assistant bg-neutral-gray";
+  const appContainerClasses = "min-h-screen w-full overflow-x-hidden flex flex-col font-assistant bg-neutral-gray";
+  const mainContainerClasses = "flex-grow w-full p-0 sm:p-4 md:p-6";
 
   // Blocked user - show limited UI with navbar and notifications access
   if (user?.isBlocked) {

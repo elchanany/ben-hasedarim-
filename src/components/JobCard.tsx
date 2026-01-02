@@ -26,9 +26,9 @@ const InfoItem: React.FC<{
   className?: string;
   bgColor?: string;
 }> = ({ icon, text, iconColor, textColor = "text-royal-blue/90", textFont = "font-assistant", className = '', bgColor = 'bg-gray-50' }) => (
-  <div className={`flex items-center space-x-1.5 rtl:space-x-reverse px-2.5 py-1.5 rounded-lg ${bgColor} ${className} min-w-fit max-w-full hover:brightness-95 transition-all`}>
-    <span className={`${iconColor} flex-shrink-0`} aria-hidden="true">{icon}</span>
-    <span className={`${textFont} ${textColor} text-sm sm:text-base font-medium leading-tight whitespace-normal break-words max-w-full`} title={text}>{text}</span>
+  <div className={`flex items-center space-x-1 rtl:space-x-reverse px-1 py-0.5 sm:px-2.5 sm:py-1.5 rounded-md sm:rounded-lg ${bgColor} ${className} min-w-fit max-w-full hover:brightness-95 transition-all`}>
+    <span className={`${iconColor} flex-shrink-0 scale-[0.6] sm:scale-100`} aria-hidden="true">{icon}</span>
+    <span className={`${textFont} ${textColor} text-[10px] sm:text-base font-medium leading-tight whitespace-normal break-words max-w-full`} title={text}>{text}</span>
   </div>
 );
 
@@ -44,7 +44,7 @@ const Tag: React.FC<TagProps> = ({ label, onClick, ariaLabel }) => (
       e.stopPropagation();
       onClick();
     }}
-    className="bg-light-blue/70 text-royal-blue px-2.5 py-1 text-sm font-semibold rounded-full hover:bg-royal-blue hover:text-white transition-colors duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-royal-blue/50 tap-highlight-transparent"
+    className="bg-light-blue/70 text-royal-blue px-1 py-0.5 sm:px-2.5 sm:py-1 text-[9px] sm:text-sm font-semibold rounded-full hover:bg-royal-blue hover:text-white transition-colors duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-royal-blue/50 tap-highlight-transparent transform scale-[0.65] origin-center -m-1.5"
     aria-label={ariaLabel}
   >
     {label}
@@ -124,7 +124,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, setCurrentPage, isHotJob 
     else if (parts.length === 0) suitabilityText = 'לא צוין';
 
     if (job.numberOfPeopleNeeded && job.numberOfPeopleNeeded > 0) {
-      return `${suitabilityText} (דרושים: ${job.numberOfPeopleNeeded})`;
+      return `${suitabilityText} (${job.numberOfPeopleNeeded}+)`;
     }
     return suitabilityText;
   }
@@ -162,8 +162,8 @@ export const JobCard: React.FC<JobCardProps> = ({ job, setCurrentPage, isHotJob 
   };
 
 
-  const cardBaseClasses = "rounded-xl overflow-hidden transform transition-all hover:-translate-y-1 duration-300 ease-in-out flex flex-col cursor-pointer w-full max-w-[320px] sm:max-w-[340px] min-h-[480px]";
-  const hotJobClasses = isHotJob ? "bg-orange-100 border border-orange-400 shadow-xl hover:shadow-2xl" : "bg-white shadow-lg hover:shadow-2xl";
+  const cardBaseClasses = "rounded-xl overflow-hidden transform transition-all hover:-translate-y-1 duration-300 ease-in-out flex flex-col cursor-pointer w-full min-h-[350px] sm:min-h-[480px] mx-auto";
+  const hotJobClasses = isHotJob ? "bg-orange-100 border border-orange-400 shadow-lg sm:shadow-xl hover:shadow-2xl" : "bg-white shadow-md sm:shadow-lg hover:shadow-2xl";
 
   const jobTags: TagProps[] = [];
 
@@ -233,17 +233,17 @@ export const JobCard: React.FC<JobCardProps> = ({ job, setCurrentPage, isHotJob 
         aria-label={`צפה בפרטי המשרה: ${job.title}, באזור ${job.area}`}
         onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && handleCardClick()}
       >
-        <span className="absolute top-3 left-3 text-xs font-mono text-gray-500 bg-white/80 backdrop-blur-sm px-2 py-0.5 rounded-full shadow z-10" aria-hidden="true">
+        <span className="hidden sm:block absolute top-3 left-3 text-xs font-mono text-gray-500 bg-white/80 backdrop-blur-sm px-2 py-0.5 rounded-full shadow z-10" aria-hidden="true">
           #{job.id.substring(0, 6)}
         </span>
 
-        <div className="p-6 pb-4">
-          <div className="flex items-baseline space-x-2 rtl:space-x-reverse mb-3 relative z-20">
-            <h3 className="text-2xl sm:text-3xl font-black text-royal-blue leading-tight tracking-tight drop-shadow-sm break-words whitespace-normal" title={job.title}>
+        <div className="p-2 sm:p-6 pb-0.5 sm:pb-4">
+          <div className="flex items-baseline space-x-1 rtl:space-x-reverse mb-0.5 sm:mb-3 relative z-20">
+            <h3 className="text-xl sm:text-3xl font-black text-royal-blue leading-tight tracking-tight drop-shadow-sm break-words whitespace-normal" title={job.title}>
               {job.title}
             </h3>
           </div>
-          <div className="flex flex-wrap gap-1.5 mb-4">
+          <div className="flex flex-wrap gap-0.5 sm:gap-1.5 mb-2 sm:mb-4">
             <InfoItem
               icon={<MapPinIcon className="w-4 h-4" />}
               text={job.area}
@@ -277,14 +277,14 @@ export const JobCard: React.FC<JobCardProps> = ({ job, setCurrentPage, isHotJob 
           </div>
         </div>
 
-        <div className="px-6 mb-4">
-          <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100/50">
-            <p className="text-lg text-gray-700 line-clamp-4 leading-relaxed break-words whitespace-pre-wrap" title={job.description}>{job.description}</p>
+        <div className="px-1.5 sm:px-6 mb-0.5 sm:mb-4">
+          <div className="bg-blue-50/50 p-0.5 sm:p-3 rounded sm:rounded-xl border border-blue-100/50">
+            <p className="text-[11px] sm:text-lg text-gray-700 line-clamp-4 leading-tight break-words whitespace-pre-wrap" title={job.description}>{job.description}</p>
           </div>
         </div>
 
         {jobTags.length > 0 && (
-          <div className="px-4 pt-1 pb-3 flex flex-wrap gap-2 justify-center" aria-label="תגיות סינון למשרה">
+          <div className="px-0.5 pt-0 pb-1 flex flex-wrap gap-0 justify-center" aria-label="תגיות סינון למשרה">
             {jobTags.slice(0, 4).map((tag, index) => (
               <Tag key={index} label={tag.label} onClick={tag.onClick} ariaLabel={tag.ariaLabel} />
             ))}
@@ -317,33 +317,33 @@ export const JobCard: React.FC<JobCardProps> = ({ job, setCurrentPage, isHotJob 
             </div>
           )}
 
-          <div className="px-6">
-            <div className={`flex justify-between items-center text-lg text-gray-500 mb-2 pt-2 ${isOwner ? 'border-t border-gray-200/70' : ''}`}>
+          <div className="px-2 sm:px-6">
+            <div className={`flex justify-between items-center text-[10px] sm:text-lg text-gray-500 mb-1 sm:mb-2 pt-1.5 sm:pt-2 ${isOwner ? 'border-t border-gray-200/70' : ''}`}>
               <TimeAgo
                 date={job.postedDate}
                 format={(d: string) => formatRelativePostedDate(d, authCtx?.datePreference || 'hebrew')}
                 aria-label={`פורסם ${formatRelativePostedDate(job.postedDate, authCtx?.datePreference || 'hebrew')}`}
               />
-              <div className="flex items-center space-x-2.5 rtl:space-x-reverse">
+              <div className="flex items-center space-x-1 sm:space-x-2.5 rtl:space-x-reverse">
                 <span className="flex items-center" aria-label={`${job.views || 0} צפיות`}>
-                  <EyeIcon className="w-5 h-5 mr-1 rtl:ml-1 rtl:mr-0 text-gray-400" aria-hidden="true" />
+                  <EyeIcon className="w-3.5 h-3.5 sm:w-5 sm:h-5 mr-0.5 sm:mr-1 rtl:ml-0.5 rtl:sm:ml-1 rtl:mr-0 text-gray-400" aria-hidden="true" />
                   {job.views || 0}
                 </span>
                 <span className="flex items-center" aria-label={`${job.contactAttempts || 0} פניות`}>
-                  <ChatBubbleLeftEllipsisIcon className="w-5 h-5 mr-1 rtl:ml-1 rtl:mr-0 text-gray-400" aria-hidden="true" />
+                  <ChatBubbleLeftEllipsisIcon className="w-3.5 h-3.5 sm:w-5 sm:h-5 mr-0.5 sm:mr-1 rtl:ml-0.5 rtl:sm:ml-1 rtl:mr-0 text-gray-400" aria-hidden="true" />
                   {job.contactAttempts || 0}
                 </span>
               </div>
             </div>
-            <p className="text-center text-base text-royal-blue/80 group-hover:text-deep-pink transition-colors py-2" aria-hidden="true">
-              לחצו לפרטים נוספים
+            <p className="text-center text-[10px] sm:text-base text-royal-blue/80 group-hover:text-deep-pink transition-colors py-1 sm:py-2" aria-hidden="true">
+              פרטים נוספים
             </p>
           </div>
 
-          <div className={`p-4 text-center border-t bg-royal-blue ${isHotJob ? 'border-orange-300' : 'border-gray-200'}`}>
-            <div className="flex items-center justify-center space-x-2 rtl:space-x-reverse">
-              <CashIcon className="w-8 h-8 sm:w-9 sm:h-9 text-white/90" aria-hidden="true" />
-              <p className="text-2xl sm:text-3xl font-extrabold text-white" aria-label={`תשלום: ${getPaymentInfo()}`}>{getPaymentInfo()}</p>
+          <div className="p-1.5 sm:p-4 text-center border-t bg-royal-blue ${isHotJob ? 'border-orange-300' : 'border-gray-200'}">
+            <div className="flex items-center justify-center space-x-1 sm:space-x-2 rtl:space-x-reverse">
+              <CashIcon className="w-3.5 h-3.5 sm:w-9 sm:h-9 text-white/90" aria-hidden="true" />
+              <p className="text-base sm:text-3xl font-extrabold text-white" aria-label={`תשלום: ${getPaymentInfo()}`}>{getPaymentInfo()}</p>
             </div>
           </div>
         </div>
