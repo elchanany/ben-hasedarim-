@@ -390,11 +390,14 @@ export const PaymentPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
                                                     description: type === 'post_job' ? `פרסום משרה: ${jobTitle}` : (type === 'view_contact' ? `פתיחת קשר: ${jobTitle}` : 'מנוי חודשי'),
                                                     amount: {
                                                         value: currentAmount.toString(),
-                                                        currency_code: "USD" // Must match SDK currency
+                                                        currency_code: "ILS" // Israeli Shekels
                                                     },
                                                     custom_id: `${type}_${jobId || 'sub'}`
                                                 }],
-                                                intent: "CAPTURE"
+                                                intent: "CAPTURE",
+                                                application_context: {
+                                                    shipping_preference: "NO_SHIPPING" // Remove shipping address requirement
+                                                }
                                             });
                                         }}
                                         onApprove={handleApprove}
@@ -409,7 +412,7 @@ export const PaymentPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
 
                         <div className="mt-8 text-center">
                             <p className="text-xs text-gray-400">
-                                בלחיצה על תשלום אני מאשר את <button className="underline hover:text-gray-600">תנאי השימוש</button> ואת <button className="underline hover:text-gray-600">מדיניות הפרטיות</button>.
+                                בלחיצה על תשלום אני מאשר את <button onClick={() => setCurrentPage('terms')} className="underline hover:text-gray-600">תנאי השימוש</button> ואת <button onClick={() => setCurrentPage('privacy')} className="underline hover:text-gray-600">מדיניות הפרטיות</button>.
                             </p>
                         </div>
 

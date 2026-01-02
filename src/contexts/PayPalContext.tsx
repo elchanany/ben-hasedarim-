@@ -87,7 +87,7 @@ export const PayPalProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const initialOptions = {
         clientId: clientId,
-        currency: "USD", // Changed from ILS - ILS may not be enabled on PayPal account
+        currency: "ILS", // Israeli Shekels
         intent: "capture",
         locale: "he_IL", // Hebrew locale for Israeli users
     };
