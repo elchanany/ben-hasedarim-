@@ -260,6 +260,7 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
   const [showContactRedirectModal, setShowContactRedirectModal] = useState(false);
   const [contactRedirectMessage, setContactRedirectMessage] = useState('');
   const [onContactRedirectConfirm, setOnContactRedirectConfirm] = useState<(() => void) | null>(null);
+  const [pendingContactMethodKey, setPendingContactMethodKey] = useState<'phone' | 'whatsapp' | 'email' | null>(null);
 
   // Payment State (Handled by PaymentPage now)
   // const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -455,19 +456,23 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
       if (valueKey === 'phone' && (!user?.phone || user.phone.trim() === '')) {
         setContactRedirectMessage("לא קיים מספר טלפון בפרופיל שלך. האם תרצה לעבור להגדרות הפרופיל כדי להוסיף אותו?");
         setOnContactRedirectConfirm(() => () => setCurrentPage('profile'));
+        setPendingContactMethodKey('phone');
         setShowContactRedirectModal(true);
-        // We do NOT return here, we allow the selection but warn the user that it's empty
-        // actually, if it's empty validation will fail later anyway, but let's let them select it so they see independent error if they say "No"
+        return; // Don't set toggle until user decides
       }
       if (valueKey === 'whatsapp' && (!user?.whatsapp || user.whatsapp.trim() === '') && (!user?.phone || user.phone.trim() === '')) {
         setContactRedirectMessage("לא קיים מספר וואטסאפ (או טלפון) בפרופיל שלך. האם תרצה לעבור להגדרות הפרופיל כדי להוסיף אותו?");
         setOnContactRedirectConfirm(() => () => setCurrentPage('profile'));
+        setPendingContactMethodKey('whatsapp');
         setShowContactRedirectModal(true);
+        return; // Don't set toggle until user decides
       }
       if (valueKey === 'email' && (!user?.email || user.email.trim() === '')) {
         setContactRedirectMessage("לא קיימת כתובת אימייל בפרופיל שלך. האם תרצה לעבור להגדרות הפרופיל כדי להוסיף אותה?");
         setOnContactRedirectConfirm(() => () => setCurrentPage('profile'));
+        setPendingContactMethodKey('email');
         setShowContactRedirectModal(true);
+        return; // Don't set toggle until user decides
       }
     }
 
@@ -1287,7 +1292,12 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
               כן, עבור להגדרות הפרופיל
             </Button>
             <Button
-              onClick={() => setShowContactRedirectModal(false)}
+              onClick={() => {
+                // User said No - do NOT enable the toggle, just close the modal
+                // (toggle was never set because we returned early in handlePreferredContactGroupChange)
+                setPendingContactMethodKey(null);
+                setShowContactRedirectModal(false);
+              }}
               variant="outline"
             >
               לא, תודה

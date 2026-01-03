@@ -344,40 +344,33 @@ export const HomePage: React.FC<PageProps> = ({ setCurrentPage }) => {
           </div>
         )}
 
-        <div className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-4 mt-2">
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            icon={<SearchIcon className="w-5 h-5" />}
-            className="w-full sm:w-auto !px-12 shadow-md hover:shadow-lg transition-all !rounded-xl"
-          >
-            חפש משרות
-          </Button>
-          <Button
-            onClick={resetHomeFilters}
-            variant="outline"
-            size="sm"
-            icon={<CheckCircleIcon className="w-3.5 h-3.5" />}
-            className="w-full sm:w-auto text-[10px] md:text-xs py-1.5 px-3 border-red-100 text-red-500 hover:bg-red-50"
-          >
-            אפס הכל
-          </Button>
-        </div>
+
       </form>
     </>
   );
 
   return (
     <div className="space-y-12">
-      <section className="text-center py-8 md:py-16 animate-fade-in-down bg-blue-100 rounded-2xl mx-4 mt-4">
-        <h1 className="text-2xl sm:text-5xl font-extrabold text-royal-blue mb-3 leading-tight">
+      <section className="text-center py-4 md:py-16 animate-fade-in-down bg-blue-100 rounded-2xl mx-2 sm:mx-4 mt-2 sm:mt-4">
+        <h1
+          className="font-extrabold text-royal-blue mb-2 sm:mb-3 leading-tight px-2"
+          style={{ fontSize: 'clamp(16px, 5vw, 48px)' }}
+        >
           בין הסדורים - אתר העבודות הזמניות של הציבור החרדי
         </h1>
-        <p className="text-sm sm:text-xl text-medium-text max-w-2xl mx-auto mb-6 px-2">
+        <p
+          className="text-medium-text max-w-2xl mx-auto mb-4 sm:mb-6 px-2"
+          style={{ fontSize: 'clamp(11px, 3vw, 20px)' }}
+        >
           לוח העבודות המוביל לציבור החרדי. מצאו עבודות זמניות וגמישות, או פרסמו משרות והגיעו לקהל איכותי וממוקד.
         </p>
-        <Button variant="secondary" size="lg" onClick={() => setCurrentPage('postJob')} icon={<PlusCircleIcon className="w-7 h-7" />} className="shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 !px-8 !py-4 !text-xl mx-auto">
+        <Button
+          variant="secondary"
+          size="lg"
+          onClick={() => setCurrentPage('postJob')}
+          icon={<PlusCircleIcon className="w-5 h-5 sm:w-7 sm:h-7" />}
+          className="shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 !px-4 sm:!px-8 !py-2 sm:!py-4 !text-sm sm:!text-xl mx-auto"
+        >
           פרסמו עבודה חדשה
         </Button>
       </section>

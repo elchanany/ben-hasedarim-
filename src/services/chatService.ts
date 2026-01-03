@@ -212,14 +212,9 @@ export const sendMessage = async (
     throw new Error("Message text cannot be empty.");
   }
 
-  // CHECK BLOCKING STATUS
-  // Check user profile blocking (legacy/redundant if thread blocking is used, but good for safety)
-  const receiverProfile = await getUserProfile(receiverId);
-  if (receiverProfile?.blockedUserIds?.includes(senderId)) {
-    throw new Error("הודעה לא נשלחה כי המשתמש חסם אותך");
-  }
-
   let thread: ChatThread | undefined;
+
+  // If we have existing thread ID, fetch it directly (skip profile check - thread blocking is checked below)
   if (existingThreadId) {
     const threadRef = doc(db, CHAT_THREADS_COLLECTION, existingThreadId);
     const threadSnap = await getDoc(threadRef);
@@ -229,6 +224,11 @@ export const sendMessage = async (
   }
 
   if (!thread) {
+    // Only check profile blocking when creating new thread
+    const receiverProfile = await getUserProfile(receiverId);
+    if (receiverProfile?.blockedUserIds?.includes(senderId)) {
+      throw new Error("הודעה לא נשלחה כי המשתמש חסם אותך");
+    }
     thread = await getOrCreateChatThread(senderId, receiverId, jobId, jobTitle);
   }
 
@@ -246,6 +246,7 @@ export const sendMessage = async (
     }
   }
 
+  const messageTimestampEstimate = new Date().toISOString();
   const messagesCol = collection(db, CHAT_THREADS_COLLECTION, thread.id, 'messages');
   const newMessageData = {
     threadId: thread.id,
@@ -255,8 +256,6 @@ export const sendMessage = async (
     isRead: false,
     readAt: null,
   };
-  const messageDocRef = await addDoc(messagesCol, newMessageData);
-  const messageTimestampEstimate = new Date().toISOString(); // Estimate for immediate client update
 
   const updatedLastMessage = {
     text: newMessageData.text.length > 50 ? newMessageData.text.substring(0, 47) + "..." : newMessageData.text,
@@ -268,26 +267,34 @@ export const sendMessage = async (
   const unreadMessagesUpdate: Record<string, number> = {
     ...thread.unreadMessages,
     [receiverId]: currentUnreadCount + 1,
-    [senderId]: 0, // Sender's unread count for this thread becomes 0
+    [senderId]: 0,
   };
 
-  await updateDoc(doc(db, CHAT_THREADS_COLLECTION, thread.id), {
-    lastMessage: updatedLastMessage,
-    updatedAt: serverTimestamp(),
-    unreadMessages: unreadMessagesUpdate,
-  });
+  // Run both writes in parallel for speed
+  const [messageDocRef] = await Promise.all([
+    addDoc(messagesCol, newMessageData),
+    updateDoc(doc(db, CHAT_THREADS_COLLECTION, thread.id), {
+      lastMessage: updatedLastMessage,
+      updatedAt: serverTimestamp(),
+      unreadMessages: unreadMessagesUpdate,
+    })
+  ]);
 
-  // Fetch the updated thread to return
-  const updatedThreadSnap = await getDoc(doc(db, CHAT_THREADS_COLLECTION, thread.id));
-  const updatedThread = { id: updatedThreadSnap.id, ...convertTimestamps(updatedThreadSnap.data()) } as ChatThread;
+  // Return optimistic response immediately (don't refetch thread)
+  const optimisticThread: ChatThread = {
+    ...thread,
+    lastMessage: updatedLastMessage,
+    updatedAt: messageTimestampEstimate,
+    unreadMessages: unreadMessagesUpdate,
+  };
 
   return {
-    thread: updatedThread,
+    thread: optimisticThread,
     message: {
       id: messageDocRef.id,
       ...newMessageData,
       timestamp: messageTimestampEstimate
-    } as unknown as ChatMessage // Cast because serverTimestamp type !== string
+    } as unknown as ChatMessage
   };
 };
 

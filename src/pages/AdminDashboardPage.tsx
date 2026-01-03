@@ -659,7 +659,8 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {/* Date formatting would typically use formatted date string from report.createdAt */}
-                        {new Date().toLocaleDateString('he-IL')}
+                        {/* Correctly format report date using preference */}
+                        {formatDateByPreference(report.createdAt, authCtx?.datePreference || 'hebrew')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-2">
                         {report.status === 'pending' && (
@@ -765,7 +766,8 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
                         <div className="text-sm text-gray-500 truncate" title={msg.message}>{msg.message}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date().toLocaleDateString('he-IL')}
+                        {/* Correctly format message date using preference */}
+                        {formatDateByPreference(msg.createdAt, authCtx?.datePreference || 'hebrew')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${msg.status === 'new' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
@@ -824,27 +826,51 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {logs.map(log => (
-                    <tr key={log.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.adminName}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        {log.action === 'delete_job' && 'מחיקת משרה'}
-                        {log.action === 'ban_user' && 'חסימת משתמש'}
-                        {log.action === 'unban_user' && 'ביטול חסימה'}
-                        {log.action === 'update_role' && 'שינוי תפקיד'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono text-xs">
-                        {log.targetType}: {log.targetId.substring(0, 8)}...
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title={log.details || log.reason}>
-                        <div className="font-medium">{log.reason}</div>
-                        {log.details && <div className="text-xs text-gray-400 truncate">{log.details}</div>}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(log.timestamp).toLocaleString('he-IL')}
-                      </td>
-                    </tr>
-                  ))}
+                  {logs.map(log => {
+                    const translateAction = (action: string) => {
+                      const map: Record<string, string> = {
+                        'delete_job': 'מחיקת משרה',
+                        'ban_user': 'חסימת משתמש',
+                        'unban_user': 'ביטול חסימה',
+                        'update_role': 'שינוי תפקיד',
+                        'reply_contact': 'תשובה לפניה',
+                        'resolve_report': 'טיפול בדיווח',
+                        'dismiss_report': 'דחיית דיווח',
+                        'block_contact': 'חסימת יצירת קשר',
+                        'unblock_contact': 'ביטול חסימת קשר',
+                        'delete_message': 'מחיקת הודעה'
+                      };
+                      return map[action] || action;
+                    };
+                    const translateTarget = (type: string) => {
+                      const map: Record<string, string> = {
+                        'job': 'משרה',
+                        'user': 'משתמש',
+                        'message': 'הודעה',
+                        'chat': 'צ\'אט'
+                      };
+                      return map[type] || type;
+                    };
+
+                    return (
+                      <tr key={log.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.adminName}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
+                          {translateAction(log.action)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono text-xs">
+                          {translateTarget(log.targetType)}: {log.targetId.substring(0, 8)}...
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title={log.details || log.reason}>
+                          <div className="font-medium">{log.reason}</div>
+                          {log.details && <div className="text-xs text-gray-400 truncate">{log.details}</div>}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" dir="ltr">
+                          {formatDateByPreference(log.timestamp, authCtx?.datePreference || 'hebrew') + ' ' + new Date(log.timestamp).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
               {logs.length === 0 && <div className="p-8 text-center text-gray-500">אין רישומים להיסטוריה</div>}

@@ -35,9 +35,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }
       setMessageText('');
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
-        // Keep focus on input after sending
-        textareaRef.current.focus();
       }
+      // Use setTimeout to refocus after state updates and re-renders
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 0);
     } catch (error) {
       console.error("Error sending message:", error);
     } finally {

@@ -396,7 +396,11 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
             >
               <BellIcon className="h-6 w-6" />
               {user && totalUnreadCount > 0 && (
-                <span className="absolute top-0 right-0 transform translate-x-1/3 -translate-y-1/3 min-w-[1.1rem] h-[1.1rem] p-0.5 bg-red-500 text-white text-[0.7rem] leading-none font-sans font-semibold rounded-full flex items-center justify-center shadow-md" aria-hidden="true">
+                <span
+                  className="absolute min-w-[1rem] h-[1rem] px-0.5 bg-red-500 text-white text-[10px] leading-none font-bold rounded-full flex items-center justify-center shadow-md border border-white"
+                  style={{ top: '2px', right: '2px' }}
+                  aria-hidden="true"
+                >
                   {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
                 </span>
               )}

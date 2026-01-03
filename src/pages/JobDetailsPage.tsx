@@ -14,6 +14,7 @@ import {
   ArrowTopRightOnSquareIcon, LoginIcon, EditIcon, TrashIcon, ChartBarIcon, CopyIcon, CheckCircleIcon
 } from '../components/icons';
 import { gregSourceToHebrewString, getTodayGregorianISO, formatJobPostedDateTimeDetails, formatGregorianString, formatDateByPreference } from '../utils/dateConverter';
+import { Button } from '../components/Button';
 import * as jobService from '../services/jobService';
 import * as chatService from '../services/chatService';
 import * as reportService from '../services/reportService';
@@ -23,7 +24,6 @@ import { AuthContext } from '../contexts/AuthContext';
 // import { PaymentModal } from '../components/PaymentModal'; // Removed
 import { PricingModal } from '../components/PricingModal';
 import { unlockJobForUser, addUserSubscription } from '../services/userService';
-import { usePaymentSettings } from '../hooks/usePaymentSettings';
 
 interface JobDetailsPageProps extends PageProps {
   jobId: string;
@@ -401,6 +401,13 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
   const isOwner = user?.id === job?.postedBy?.id;
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin' || user?.email?.toLowerCase() === 'eyceyceyc139@gmail.com';
 
+  // Check if user can view poster info (for hiding behind paywall)
+  const isPaymentRequired = paymentSettings.masterSwitch && paymentSettings.enableViewerPayment;
+  const hasSingleUnlock = user?.unlockedJobs?.includes(jobId);
+  const hasActiveSubscription = user?.subscription?.isActive &&
+    new Date(user?.subscription?.expiresAt || 0) > new Date();
+  const canViewPosterInfo = !isPaymentRequired || isOwner || hasSingleUnlock || hasActiveSubscription || isAdmin;
+
   if (loading) {
     return <div className="text-center p-10 text-xl" role="status" aria-live="polite">טוען פרטי משרה...</div>;
   }
@@ -495,20 +502,28 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
           )}
 
           <div className="space-y-2 text-sm text-gray-600">
-            {job.contactInfoSource !== 'anonymous' ? (
-              <p className="flex items-center">
-                <UserIcon className="w-4 h-4 ml-2 rtl:mr-2 rtl:ml-0 text-gray-400" />
-                פורסם ע"י <button
-                  onClick={() => setCurrentPage('publicProfile', { userId: job.postedBy?.id || 'unknown' })}
-                  className="mr-1 font-medium text-royal-blue hover:underline focus:outline-none"
-                >
-                  {job.postedBy?.posterDisplayName || 'משתמש לא ידוע'}
-                </button>
-              </p>
+            {/* Hide poster identity when payment is required but not made */}
+            {canViewPosterInfo ? (
+              job.contactInfoSource !== 'anonymous' ? (
+                <p className="flex items-center">
+                  <UserIcon className="w-4 h-4 ml-2 rtl:mr-2 rtl:ml-0 text-gray-400" />
+                  פורסם ע"י <button
+                    onClick={() => setCurrentPage('publicProfile', { userId: job.postedBy?.id || 'unknown' })}
+                    className="mr-1 font-medium text-royal-blue hover:underline focus:outline-none"
+                  >
+                    {job.postedBy?.posterDisplayName || 'משתמש לא ידוע'}
+                  </button>
+                </p>
+              ) : (
+                <p className="flex items-center">
+                  <UserIcon className="w-4 h-4 ml-2 rtl:mr-2 rtl:ml-0 text-gray-400" />
+                  פורסם ע"י <span className="mr-1 font-medium text-gray-500">משתמש אנונימי</span>
+                </p>
+              )
             ) : (
               <p className="flex items-center">
                 <UserIcon className="w-4 h-4 ml-2 rtl:mr-2 rtl:ml-0 text-gray-400" />
-                פורסם ע"י <span className="mr-1 font-medium text-gray-500">משתמש אנונימי</span>
+                <span className="mr-1 font-medium text-gray-500">פרטי המפרסם יוצגו לאחר תשלום</span>
               </p>
             )}
             <p className="flex items-center">
@@ -536,10 +551,13 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
               <DetailItem
                 icon={<MapPinIcon className="w-7 h-7" />}
                 label="מיקום"
-                value={job.area}
+                value={(() => {
+                  const region = REGION_MAPPINGS.find(r => r.value === job.area);
+                  return region ? region.label : job.area;
+                })()}
                 animationType="default"
               />
-              {job.address && (
+              {(job.address || job.area) && (
                 <div className="md:col-span-2 p-4 rounded-lg shadow-sm border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:shadow-md transition-all duration-300 hover:scale-[1.02] transform cursor-pointer group">
                   <div className="flex items-center justify-between">
                     <div className="flex items-start space-x-3 rtl:space-x-reverse">
@@ -547,13 +565,20 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                         <MapPinIcon className="w-7 h-7" />
                       </div>
                       <div>
-                        {/* Resolve Region Label if job.area is a region key */}
                         {(() => {
                           const region = REGION_MAPPINGS.find(r => r.value === job.area);
                           const displayArea = region ? region.label : job.area;
-                          return <h3 className="text-sm font-semibold text-gray-600 mb-1">כתובת מדוייקת ({displayArea})</h3>;
+                          // If we have a specific address, show "Exact Address" header, otherwise "Area/City" header
+                          const title = job.address ? 'כתובת מדוייקת' : 'אזור/עיר';
+                          const displayContent = job.address || displayArea || 'לא צוין';
+
+                          return (
+                            <>
+                              <h3 className="text-sm font-semibold text-gray-600 mb-1">{title}</h3>
+                              <p className="text-lg font-medium text-dark-text break-words max-w-[200px] sm:max-w-md">{displayContent}</p>
+                            </>
+                          );
                         })()}
-                        <p className="text-lg font-medium text-dark-text break-words max-w-[200px] sm:max-w-md">{job.address}</p>
                       </div>
                     </div>
 
@@ -564,10 +589,11 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
 
                         // Resolve Region Label for Navigation Query
                         const region = REGION_MAPPINGS.find(r => r.value === job.area);
-                        // If it's a region key, use the label (e.g. "Jerusalem Area"), otherwise use the city name directly
                         const areaForNav = region ? region.label : (job.area || '');
 
-                        const fullAddress = `${job.address || ''}, ${areaForNav}`;
+                        // If job.address exists, navigate to "Address, City". 
+                        // If not, simply navigate to "City" (center).
+                        const fullAddress = job.address ? `${job.address}, ${areaForNav}` : areaForNav;
                         const query = encodeURIComponent(fullAddress);
 
                         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -594,7 +620,14 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
               <DetailItem
                 icon={<CalendarDaysIcon className="w-7 h-7" />}
                 label="תאריך וזמן"
-                value={formatDateByPreference(job.specificDate, authCtx?.datePreference || 'hebrew') + (job.startTime ? `, החל מ-${job.startTime}` : '')}
+                value={(() => {
+                  if (job.dateType === 'flexibleDate') return 'תאריך גמיש';
+                  if (job.dateType === 'comingWeek') return 'בשבוע הקרוב';
+                  if (job.dateType === 'today' && !job.specificDate) return 'היום';
+
+                  const dateStr = formatDateByPreference(job.specificDate, authCtx?.datePreference || 'hebrew');
+                  return dateStr + (job.startTime ? `, החל מ-${job.startTime}` : '');
+                })()}
                 animationType="calendar"
               />
               <DetailItem

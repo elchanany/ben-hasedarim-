@@ -216,7 +216,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userId, se
                     {/* Contact Info Section */}
                     {hasItemsToDisplay ? (
                         <div className="border-t border-gray-100 pt-6">
-                            <h3 className="text-lg font-semibold text-gray-800 mb-4">פרטי התקשרות</h3>
+                            <h3 className="text-lg font-semibold text-gray-800 mb-4">פרטי יצירת קשר</h3>
 
                             {!user ? (
                                 <div className="text-center p-6 bg-gray-50 rounded-lg border border-gray-100">
@@ -233,7 +233,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userId, se
                                             className="inline-flex items-center px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-royal-blue hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-royal-blue transition-colors duration-200"
                                         >
                                             <SearchIcon className="w-4 h-4 ml-2" />
-                                            הצג פרטי התקשרות
+                                            הצג פרטי יצירת קשר
                                         </button>
                                     </div>
                                 ) : (
@@ -283,7 +283,7 @@ export const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ userId, se
                         </div>
                     ) : (
                         <div className="mt-6 p-4 bg-gray-50 rounded-md text-center text-gray-400 text-sm">
-                            {isOwnProfile ? 'לא בחרת להציג פרטי התקשרות.' : 'המשתמש בחר לא להציג פרטי התקשרות.'}
+                            {isOwnProfile ? 'לא בחרת להציג פרטי יצירת קשר.' : 'המשתמש בחר לא להציג פרטי יצירת קשר.'}
                         </div>
                     )}
 

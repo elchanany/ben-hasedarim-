@@ -6,6 +6,7 @@ import * as MockJobService from './mock/jobService';
 import { USE_FIREBASE_BACKEND } from '../config';
 import { getTodayGregorianISO } from '../utils/dateConverter';
 import { REGION_MAPPINGS } from '../constants';
+import { showJobMatchNotification, showSystemNotification as showBrowserSystemNotification } from '../utils/webPushUtils';
 
 // Select the correct service
 const jobService = USE_FIREBASE_BACKEND ? RealJobService : MockJobService;
@@ -210,6 +211,9 @@ export const checkAllAlertsForNewJob = (newJob: Job): void => {
           createdAt: new Date().toISOString(),
         });
         saveStoredNotifications(pref.userId, userNotifications);
+
+        // Trigger browser push notification for job match
+        showJobMatchNotification(newJob.title, newJob.area, newJob.id);
       }
     }
   }
@@ -232,6 +236,9 @@ export const sendSystemNotification = async (userId: string, title: string, mess
       isRead: false,
       createdAt: serverTimestamp(),
     });
+
+    // Trigger browser push notification
+    showBrowserSystemNotification(title, message);
   } catch (error) {
     console.error("Error sending system notification:", error);
     throw error;

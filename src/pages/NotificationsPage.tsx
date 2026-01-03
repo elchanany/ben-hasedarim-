@@ -5,7 +5,7 @@ import { Notification as AppNotification, JobAlertPreference, ChatThread, JobAle
 import * as notificationService from '../services/notificationService';
 import { Button } from '../components/Button';
 import { BellIcon, PlusCircleIcon, SearchIcon, BriefcaseIcon, ChatBubbleLeftEllipsisIcon, UserIcon, EditIcon, TrashIcon, CheckCircleIcon, ClockIcon } from '../components/icons';
-import { formatRelativePostedDate } from '../utils/dateConverter';
+import { formatRelativePostedDate, formatDateByPreference } from '../utils/dateConverter';
 import * as chatService from '../services/chatService';
 import { useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
@@ -161,29 +161,14 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [chatSortOrder, setChatSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [chatFilterUnread, setChatFilterUnread] = useState(false);
+  const [isChatFilterOpen, setIsChatFilterOpen] = useState(false);
 
   // Pagination for job alert notifications
   const [visibleJobAlertCount, setVisibleJobAlertCount] = useState(10);
 
   // Helper for date formatting handles both Firestore Timestamp and strings
   const formatNotificationDate = (timestamp: any) => {
-    if (!timestamp) return '';
-
-    let dateObj: Date;
-    if (timestamp && typeof timestamp.toDate === 'function') {
-      dateObj = timestamp.toDate();
-    } else {
-      dateObj = new Date(timestamp);
-    }
-
-    if (isNaN(dateObj.getTime())) return 'תאריך לא חוקי';
-
-    return dateObj.toLocaleDateString('he-IL', {
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return formatDateByPreference(timestamp, authCtx?.datePreference || 'hebrew');
   };
 
   // Modal State...
@@ -540,7 +525,8 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
         {icon}
         <span>{label}</span>
         {typeof count === 'number' && count > 0 && (
-          <span className={`ml-1.5 rtl:mr-1.5 rtl:ml-0 min-w-[1.25rem] h-5 px-1.5 text-xs font-bold rounded-full flex items-center justify-center ${isActive ? 'bg-deep-pink text-white' : 'bg-gray-300 text-gray-700'}`}>
+          // Badge is always red as requested by user
+          <span className={`ml-1.5 rtl:mr-1.5 rtl:ml-0 min-w-[1.25rem] h-5 px-1.5 text-xs font-bold rounded-full flex items-center justify-center bg-red-600 text-white animate-pulse shadow-sm`}>
             {count > 9 ? '9+' : count}
           </span>
         )}
@@ -590,9 +576,15 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
                 הודעות שקיבלת ממשתמשים
               </h2>
               <div className="flex gap-2 flex-wrap">
-                {chatThreads.some(t => t.unreadMessages[user?.id || ''] > 0) && (
-                  <Button onClick={handleMarkAllMessagesAsRead} variant="outline" size="sm">סמן הכל כנקרא</Button>
-                )}
+                <Button
+                  onClick={handleMarkAllMessagesAsRead}
+                  variant="outline"
+                  size="sm"
+                  disabled={!chatThreads.some(t => t.unreadMessages[user?.id || ''] > 0)}
+                  className={!chatThreads.some(t => t.unreadMessages[user?.id || ''] > 0) ? "opacity-50 cursor-not-allowed bg-gray-50 text-gray-400 border-gray-200" : ""}
+                >
+                  סמן הכל כנקרא
+                </Button>
                 {chatThreads.length > 0 && (
                   <Button onClick={handleDeleteAllChats} variant="outline" size="sm" className="text-red-600 border-red-300 hover:bg-red-50">נקה הכל</Button>
                 )}
@@ -607,59 +599,61 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
               </div>
             ) : (
               <>
-                {/* Search and Filter Controls */}
-                <div className="mb-4 space-y-3">
-                  {/* Search Input */}
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="חפש לפי שם או מילה..."
-                      value={chatSearchQuery}
-                      onChange={(e) => setChatSearchQuery(e.target.value)}
-                      className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-royal-blue focus:border-royal-blue text-right"
-                    />
-                    <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    {chatSearchQuery && (
-                      <button
-                        onClick={() => setChatSearchQuery('')}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
+                {/* Search and Filter Controls - Collapsible */}
+                {isChatFilterOpen && (
+                  <div className="mb-4 space-y-3 bg-gray-50 p-4 rounded-lg animate-fade-in-down">
+                    {/* Search Input */}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="חפש לפי שם או מילה..."
+                        value={chatSearchQuery}
+                        onChange={(e) => setChatSearchQuery(e.target.value)}
+                        className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-royal-blue focus:border-royal-blue text-right"
+                      />
+                      <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      {chatSearchQuery && (
+                        <button
+                          onClick={() => setChatSearchQuery('')}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
 
-                  {/* Sort and Filter Buttons */}
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => setChatSortOrder('newest')}
-                      className={`px-3 py-1.5 text-sm rounded-lg border transition-all ${chatSortOrder === 'newest'
+                    {/* Sort and Filter Buttons */}
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setChatSortOrder('newest')}
+                        className={`px-3 py-1.5 text-sm rounded-lg border transition-all ${chatSortOrder === 'newest'
                           ? 'bg-royal-blue text-white border-royal-blue'
                           : 'bg-white text-gray-600 border-gray-300 hover:border-royal-blue'
-                        }`}
-                    >
-                      חדש ביותר
-                    </button>
-                    <button
-                      onClick={() => setChatSortOrder('oldest')}
-                      className={`px-3 py-1.5 text-sm rounded-lg border transition-all ${chatSortOrder === 'oldest'
+                          }`}
+                      >
+                        חדש ביותר
+                      </button>
+                      <button
+                        onClick={() => setChatSortOrder('oldest')}
+                        className={`px-3 py-1.5 text-sm rounded-lg border transition-all ${chatSortOrder === 'oldest'
                           ? 'bg-royal-blue text-white border-royal-blue'
                           : 'bg-white text-gray-600 border-gray-300 hover:border-royal-blue'
-                        }`}
-                    >
-                      ישן ביותר
-                    </button>
-                    <button
-                      onClick={() => setChatFilterUnread(!chatFilterUnread)}
-                      className={`px-3 py-1.5 text-sm rounded-lg border transition-all ${chatFilterUnread
+                          }`}
+                      >
+                        ישן ביותר
+                      </button>
+                      <button
+                        onClick={() => setChatFilterUnread(!chatFilterUnread)}
+                        className={`px-3 py-1.5 text-sm rounded-lg border transition-all ${chatFilterUnread
                           ? 'bg-deep-pink text-white border-deep-pink'
                           : 'bg-white text-gray-600 border-gray-300 hover:border-deep-pink'
-                        }`}
-                    >
-                      רק לא נקראו
-                    </button>
+                          }`}
+                      >
+                        רק לא נקראו
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <ul className="space-y-3">
 
@@ -833,16 +827,18 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
 
                             <div className="flex flex-col items-center gap-2 flex-shrink-0">
                               {!notif.isRead && (
-                                <button
+                                <Button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleViewSystemNotification(notif);
                                   }}
-                                  className="text-xs text-royal-blue hover:underline bg-blue-50 px-2 py-1 rounded-full whitespace-nowrap"
+                                  variant="outline"
+                                  size="sm"
+                                  className="!px-2 !py-1 text-xs whitespace-nowrap bg-blue-50 hover:bg-blue-100 border-blue-200 text-royal-blue"
                                   title="סמן כנקרא"
                                 >
                                   סמן כנקרא
-                                </button>
+                                </Button>
                               )}
                               {!notif.isRead && (
                                 <span className="w-3 h-3 bg-red-500 rounded-full flex-shrink-0 animate-pulse"></span>

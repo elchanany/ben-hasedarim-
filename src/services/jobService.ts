@@ -193,7 +193,7 @@ export const searchJobs = async (criteria: Partial<SearchCriteria>): Promise<Job
   // This avoids the "missing index" requirement for dynamic composite queries.
   // 1000 jobs is reasonable for client-side filtering in this context.
   const jobsCol = collection(db, JOBS_COLLECTION);
-  const q = query(jobsCol, orderBy("postedDate", "desc"), limit(1000));
+  const q = query(jobsCol, orderBy("postedDate", "desc"), limit(300));
 
   const querySnapshot = await getDocs(q);
   let allRecentJobs: Job[] = [];

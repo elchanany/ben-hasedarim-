@@ -12,6 +12,7 @@ import { AuthContext } from '../contexts/AuthContext';
 import type { DateDisplayPreference } from '../utils/dateConverter';
 import { usePaymentSettings } from '../hooks/usePaymentSettings';
 import { cancelUserSubscription } from '../services/userService';
+import { isPushEnabled, setPushEnabled, requestNotificationPermission, getNotificationPermission } from '../utils/webPushUtils';
 
 export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
     const { user, updateUserContext, loadingAuth } = useAuth();
@@ -43,6 +44,10 @@ export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
     const [cancelReason, setCancelReason] = useState('');
     const [isCancellingSub, setIsCancellingSub] = useState(false);
 
+    // Push Notifications State
+    const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(isPushEnabled());
+    const [pushPermission, setPushPermission] = useState<NotificationPermission | 'unsupported'>(getNotificationPermission());
+
     // Sync with global preference
     useEffect(() => {
         if (authCtx?.datePreference && authCtx.datePreference !== datePref) {
@@ -58,6 +63,28 @@ export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
             setProfileContactPreference(user.profileContactPreference || { showPhone: false, showWhatsapp: false, showEmail: true, showChat: false, displayName: user.fullName });
         }
     }, [user]);
+
+    // Handler for push notification toggle
+    const handlePushToggle = async () => {
+        if (!pushNotificationsEnabled) {
+            // Turning ON - request permission first
+            const granted = await requestNotificationPermission();
+            if (granted) {
+                setPushEnabled(true);
+                setPushNotificationsEnabled(true);
+                setPushPermission('granted');
+                setSuccessMessage('התראות פוש הופעלו בהצלחה');
+            } else {
+                setPushPermission(getNotificationPermission());
+                setErrorMessage('לא ניתן להפעיל התראות. בדוק את הגדרות הדפדפן.');
+            }
+        } else {
+            // Turning OFF
+            setPushEnabled(false);
+            setPushNotificationsEnabled(false);
+            setSuccessMessage('התראות פוש כובו');
+        }
+    };
 
     const handleContactPreferenceChange = (value: string, checked: boolean) => {
         if (checked) {
@@ -300,13 +327,29 @@ export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
                                     {user?.email && <span className="text-xs text-gray-400 truncate max-w-[150px]">{user.email}</span>}
                                 </label>
 
+                                {/* Browser Push Notifications */}
+                                <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:border-blue-300 transition-all">
+                                    <input
+                                        type="checkbox"
+                                        checked={pushNotificationsEnabled}
+                                        onChange={handlePushToggle}
+                                        className="w-5 h-5 text-royal-blue rounded border-gray-300 focus:ring-royal-blue"
+                                    />
+                                    <div className="flex-1">
+                                        <span className="font-medium text-gray-800">התראות פוש לדפדפן</span>
+                                        <p className="text-xs text-gray-500">קבל התראות בדפדפן גם כשהאתר לא פתוח</p>
+                                    </div>
+                                    {pushPermission === 'denied' && (
+                                        <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">חסום</span>
+                                    )}
+                                </label>
+
                                 {/* Coming soon */}
                                 <div className="border-t border-gray-200 pt-3 mt-3">
                                     <p className="text-xs text-gray-400 mb-2">בקרוב:</p>
                                     <div className="flex gap-2 flex-wrap">
                                         <span className="text-xs bg-gray-100 text-gray-400 px-3 py-1.5 rounded-full">וואטסאפ</span>
                                         <span className="text-xs bg-gray-100 text-gray-400 px-3 py-1.5 rounded-full">צינתוק (SMS)</span>
-                                        <span className="text-xs bg-gray-100 text-gray-400 px-3 py-1.5 rounded-full">Push Notifications</span>
                                     </div>
                                 </div>
                             </div>

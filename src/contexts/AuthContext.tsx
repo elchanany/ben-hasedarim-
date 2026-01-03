@@ -1,9 +1,10 @@
-import React, { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
 import type { DateDisplayPreference } from '../utils/dateConverter';
 import { User } from '../types';
 import type { RegisterData } from '../services/authService'; // Type is compatible
 import * as notificationService from '@/services/notificationService';
 import { USE_FIREBASE_BACKEND } from '../config';
+import { showMessageNotification } from '../utils/webPushUtils';
 
 // Conditionally import services
 import * as MockAuthService from '@/services/mock/authService';
@@ -48,6 +49,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [totalUnreadCount, setTotalUnreadCount] = useState(0);
+  // Ref to track previous unread count for push notifications
+  const chatUnreadCountRef = useRef(0);
   const [datePreference, setDatePreferenceState] = useState<DateDisplayPreference>(() => {
     const saved = localStorage.getItem('datePreference');
     return (saved === 'gregorian' || saved === 'hebrew' || saved === 'both') ? (saved as DateDisplayPreference) : 'hebrew';
@@ -78,17 +81,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const unsubscribeChats = onSnapshot(qChats, (snapshot) => {
       let chatUnread = 0;
-      snapshot.forEach(doc => {
-        const thread = doc.data() as any;
+      let newestSender = '';
+      let newestMessage = '';
+      let newestJobTitle = '';
+      let newestThreadId = '';
+      snapshot.forEach(docSnap => {
+        const thread = docSnap.data() as any;
         if (thread.unreadMessages && thread.unreadMessages[user.id]) {
           chatUnread += thread.unreadMessages[user.id];
+          // Track last message info for push notification
+          if (thread.lastMessage && thread.lastMessage.senderId !== user.id) {
+            const otherParticipantId = thread.participantIds.find((id: string) => id !== user.id);
+            newestSender = thread.participants?.[otherParticipantId]?.displayName || 'משתמש';
+            newestMessage = thread.lastMessage.text || '';
+            newestJobTitle = thread.jobTitle || '';
+            newestThreadId = docSnap.id;
+          }
         }
       });
-      // We need to combine this with system notifications count. 
-      // Since we can't easily sync two independent listeners into one state without infinite loops or race conditions,
-      // we'll store them in refs or separate state if needed. But for simplicity, let's fetch system notifications here too
-      // OR better: Have 2 separate states for counts and sum them. A ref is good for the "other" count.
-      // Actually, let's set a state for chatUnread.
+
+      // Trigger push notification if unread count increased (new message received)
+      if (chatUnread > chatUnreadCountRef.current && newestSender) {
+        showMessageNotification(newestSender, newestMessage, newestJobTitle, newestThreadId);
+      }
+      chatUnreadCountRef.current = chatUnread;
       setChatUnreadCount(chatUnread);
     }, (error) => {
       console.error("Error in chat listener:", error);
@@ -258,7 +274,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     if (user?.id && !loadingAuth) {
       refreshTotalUnreadCount(user.id);
-      const intervalId = window.setInterval(() => refreshTotalUnreadCount(user.id), 2000);
+      const intervalId = window.setInterval(() => refreshTotalUnreadCount(user.id), 20000);
       return () => window.clearInterval(intervalId);
     }
   }, [user?.id, loadingAuth, refreshTotalUnreadCount]);

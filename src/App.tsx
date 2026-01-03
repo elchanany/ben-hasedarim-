@@ -1,29 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Navbar } from './components/Navbar';
-import { HomePage } from './pages/HomePage';
-import { LoginPage } from './pages/LoginPage';
-import { RegisterPage } from './pages/RegisterPage';
-import { PostJobPage } from './pages/PostJobPage';
-import { JobDetailsPage } from './pages/JobDetailsPage';
-import { ProfilePage } from './pages/ProfilePage';
-import { SearchResultsPage } from './pages/SearchResultsPage';
-import { AdminDashboardPage } from './pages/AdminDashboardPage';
-import { NotificationsPage } from './pages/NotificationsPage';
-import { SettingsPage } from './pages/SettingsPage';
-import { ChatThreadPage } from './pages/ChatThreadPage';
-import { CreateJobAlertPage } from './pages/CreateJobAlertPage';
-import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
-import { TermsOfUsePage } from './pages/TermsOfUsePage';
-import { AccessibilityStatementPage } from './pages/AccessibilityStatementPage';
-import { ContactPage } from './pages/ContactPage';
-import { BlockedPage } from './pages/BlockedPage';
-import { PublicProfilePage } from './pages/PublicProfilePage';
-import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { CookieConsent } from './components/CookieConsent';
 import { useAuth } from './hooks/useAuth';
 import { AccessibilityWidget } from './components/AccessibilityWidget';
-import { PaymentPage } from './pages/PaymentPage';
 import { PayPalProvider } from './contexts/PayPalContext';
+import { requestNotificationPermission } from './utils/webPushUtils';
+
+// Lazy load pages for better performance
+const HomePage = lazy(() => import('./pages/HomePage').then(module => ({ default: module.HomePage })));
+const LoginPage = lazy(() => import('./pages/LoginPage').then(module => ({ default: module.LoginPage })));
+const RegisterPage = lazy(() => import('./pages/RegisterPage').then(module => ({ default: module.RegisterPage })));
+const PostJobPage = lazy(() => import('./pages/PostJobPage').then(module => ({ default: module.PostJobPage })));
+const JobDetailsPage = lazy(() => import('./pages/JobDetailsPage').then(module => ({ default: module.JobDetailsPage })));
+const ProfilePage = lazy(() => import('./pages/ProfilePage').then(module => ({ default: module.ProfilePage })));
+const SearchResultsPage = lazy(() => import('./pages/SearchResultsPage').then(module => ({ default: module.SearchResultsPage })));
+const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage').then(module => ({ default: module.AdminDashboardPage })));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then(module => ({ default: module.NotificationsPage })));
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then(module => ({ default: module.SettingsPage })));
+const ChatThreadPage = lazy(() => import('./pages/ChatThreadPage').then(module => ({ default: module.ChatThreadPage })));
+const CreateJobAlertPage = lazy(() => import('./pages/CreateJobAlertPage').then(module => ({ default: module.CreateJobAlertPage })));
+const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage').then(module => ({ default: module.PrivacyPolicyPage })));
+const TermsOfUsePage = lazy(() => import('./pages/TermsOfUsePage').then(module => ({ default: module.TermsOfUsePage })));
+const AccessibilityStatementPage = lazy(() => import('./pages/AccessibilityStatementPage').then(module => ({ default: module.AccessibilityStatementPage })));
+const ContactPage = lazy(() => import('./pages/ContactPage').then(module => ({ default: module.ContactPage })));
+const BlockedPage = lazy(() => import('./pages/BlockedPage').then(module => ({ default: module.BlockedPage })));
+const PublicProfilePage = lazy(() => import('./pages/PublicProfilePage').then(module => ({ default: module.PublicProfilePage })));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then(module => ({ default: module.ResetPasswordPage })));
+const PaymentPage = lazy(() => import('./pages/PaymentPage').then(module => ({ default: module.PaymentPage })));
 
 export type Page = 'home' | 'login' | 'register' | 'postJob' | 'jobDetails' | 'profile' | 'publicProfile' | 'searchResults' | 'admin' | 'notifications' | 'settings' | 'chatThread' | 'createJobAlert' | 'privacy' | 'terms' | 'accessibility' | 'contact' | 'reset-password' | 'payment';
 
@@ -132,6 +135,15 @@ const App: React.FC = () => {
     }
   }, [currentPage, pageParams]);
 
+  // Request browser notification permission on app load
+  useEffect(() => {
+    // Slight delay to not interfere with initial render
+    const timer = setTimeout(() => {
+      requestNotificationPermission();
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
 
   if (loadingAuth) {
     return <div role="alert" aria-live="assertive" className="flex justify-center items-center h-screen bg-royal-blue text-white text-2xl">טוען...</div>;
@@ -224,9 +236,13 @@ const App: React.FC = () => {
 
         <main className={`${mainContainerClasses} focus:outline-none`}>
           {isAllowedPage ? (
-            <NotificationsPage setCurrentPage={setCurrentPage} pageParams={{ tab: 'alerts' }} />
+            <Suspense fallback={<div className="flex justify-center items-center py-20">טוען...</div>}>
+              <NotificationsPage setCurrentPage={setCurrentPage} pageParams={{ tab: 'alerts' }} />
+            </Suspense>
           ) : (
-            <BlockedPage user={user} onLogout={() => window.location.reload()} />
+            <Suspense fallback={<div className="flex justify-center items-center py-20">טוען...</div>}>
+              <BlockedPage user={user} onLogout={() => window.location.reload()} />
+            </Suspense>
           )}
         </main>
       </div>
@@ -241,7 +257,9 @@ const App: React.FC = () => {
         </a>
         <Navbar setCurrentPage={setCurrentPage} currentPage={currentPage} />
         <main id="main-content" role="main" tabIndex={-1} className={`${mainContainerClasses} focus:outline-none`}>
-          {renderPage()}
+          <Suspense fallback={<div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-royal-blue"></div></div>}>
+            {renderPage()}
+          </Suspense>
         </main>
         <AccessibilityWidget onAccessibilityStatementClick={() => setCurrentPage('accessibility')} />
         <CookieConsent onPrivacyPolicyClick={() => setCurrentPage('privacy')} />

@@ -7,16 +7,6 @@ interface UserAvatarProps {
     size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
-const getConsistentColor = (str: string) => {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
-    const hex = "00000".substring(0, 6 - c.length) + c;
-    return `#${hex}`;
-};
-
 // Pastel/Pleasant palette generator to avoid ugly colors
 const getConsistentTailwindColor = (str: string) => {
     const colors = [
@@ -35,22 +25,41 @@ const getConsistentTailwindColor = (str: string) => {
 
 
 export const UserAvatar: React.FC<UserAvatarProps> = ({ name, className = '', size = 'md' }) => {
-    const firstLetter = name ? name.charAt(0) : '?';
+    const firstLetter = name ? name.charAt(0).toUpperCase() : '?';
     const bgColorClass = React.useMemo(() => getConsistentTailwindColor(name || 'Unknown'), [name]);
 
-    const sizeClasses = {
-        sm: 'w-8 h-8 text-xs',
-        md: 'w-10 h-10 text-sm',
-        lg: 'w-16 h-16 text-xl',
-        xl: 'w-24 h-24 text-3xl',
+    const sizeStyles: Record<string, { width: number; height: number; fontSize: number }> = {
+        sm: { width: 32, height: 32, fontSize: 12 },
+        md: { width: 40, height: 40, fontSize: 14 },
+        lg: { width: 64, height: 64, fontSize: 20 },
+        xl: { width: 96, height: 96, fontSize: 30 },
     };
+
+    const style = sizeStyles[size];
 
     return (
         <div
-            className={`rounded-full flex items-center justify-center text-white font-bold shadow-sm ${bgColorClass} ${sizeClasses[size]} ${className}`}
+            className={`relative rounded-full ${bgColorClass} ${className}`}
+            style={{
+                width: style.width,
+                height: style.height,
+                minWidth: style.width,
+                minHeight: style.height,
+            }}
             aria-label={`פרופיל של ${name}`}
         >
-            {firstLetter}
+            <span
+                className="absolute text-white font-bold"
+                style={{
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    fontSize: style.fontSize,
+                    lineHeight: 1,
+                }}
+            >
+                {firstLetter}
+            </span>
         </div>
     );
 };
