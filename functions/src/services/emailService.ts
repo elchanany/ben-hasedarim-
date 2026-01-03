@@ -3,19 +3,17 @@
  * 
  * This module provides an abstracted interface for sending emails.
  * Currently uses Resend, but can be easily swapped to AWS SES or other providers
- * by modifying only this file.
+ * by modifying only the sendEmailCore function.
  * 
  * Usage:
  *   import { emailService } from './services/emailService';
  *   await emailService.sendJobAlertDigest(userEmail, jobs);
  */
 
-import * as functions from 'firebase-functions';
+import * as dotenv from 'dotenv';
 
-// Email provider interface - define what any email provider must implement
-interface EmailProvider {
-    send(options: EmailOptions): Promise<EmailResult>;
-}
+// Load environment variables
+dotenv.config();
 
 export interface EmailOptions {
     to: string;
@@ -45,124 +43,117 @@ export interface JobAlertEmail {
 }
 
 // ============================================
-// RESEND PROVIDER (Current Implementation)
+// CORE EMAIL SENDING FUNCTION
+// To switch providers, modify ONLY this function
 // ============================================
-class ResendProvider implements EmailProvider {
-    private apiKey: string;
-    private fromEmail: string;
 
-    constructor() {
-        // Get API key from Firebase config or environment
-        this.apiKey = process.env.RESEND_API_KEY || functions.config().resend?.api_key || '';
-        this.fromEmail = process.env.EMAIL_FROM || functions.config().email?.from || 'noreply@ben-hasedarim.co.il';
+/**
+ * Core email sending function - currently uses Resend
+ * TO SWITCH TO AWS SES: Replace the implementation inside this function only
+ */
+async function sendEmailCore(
+    to: string,
+    subject: string,
+    html: string,
+    from?: string,
+    replyTo?: string
+): Promise<EmailResult> {
+    // Get API key from environment variables (dotenv)
+    const apiKey = process.env.RESEND_API_KEY || '';
+    const fromEmail = from || process.env.EMAIL_FROM || 'noreply@ben-hasedarim.co.il';
+
+    if (!apiKey) {
+        console.error('[EmailService] RESEND_API_KEY not configured in environment variables');
+        return { success: false, error: 'Email service not configured - missing API key' };
     }
 
-    async send(options: EmailOptions): Promise<EmailResult> {
-        if (!this.apiKey) {
-            console.error('[EmailService] Resend API key not configured');
-            return { success: false, error: 'Email service not configured' };
+    try {
+        const response = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                from: fromEmail,
+                to: to,
+                subject: subject,
+                html: html,
+                reply_to: replyTo,
+            }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            console.error('[EmailService] Resend API error:', data);
+            return { success: false, error: data.message || 'Failed to send email' };
         }
 
-        try {
-            const response = await fetch('https://api.resend.com/emails', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.apiKey}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    from: options.from || this.fromEmail,
-                    to: options.to,
-                    subject: options.subject,
-                    html: options.html,
-                    reply_to: options.replyTo,
-                }),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                console.error('[EmailService] Resend error:', data);
-                return { success: false, error: data.message || 'Failed to send email' };
-            }
-
-            return { success: true, messageId: data.id };
-        } catch (error: any) {
-            console.error('[EmailService] Error sending email:', error);
-            return { success: false, error: error.message };
-        }
+        console.log(`[EmailService] Email sent successfully to ${to}, messageId: ${data.id}`);
+        return { success: true, messageId: data.id };
+    } catch (error: any) {
+        console.error('[EmailService] Error sending email:', error);
+        return { success: false, error: error.message };
     }
 }
 
+
 // ============================================
-// AWS SES PROVIDER (For Future Use)
-// To switch to SES: Uncomment this and change activeProvider
+// AWS SES IMPLEMENTATION (FOR FUTURE USE)
+// To switch to SES: Replace sendEmailCore implementation above
 // ============================================
 /*
+// Example AWS SES implementation for sendEmailCore:
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 
-class SESProvider implements EmailProvider {
-    private client: SESClient;
-    private fromEmail: string;
-
-    constructor() {
-        this.client = new SESClient({
-            region: process.env.AWS_REGION || 'eu-west-1',
-            credentials: {
-                accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-                secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-            },
-        });
-        this.fromEmail = process.env.EMAIL_FROM || 'noreply@ben-hasedarim.co.il';
-    }
-
-    async send(options: EmailOptions): Promise<EmailResult> {
-        try {
-            const command = new SendEmailCommand({
-                Source: options.from || this.fromEmail,
-                Destination: { ToAddresses: [options.to] },
-                Message: {
-                    Subject: { Data: options.subject, Charset: 'UTF-8' },
-                    Body: { Html: { Data: options.html, Charset: 'UTF-8' } },
-                },
-            });
-
-            const result = await this.client.send(command);
-            return { success: true, messageId: result.MessageId };
-        } catch (error: any) {
-            console.error('[EmailService] SES error:', error);
-            return { success: false, error: error.message };
-        }
-    }
+async function sendEmailCore(...) {
+    const client = new SESClient({
+        region: process.env.AWS_REGION || 'eu-west-1',
+        credentials: {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+        },
+    });
+    
+    const command = new SendEmailCommand({
+        Source: from,
+        Destination: { ToAddresses: [to] },
+        Message: {
+            Subject: { Data: subject, Charset: 'UTF-8' },
+            Body: { Html: { Data: html, Charset: 'UTF-8' } },
+        },
+    });
+    
+    const result = await client.send(command);
+    return { success: true, messageId: result.MessageId };
 }
 */
 
 // ============================================
 // EMAIL SERVICE CLASS
+// Uses sendEmailCore for actual sending
 // ============================================
 class EmailService {
-    private provider: EmailProvider;
-
-    constructor() {
-        // SWITCH PROVIDER HERE:
-        // For Resend (current): new ResendProvider()
-        // For AWS SES (future): new SESProvider()
-        this.provider = new ResendProvider();
-    }
-
     /**
-     * Send a raw email
+     * Send a raw email using the core function
      */
     async send(options: EmailOptions): Promise<EmailResult> {
         console.log(`[EmailService] Sending email to: ${options.to}, subject: ${options.subject}`);
-        return this.provider.send(options);
+        return sendEmailCore(
+            options.to,
+            options.subject,
+            options.html,
+            options.from,
+            options.replyTo
+        );
     }
 
     /**
      * Send a job alert digest email
      */
     async sendJobAlertDigest(data: JobAlertEmail): Promise<EmailResult> {
-        const { generateJobAlertEmailTemplate } = await import('../emailTemplate');
+        const { generateJobAlertEmailTemplate } = await import('./emailTemplate');
 
         const html = generateJobAlertEmailTemplate({
             userName: data.userName,

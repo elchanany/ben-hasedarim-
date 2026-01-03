@@ -88,7 +88,7 @@ export class PayPalClient {
         };
 
         try {
-            constresponse = await axios.post(
+            const response = await axios.post(
                 `${this.baseUrl}/v2/checkout/orders`,
                 payload,
                 {

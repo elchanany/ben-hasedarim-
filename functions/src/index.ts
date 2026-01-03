@@ -1,7 +1,7 @@
 
+
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import * as cors from 'cors';
 import { PayPalClient } from './paypal';
 import * as dotenv from 'dotenv';
 import { processEmailNotifications } from './emailNotifications';
@@ -37,6 +37,29 @@ export const sendJobAlertEmails = functions
         }
 
         return null;
+    });
+
+/**
+ * HTTP Function for testing email logic manually
+ * usage: https://region-project.cloudfunctions.net/manualEmailTrigger
+ */
+export const manualEmailTrigger = functions
+    .region('europe-west1')
+    .https.onRequest(async (req, res) => {
+        try {
+            const result = await processEmailNotifications();
+            res.json({
+                success: true,
+                message: 'Email processing completed',
+                details: result
+            });
+        } catch (error: any) {
+            console.error('Manual trigger failed:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
     });
 
 // ============================================

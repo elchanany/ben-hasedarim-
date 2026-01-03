@@ -11,8 +11,6 @@
 import * as admin from 'firebase-admin';
 import { emailService, JobAlertEmail } from './services/emailService';
 
-const db = admin.firestore();
-
 interface JobAlertPreference {
     id: string;
     name: string;
@@ -53,6 +51,9 @@ export async function processEmailNotifications(): Promise<{ sent: number; error
     let errorCount = 0;
 
     try {
+        // Get Firestore instance (must be after initializeApp is called in index.ts)
+        const db = admin.firestore();
+
         // 1. Check if email service is enabled
         const settingsDoc = await db.collection('settings').doc('notifications').get();
         const settings = settingsDoc.data();
@@ -95,7 +96,7 @@ export async function processEmailNotifications(): Promise<{ sent: number; error
                     const lastEmailSent = alert.lastEmailSent?.toDate() || new Date(Date.now() - 24 * 60 * 60 * 1000); // Default: 24h ago
 
                     // Find matching jobs
-                    const matchingJobs = await findMatchingJobs(alert, lastEmailSent);
+                    const matchingJobs = await findMatchingJobs(db, alert, lastEmailSent);
 
                     if (matchingJobs.length === 0) {
                         console.log(`[EmailNotifications] No new jobs for alert "${alert.name}" (user: ${userId})`);
@@ -150,7 +151,7 @@ export async function processEmailNotifications(): Promise<{ sent: number; error
 /**
  * Find jobs matching an alert's criteria that were posted after lastEmailSent
  */
-async function findMatchingJobs(alert: JobAlertPreference, since: Date): Promise<Job[]> {
+async function findMatchingJobs(db: admin.firestore.Firestore, alert: JobAlertPreference, since: Date): Promise<Job[]> {
     let query = db.collection('jobs')
         .where('isPosted', '==', true)
         .where('createdAt', '>', admin.firestore.Timestamp.fromDate(since))
