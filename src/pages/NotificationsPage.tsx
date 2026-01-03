@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { PageProps } from '../App';
 import { useAuth } from '../hooks/useAuth';
-import { Notification, JobAlertPreference, ChatThread, JobAlertDeliveryMethods } from '../types';
+import { Notification as AppNotification, JobAlertPreference, ChatThread, JobAlertDeliveryMethods } from '../types';
 import * as notificationService from '../services/notificationService';
 import { Button } from '../components/Button';
 import { BellIcon, PlusCircleIcon, SearchIcon, BriefcaseIcon, ChatBubbleLeftEllipsisIcon, UserIcon, EditIcon, TrashIcon, CheckCircleIcon, ClockIcon } from '../components/icons';
@@ -59,49 +59,59 @@ const ChatThreadListItem: React.FC<{
     return (
       <li
         onClick={() => onClick(thread.id, otherParticipant.displayName || "משתתף", thread.jobTitle, thread.jobId)}
-        className={`relative p-3 sm:p-4 rounded-lg border flex items-center space-x-3 rtl:space-x-reverse cursor-pointer transition-all duration-200 hover:bg-light-blue/60 group
-                  ${unreadCount > 0 ? 'bg-yellow-100/80 border-yellow-300/60 font-semibold' : 'bg-light-blue/20 border-light-blue/30'}`}
+        className={`relative p-3 sm:p-4 rounded-xl border flex items-start space-x-3 rtl:space-x-reverse cursor-pointer transition-all duration-200 hover:shadow-md group min-h-[5.5rem]
+                  ${unreadCount > 0 ? 'bg-blue-50 border-blue-200 shadow-sm' : 'bg-white border-gray-100'}`}
         role="button"
         tabIndex={0}
         aria-label={`פתח שיחה עם ${otherParticipant.displayName || "משתתף"}${thread.jobTitle ? ` לגבי ${thread.jobTitle}` : ''}. ${unreadCount > 0 ? `${unreadCount} הודעות חדשות.` : ''}`}
       >
-        <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-royal-blue text-white rounded-full flex items-center justify-center shadow-sm">
-          <UserIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+        <div className="flex-shrink-0 w-12 h-12 bg-royal-blue text-white rounded-full flex items-center justify-center shadow-sm mt-1">
+          <UserIcon className="w-6 h-6" />
         </div>
-        <div className="flex-grow min-w-0 pr-0 sm:pr-2">
-          <div className="flex justify-between items-baseline gap-2">
-            <h4 className={`text-sm sm:text-lg truncate max-w-[120px] sm:max-w-none ${unreadCount > 0 ? 'text-deep-pink' : 'text-royal-blue'}`}>
-              {otherParticipant.displayName || "משתתף"}
-            </h4>
-            {thread.lastMessage && thread.lastMessage.timestamp && (
-              <span className="text-[10px] sm:text-xs text-gray-500 flex-shrink-0">
-                {formatRelativePostedDate(thread.lastMessage.timestamp, authCtx?.datePreference || 'hebrew')}
+
+        <div className="flex-grow min-w-0 pr-0 sm:pr-2 flex flex-col justify-between h-full">
+          <div>
+            <div className="flex justify-between items-start pl-8  rtl:pr-0 rtl:pl-8">
+              {/* Name on Right (RTL), Time on Left (RTL) - pl-8 to avoid overlapping trash icon if it was absolute, but here we flex */}
+              <h4 className={`text-base sm:text-lg font-bold truncate max-w-[70%] ${unreadCount > 0 ? 'text-royal-blue' : 'text-gray-800'}`}>
+                {otherParticipant.displayName || "משתתף"}
+              </h4>
+              <span className="text-[11px] sm:text-xs text-gray-400 absolute top-4 left-4">
+                {/* Positioned absolutely top-left */}
+                {thread.lastMessage && thread.lastMessage.timestamp &&
+                  formatRelativePostedDate(thread.lastMessage.timestamp, authCtx?.datePreference || 'hebrew')
+                }
               </span>
+            </div>
+
+            {thread.jobTitle && (
+              <p className="text-xs text-gray-500 truncate flex items-center mt-1">
+                <BriefcaseIcon className="w-3 h-3 ml-1 rtl:mr-1 rtl:ml-0 text-gray-400" />
+                <span className="truncate">{thread.jobTitle}</span>
+              </p>
             )}
-          </div>
-          {thread.jobTitle && (
-            <p className="text-[11px] sm:text-sm text-gray-500 truncate flex items-center mt-0.5">
-              <BriefcaseIcon className="w-3 h-3 ml-1 rtl:mr-1 rtl:ml-0 text-gray-400" />
-              <span className="truncate">{thread.jobTitle}</span>
+
+            <p className={`text-sm truncate mt-1 ${unreadCount > 0 ? 'font-medium text-gray-700' : 'text-gray-500'}`}>
+              {lastMessageText}
             </p>
-          )}
-          <p className={`text-xs sm:text-sm truncate mt-0.5 ${unreadCount > 0 ? 'text-gray-700' : 'text-gray-600'}`}>
-            {lastMessageText}
-          </p>
+          </div>
         </div>
-        <div className="flex flex-shrink-0 items-center gap-2 mr-auto rtl:ml-auto rtl:mr-0 pl-1">
+
+        {/* Actions & Badge */}
+        <div className="absolute bottom-3 left-3 flex items-center gap-3">
           {unreadCount > 0 && (
-            <span className="px-2 py-0.5 bg-red-600 text-white text-[10px] sm:text-xs font-bold rounded-full">
+            <span className="px-2 py-0.5 bg-royal-blue text-white text-[10px] sm:text-xs font-bold rounded-full shadow-sm animate-pulse">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
+
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
               onDelete(thread.id);
             }}
-            className="p-1.5 sm:p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all duration-200"
+            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all duration-200"
             title="מחק שיחה"
             aria-label="מחק שיחה"
           >
@@ -139,7 +149,7 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
   }
 
   // State hooks...
-  const [systemNotifications, setSystemNotifications] = useState<Notification[]>([]);
+  const [systemNotifications, setSystemNotifications] = useState<AppNotification[]>([]);
   const [jobAlerts, setJobAlerts] = useState<JobAlertPreference[]>([]);
   const [chatThreads, setChatThreads] = useState<ChatThread[]>([]);
 
@@ -147,15 +157,60 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
   const [loadingAlerts, setLoadingAlerts] = useState(true);
   const [loadingChatThreads, setLoadingChatThreads] = useState(true);
 
+  // Search and filter state for Messages tab
+  const [chatSearchQuery, setChatSearchQuery] = useState('');
+  const [chatSortOrder, setChatSortOrder] = useState<'newest' | 'oldest'>('newest');
+  const [chatFilterUnread, setChatFilterUnread] = useState(false);
+
   // Pagination for job alert notifications
-  const [visibleJobAlertCount, setVisibleJobAlertCount] = useState(4);
+  const [visibleJobAlertCount, setVisibleJobAlertCount] = useState(10);
+
+  // Helper for date formatting handles both Firestore Timestamp and strings
+  const formatNotificationDate = (timestamp: any) => {
+    if (!timestamp) return '';
+
+    let dateObj: Date;
+    if (timestamp && typeof timestamp.toDate === 'function') {
+      dateObj = timestamp.toDate();
+    } else {
+      dateObj = new Date(timestamp);
+    }
+
+    if (isNaN(dateObj.getTime())) return 'תאריך לא חוקי';
+
+    return dateObj.toLocaleDateString('he-IL', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
 
   // Modal State...
-  const [selectedSystemNotification, setSelectedSystemNotification] = useState<Notification | null>(null);
+  const [selectedSystemNotification, setSelectedSystemNotification] = useState<AppNotification | null>(null);
   const [showSystemNotificationModal, setShowSystemNotificationModal] = useState(false);
 
   // Sub-tab state for Job Alerts
   const [jobAlertSubTab, setJobAlertSubTab] = useState<'notifications' | 'settings'>('notifications');
+
+  const handleViewSystemNotification = async (notification: AppNotification) => {
+    if (!notification.isRead) {
+      setSystemNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n));
+      // TODO: Call backend service to mark as read
+      try {
+        if (notificationService.markNotificationAsRead && user) {
+          await notificationService.markNotificationAsRead(user.id, notification.id);
+        }
+      } catch (error) {
+        console.error('Error marking notification as read:', error);
+      }
+    }
+
+    setSelectedSystemNotification(notification);
+    if (notification.type === 'system_update') {
+      setShowSystemNotificationModal(true);
+    }
+  };
 
   // Confirmation Modal State
   const [confirmationModal, setConfirmationModal] = useState<{
@@ -366,24 +421,105 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
     });
   };
 
+  /* Mark messages as read handler */
   const handleMarkAllMessagesAsRead = async () => {
-    if (!user || chatThreads.length === 0) return;
+    const unreadThreads = chatThreads.filter(t => t.unreadMessages[user?.id || ''] > 0);
+    if (!user || unreadThreads.length === 0) return;
+
+    // Optimistic update
+    setChatThreads(prev => prev.map(t => ({
+      ...t,
+      unreadMessages: { ...t.unreadMessages, [user.id]: 0 }
+    })));
+
     try {
-      for (const thread of chatThreads) {
-        if (thread.unreadMessages && thread.unreadMessages[user.id] > 0) {
-          await chatService.markThreadAsRead(thread.id, user.id);
-        }
-      }
-      await fetchChatThreads();
+      await Promise.all(unreadThreads.map(t => chatService.markThreadAsRead(t.id, user.id)));
       refreshTotalUnreadCount();
-      alert('כל ההודעות סומנו כנקראו');
     } catch (error) {
       console.error("Error marking all messages as read:", error);
-      alert('שגיאה בסימון ההודעות כנקראו');
+      // Revert in case of critical failure if needed, or just let next fetch sync it
     }
   };
 
-  const handleNotificationClick = (notif: Notification) => {
+  const handleDeleteAllChats = () => {
+    if (!user || chatThreads.length === 0) return;
+
+    setConfirmationModal({
+      isOpen: true,
+      title: 'מחיקת כל ההודעות',
+      message: 'האם אתה בטוח שברצונך למחוק את כל ההודעות שלך? פעולה זו תמחק את כל השיחות ולא ניתן יהיה לשחזר אותן.',
+      confirmText: 'כן, מחק הכל',
+      cancelText: 'ביטול',
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          // Optimistic update
+          setChatThreads([]);
+
+          // Delete all threads
+          await Promise.all(chatThreads.map(t => chatService.deleteChatThread(t.id, user.id, true)));
+
+          refreshTotalUnreadCount();
+          setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          console.error("Error deleting all chats:", error);
+          fetchChatThreads(); // Revert on error
+          setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
+  };
+
+  /* Mark all job alerts as read handler */
+  const handleMarkAllAlertsAsRead = async () => {
+    const unreadAlerts = systemNotifications.filter(n => !n.isRead && n.type === 'job_alert_match');
+    if (!user || unreadAlerts.length === 0) return;
+
+    // Optimistic update
+    setSystemNotifications(prev => prev.map(n =>
+      (n.type === 'job_alert_match' && !n.isRead) ? { ...n, isRead: true } : n
+    ));
+
+    try {
+      if (notificationService.markAllNotificationsAsRead) {
+        await notificationService.markAllNotificationsAsRead(user.id);
+      }
+
+      // Also loop for Firestore persistence if the service only does local
+      const unreadIds = unreadAlerts.map(n => n.id);
+      if (unreadIds.length > 0) {
+        // Fire and forget for UX speed
+        Promise.all(unreadIds.map(id => notificationService.markNotificationAsRead(user!.id, id))).catch(console.error);
+      }
+
+      // Sync navbar badge count
+      refreshTotalUnreadCount();
+    } catch (error) {
+      console.error('Error marking all alerts as read:', error);
+    }
+  };
+
+  /* Clear all job alert notifications handler */
+  const handleClearAllAlerts = async () => {
+    const jobAlertNotifs = systemNotifications.filter(n => n.type === 'job_alert_match');
+    if (!user || jobAlertNotifs.length === 0) return;
+
+    // Optimistic UI update - remove all job_alert_match notifications
+    setSystemNotifications(prev => prev.filter(n => n.type !== 'job_alert_match'));
+
+    // Clear from localStorage (notificationService uses localStorage)
+    try {
+      // Mark all as read first, then remove from local storage
+      // For now, clearing means marking all as read and removing from the displayed list.
+      // A more thorough approach would involve a deleteNotification service, but for MVP, this works.
+      await notificationService.markAllNotificationsAsRead(user.id);
+      refreshTotalUnreadCount();
+    } catch (error) {
+      console.error('Error clearing all alerts:', error);
+    }
+  };
+
+  const handleNotificationClick = (notif: AppNotification) => {
     if (notif.link) {
       window.open(notif.link, '_blank');
     }
@@ -448,14 +584,19 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
       {activeTab === 'messages' && (
         <div className="space-y-6 sm:space-y-8 animate-fade-in-down">
           <div className="bg-white p-3 sm:p-6 rounded-xl shadow-xl">
-            <div className="flex justify-between items-center mb-4 sm:mb-6 pb-3 sm:pb-4 border-b">
+            <div className="flex justify-between items-center mb-4 sm:mb-6 pb-3 sm:pb-4 border-b flex-wrap gap-2">
               <h2 className="text-xl sm:text-2xl font-semibold text-royal-blue flex items-center">
                 <ChatBubbleLeftEllipsisIcon className="w-6 h-6 mr-2 rtl:ml-2 rtl:mr-0 text-deep-pink" />
                 הודעות שקיבלת ממשתמשים
               </h2>
-              {chatThreads.some(t => t.unreadMessages[user?.id || ''] > 0) && (
-                <Button onClick={handleMarkAllMessagesAsRead} variant="outline" size="sm">סמן הכל כנקרא</Button>
-              )}
+              <div className="flex gap-2 flex-wrap">
+                {chatThreads.some(t => t.unreadMessages[user?.id || ''] > 0) && (
+                  <Button onClick={handleMarkAllMessagesAsRead} variant="outline" size="sm">סמן הכל כנקרא</Button>
+                )}
+                {chatThreads.length > 0 && (
+                  <Button onClick={handleDeleteAllChats} variant="outline" size="sm" className="text-red-600 border-red-300 hover:bg-red-50">נקה הכל</Button>
+                )}
+              </div>
             </div>
             {loadingChatThreads ? (
               <p className="text-center text-gray-500 py-4">טוען הודעות...</p>
@@ -465,87 +606,322 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
                 <p className="text-gray-500">תיבת ההודעות שלך ריקה.</p>
               </div>
             ) : (
-              <ul className="space-y-3">
-                {chatThreads.sort((a, b) => {
-                  const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
-                  const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
-                  return timeB - timeA;
-                }).map(thread => (
-                  <ChatThreadListItem
-                    key={thread.id}
-                    thread={thread}
-                    currentUserId={user?.id || ''}
-                    onClick={handleChatThreadClick}
-                    onDelete={handleDeleteChat}
-                  />
-                ))}
-              </ul>
+              <>
+                {/* Search and Filter Controls */}
+                <div className="mb-4 space-y-3">
+                  {/* Search Input */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="חפש לפי שם או מילה..."
+                      value={chatSearchQuery}
+                      onChange={(e) => setChatSearchQuery(e.target.value)}
+                      className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-royal-blue focus:border-royal-blue text-right"
+                    />
+                    <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    {chatSearchQuery && (
+                      <button
+                        onClick={() => setChatSearchQuery('')}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Sort and Filter Buttons */}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setChatSortOrder('newest')}
+                      className={`px-3 py-1.5 text-sm rounded-lg border transition-all ${chatSortOrder === 'newest'
+                          ? 'bg-royal-blue text-white border-royal-blue'
+                          : 'bg-white text-gray-600 border-gray-300 hover:border-royal-blue'
+                        }`}
+                    >
+                      חדש ביותר
+                    </button>
+                    <button
+                      onClick={() => setChatSortOrder('oldest')}
+                      className={`px-3 py-1.5 text-sm rounded-lg border transition-all ${chatSortOrder === 'oldest'
+                          ? 'bg-royal-blue text-white border-royal-blue'
+                          : 'bg-white text-gray-600 border-gray-300 hover:border-royal-blue'
+                        }`}
+                    >
+                      ישן ביותר
+                    </button>
+                    <button
+                      onClick={() => setChatFilterUnread(!chatFilterUnread)}
+                      className={`px-3 py-1.5 text-sm rounded-lg border transition-all ${chatFilterUnread
+                          ? 'bg-deep-pink text-white border-deep-pink'
+                          : 'bg-white text-gray-600 border-gray-300 hover:border-deep-pink'
+                        }`}
+                    >
+                      רק לא נקראו
+                    </button>
+                  </div>
+                </div>
+
+                <ul className="space-y-3">
+
+                  {chatThreads
+                    // Filter by unread
+                    .filter(thread => {
+                      if (chatFilterUnread) {
+                        return (thread.unreadMessages[user?.id || ''] || 0) > 0;
+                      }
+                      return true;
+                    })
+                    // Filter by search query
+                    .filter(thread => {
+                      if (!chatSearchQuery.trim()) return true;
+                      const query = chatSearchQuery.toLowerCase();
+                      const otherParticipantId = thread.participantIds.find(id => id !== user?.id);
+                      const otherParticipant = otherParticipantId && thread.participants?.[otherParticipantId];
+                      const participantName = otherParticipant?.displayName?.toLowerCase() || '';
+                      const jobTitle = thread.jobTitle?.toLowerCase() || '';
+                      const lastMessage = thread.lastMessage?.text?.toLowerCase() || '';
+                      return participantName.includes(query) || jobTitle.includes(query) || lastMessage.includes(query);
+                    })
+                    // Sort by date
+                    .sort((a, b) => {
+                      const timeA = a.lastMessage?.timestamp ? new Date(a.lastMessage.timestamp).getTime() : 0;
+                      const timeB = b.lastMessage?.timestamp ? new Date(b.lastMessage.timestamp).getTime() : 0;
+                      return chatSortOrder === 'newest' ? timeB - timeA : timeA - timeB;
+                    })
+                    .map(thread => (
+                      <ChatThreadListItem
+                        key={thread.id}
+                        thread={thread}
+                        currentUserId={user?.id || ''}
+                        onClick={handleChatThreadClick}
+                        onDelete={handleDeleteChat}
+                      />
+                    ))}
+
+                  {/* No results message */}
+                  {chatThreads.length > 0 &&
+                    chatThreads.filter(t => {
+                      if (chatFilterUnread && (t.unreadMessages[user?.id || ''] || 0) === 0) return false;
+                      if (!chatSearchQuery.trim()) return true;
+                      const query = chatSearchQuery.toLowerCase();
+                      const otherParticipantId = t.participantIds.find(id => id !== user?.id);
+                      const otherParticipant = otherParticipantId && t.participants?.[otherParticipantId];
+                      const participantName = otherParticipant?.displayName?.toLowerCase() || '';
+                      const jobTitle = t.jobTitle?.toLowerCase() || '';
+                      const lastMessage = t.lastMessage?.text?.toLowerCase() || '';
+                      return participantName.includes(query) || jobTitle.includes(query) || lastMessage.includes(query);
+                    }).length === 0 && (
+                      <li className="text-center py-4 text-gray-500">
+                        לא נמצאו שיחות מתאימות
+                      </li>
+                    )
+                  }
+                </ul>
+              </>
             )}
           </div>
         </div>
       )
       }
 
-      {/* Job Alerts Tab - SPLIT: Notifications vs Settings */}
+      {/* Job Alerts Tab - Two columns: Notifications | Management */}
       {
         activeTab === 'job_alerts' && (
-          <div className="space-y-6 sm:space-y-8 animate-fade-in-down">
+          <div className="animate-fade-in-down">
+            {/* Sub-tabs Navigation */}
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6 border-b border-gray-100 pb-4">
+              <TabButton
+                label="התראות שהתקבלו"
+                icon={<BellIcon className="w-5 h-5 text-yellow-500" />}
+                isActive={jobAlertSubTab === 'notifications'}
+                onClick={() => setJobAlertSubTab('notifications')}
+                count={systemNotifications.filter(n => !n.isRead && n.type === 'job_alert_match').length}
+              />
+              <TabButton
+                label="ניהול התראות"
+                icon={<SearchIcon className="w-5 h-5 text-deep-pink" />}
+                isActive={jobAlertSubTab === 'settings'}
+                onClick={() => setJobAlertSubTab('settings')}
+                // User requested to remove the "alert-like" badge for management tab count
+                // We show count 0 here to hide the badge, or we could just remove the count prop.
+                // Alternatively, we can show it but ensure the TabButton handles 'isNotification' prop if we had one.
+                // For now, let's just pass 0 to hide the red/gray badge, effectively removing the confusion.
+                count={0}
+              />
+            </div>
 
-
-
-            {/* View: My Alerts Management (Default and only view) */}
-            <div className="bg-white p-3 sm:p-6 rounded-xl shadow-xl animate-fade-in">
-              <div className="flex justify-between items-center mb-4 sm:mb-6 pb-3 sm:pb-4 border-b">
-                <h2 className="text-xl sm:text-2xl font-semibold text-royal-blue flex items-center">
-                  <SearchIcon className="w-6 h-6 mr-2 rtl:ml-2 rtl:mr-0 text-deep-pink" />
-                  ניהול ההתראות שלי
-                  {jobAlerts.length > 0 && <span className="mr-3 text-sm font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">({jobAlerts.filter(a => a.isActive).length} פעילות)</span>}
-                </h2>
-                <Button onClick={() => setCurrentPage('createJobAlert')} variant="primary" icon={<PlusCircleIcon className="w-5 h-5" />}>
-                  יצירת התראה חדשה
-                </Button>
-              </div>
-              {loadingAlerts ? (
-                <p className="text-center text-gray-500 py-4">טוען הגדרות...</p>
-              ) : jobAlerts.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-600 mb-4">לא הוגדרו התראות עדיין.</p>
-                  <Button onClick={() => setCurrentPage('createJobAlert')} variant="primary">צור התראה ראשונה</Button>
+            {/* Content: Job Alert Notifications */}
+            {jobAlertSubTab === 'notifications' && (
+              <div className="bg-white p-3 sm:p-6 rounded-xl shadow-xl animate-fade-in">
+                <div className="flex justify-between items-center mb-4 pb-3 border-b flex-wrap gap-2">
+                  <h2 className="text-xl font-semibold text-royal-blue flex items-center">
+                    <BellIcon className="w-6 h-6 mr-2 rtl:ml-2 rtl:mr-0 text-royal-blue" />
+                    התראות על משרות חדשות
+                  </h2>
+                  <div className="flex gap-2 flex-wrap">
+                    {systemNotifications.some(n => !n.isRead && n.type === 'job_alert_match') && (
+                      <Button onClick={handleMarkAllAlertsAsRead} variant="outline" size="sm">קראתי הכל</Button>
+                    )}
+                    {systemNotifications.some(n => n.type === 'job_alert_match') && (
+                      <Button onClick={handleClearAllAlerts} variant="outline" size="sm" className="text-red-600 border-red-300 hover:bg-red-50">נקה התראות</Button>
+                    )}
+                  </div>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {jobAlerts.map(alert => (
-                    <div key={alert.id} className={`p-4 border rounded-lg shadow-sm transition-colors ${alert.isActive ? 'bg-white border-royal-blue/20' : 'bg-gray-50 border-gray-200 opacity-75'}`}>
-                      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                        <div className="flex-grow">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h4 className="font-bold text-royal-blue text-lg">{alert.name}</h4>
-                            <label className="relative inline-flex items-center cursor-pointer flex-shrink-0" dir="ltr">
-                              <input type="checkbox" checked={alert.isActive} onChange={() => handleToggleAlertActive(alert)} className="sr-only peer" />
-                              <div className="w-[44px] h-[24px] bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-                              <span className={`ml-2 text-xs font-medium ${alert.isActive ? 'text-green-600' : 'text-gray-500'}`}>{alert.isActive ? 'פעיל' : 'מושהה'}</span>
-                            </label>
-                          </div>
-                          <div className="flex flex-wrap gap-2 text-sm text-gray-600">
-                            {alert.location && <span className="bg-gray-100 px-2 py-0.5 rounded-md text-gray-800">{alert.location}</span>}
-                            {alert.difficulty && <span className="bg-gray-100 px-2 py-0.5 rounded-md text-gray-800">{alert.difficulty}</span>}
-                            <span className="text-gray-400">|</span>
-                            <span>{JobAlertFrequencyOptions.find(o => o.value === alert.frequency)?.label || alert.frequency}</span>
-                          </div>
-                        </div>
+                {loadingSystemNotifications ? (
+                  <p className="text-center text-gray-500 py-4">טוען התראות...</p>
+                ) : systemNotifications.filter(n => n.type === 'job_alert_match').length === 0 ? (
+                  <div className="text-center py-12 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border-2 border-dashed border-blue-200">
+                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <BriefcaseIcon className="w-8 h-8 text-royal-blue" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-royal-blue mb-2">אין התראות על משרות חדשות</h3>
+                    <p className="text-sm text-gray-500 mb-6 max-w-sm mx-auto">צור התראה מותאמת אישית וקבל עדכונים על משרות חדשות שמתאימות לך!</p>
+                    <Button
+                      onClick={() => setCurrentPage('createJobAlert')}
+                      variant="primary"
+                      size="lg"
+                      icon={<PlusCircleIcon className="w-5 h-5" />}
+                      className="bg-royal-blue hover:bg-blue-700 text-white font-semibold shadow-lg transform hover:scale-105 transition-all"
+                    >
+                      צור התראה חדשה
+                    </Button>
+                  </div>
+                ) : (
+                  <ul className="space-y-3">
+                    {systemNotifications
+                      .filter(n => n.type === 'job_alert_match')
+                      .sort((a, b) => {
+                        const timeA = a.timestamp && typeof a.timestamp.toDate === 'function' ? a.timestamp.toDate().getTime() : 0;
+                        const timeB = b.timestamp && typeof b.timestamp.toDate === 'function' ? b.timestamp.toDate().getTime() : 0;
+                        return timeB - timeA;
+                      })
+                      .slice(0, visibleJobAlertCount)
+                      .map(notif => (
+                        <li
+                          key={notif.id}
+                          className={`p-4 border rounded-lg transition-all hover:shadow-md cursor-pointer ${notif.isRead ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'}`}
+                          onClick={() => {
+                            handleViewSystemNotification(notif);
+                            // Always navigate to job, whether read or not
+                            if (notif.jobId) {
+                              const url = `${window.location.origin}/#/jobDetails?jobId=${notif.jobId}`;
+                              window.open(url, '_blank');
+                            } else if (notif.link) {
+                              window.open(notif.link, '_blank');
+                            }
+                          }}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div
+                              className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center"
+                              title="מתאים להתראה"
+                            >
+                              <BriefcaseIcon className="w-6 h-6 text-royal-blue" />
+                            </div>
 
-                        <div className="flex gap-2 self-end sm:self-center">
-                          <Button onClick={() => openEditAlertPage(alert)} variant="outline" size="sm" icon={<EditIcon className="w-4 h-4" />}>ערוך</Button>
-                          <button onClick={() => handleDeleteAlert(alert.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors" title="מחק התראה">
-                            <TrashIcon className="w-5 h-5" />
-                          </button>
+                            <div className="flex-grow min-w-0">
+                              {/* Job title - Large and prominent */}
+                              <h4 className="text-lg font-bold text-gray-800 hover:text-royal-blue transition-colors truncate">
+                                {notif.message.replace(/^"|"$/g, '').split('" באזור')[0]}
+                              </h4>
+                              {/* Alert name - Small and subtle */}
+                              <p className="text-sm text-gray-500 mt-0.5">{notif.title}</p>
+                              <span className="text-xs text-gray-400 mt-1 block">
+                                {formatNotificationDate(notif.timestamp || notif.createdAt)}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                              {!notif.isRead && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleViewSystemNotification(notif);
+                                  }}
+                                  className="text-xs text-royal-blue hover:underline bg-blue-50 px-2 py-1 rounded-full whitespace-nowrap"
+                                  title="סמן כנקרא"
+                                >
+                                  סמן כנקרא
+                                </button>
+                              )}
+                              {!notif.isRead && (
+                                <span className="w-3 h-3 bg-red-500 rounded-full flex-shrink-0 animate-pulse"></span>
+                              )}
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                  </ul>
+                )}
+                {systemNotifications.filter(n => n.type === 'job_alert_match').length > visibleJobAlertCount && (
+                  <div className="text-center mt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setVisibleJobAlertCount(prev => prev + 10)}
+                    >
+                      הצג עוד (טען 10 נוספים)
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Content: My Alerts Management */}
+            {jobAlertSubTab === 'settings' && (
+              <div className="bg-white p-3 sm:p-6 rounded-xl shadow-xl animate-fade-in">
+                <div className="flex justify-between items-center mb-4 sm:mb-6 pb-3 sm:pb-4 border-b">
+                  <h2 className="text-xl sm:text-2xl font-semibold text-royal-blue flex items-center">
+                    <SearchIcon className="w-6 h-6 mr-2 rtl:ml-2 rtl:mr-0 text-deep-pink" />
+                    ניהול ההתראות שלי
+                    {jobAlerts.length > 0 && <span className="mr-3 text-sm font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">({jobAlerts.filter(a => a.isActive).length} פעילות)</span>}
+                  </h2>
+                  <Button onClick={() => setCurrentPage('createJobAlert')} variant="primary" icon={<PlusCircleIcon className="w-5 h-5" />}>
+                    יצירת התראה חדשה
+                  </Button>
+                </div>
+                {loadingAlerts ? (
+                  <p className="text-center text-gray-500 py-4">טוען הגדרות...</p>
+                ) : jobAlerts.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-600 mb-4">לא הוגדרו התראות עדיין.</p>
+                    <Button onClick={() => setCurrentPage('createJobAlert')} variant="primary">צור התראה ראשונה</Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {jobAlerts.map(alert => (
+                      <div key={alert.id} className={`p-4 border rounded-lg shadow-sm transition-colors ${alert.isActive ? 'bg-white border-royal-blue/20' : 'bg-gray-50 border-gray-200 opacity-75'}`}>
+                        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                          <div className="flex-grow">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h4 className="font-bold text-royal-blue text-lg">{alert.name}</h4>
+                              <label className="relative inline-flex items-center cursor-pointer flex-shrink-0" dir="ltr">
+                                <input type="checkbox" checked={alert.isActive} onChange={() => handleToggleAlertActive(alert)} className="sr-only peer" />
+                                <div className="w-[44px] h-[24px] bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                                <span className={`ml-2 text-xs font-medium ${alert.isActive ? 'text-green-600' : 'text-gray-500'}`}>{alert.isActive ? 'פעיל' : 'מושהה'}</span>
+                              </label>
+                            </div>
+                            <div className="flex flex-wrap gap-2 text-sm text-gray-600">
+                              {alert.location && <span className="bg-gray-100 px-2 py-0.5 rounded-md text-gray-800">{alert.location}</span>}
+                              {alert.difficulty && <span className="bg-gray-100 px-2 py-0.5 rounded-md text-gray-800">{alert.difficulty}</span>}
+                              <span className="text-gray-400">|</span>
+                              <span>{JobAlertFrequencyOptions.find(o => o.value === alert.frequency)?.label || alert.frequency}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2 self-end sm:self-center">
+                            <Button onClick={() => openEditAlertPage(alert)} variant="outline" size="sm" icon={<EditIcon className="w-4 h-4" />}>ערוך</Button>
+                            <button onClick={() => handleDeleteAlert(alert.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors" title="מחק התראה">
+                              <TrashIcon className="w-5 h-5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )
       }

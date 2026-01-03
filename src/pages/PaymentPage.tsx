@@ -183,6 +183,7 @@ export const PaymentPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
                     });
 
                     localStorage.removeItem('pendingJobDraft'); // Clean up
+                    localStorage.removeItem('savedJobPostDraft'); // Clean up persistent draft
                     setSuccess(true);
                 }
             } else if (type === 'view_contact' && user && jobId) {

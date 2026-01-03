@@ -10,11 +10,13 @@ import { Modal } from '../components/Modal';
 import * as authService from '../services/authService';
 import { AuthContext } from '../contexts/AuthContext';
 import type { DateDisplayPreference } from '../utils/dateConverter';
+import { usePaymentSettings } from '../hooks/usePaymentSettings';
 import { cancelUserSubscription } from '../services/userService';
 
 export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
     const { user, updateUserContext, loadingAuth } = useAuth();
-    const authCtx = useContext(AuthContext);
+    const { settings: paymentSettings } = usePaymentSettings();
+    const authCtx = useContext(AuthContext); // Still needed for date display in jobs
 
     // State for ad contact defaults
     const [contactPreference, setContactPreference] = useState<ContactPreference>({
@@ -198,8 +200,8 @@ export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
 
                         {/* Job Alerts Settings Link */}
 
-                        {/* Subscription Management (Only for Subscribers) */}
-                        {user?.subscription?.isActive && (
+                        {/* Subscription Management (Only for Subscribers AND if payment feature enabled) */}
+                        {paymentSettings.enableViewerPayment && user?.subscription?.isActive && (
                             <div className="bg-blue-50/50 p-6 rounded-lg border border-blue-100 mb-6 relative overflow-hidden">
                                 <div className="absolute top-0 left-0 w-2 h-full bg-blue-500"></div>
                                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -245,6 +247,70 @@ export const SettingsPage: React.FC<PageProps> = ({ setCurrentPage }) => {
                                 הוספת התראה חדשה
                             </Button>
                         </div>
+
+                        {/* Notification Channel Preferences */}
+                        <fieldset className="p-4 border border-gray-200 rounded-md bg-white">
+                            <legend className="text-lg font-medium text-gray-800 px-2 flex items-center">
+                                <BellIcon className="w-5 h-5 ml-2 text-indigo-500" />
+                                העדפות קבלת הודעות
+                            </legend>
+                            <p className="text-xs text-gray-500 mb-4">בחר כיצד תרצה לקבל עדכונים מהמערכת</p>
+
+                            <div className="space-y-3">
+                                {/* Site notifications - always on */}
+                                <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:border-blue-300 transition-all">
+                                    <input
+                                        type="checkbox"
+                                        checked={true}
+                                        disabled
+                                        className="w-5 h-5 text-royal-blue rounded border-gray-300"
+                                    />
+                                    <div className="flex-1">
+                                        <span className="font-medium text-gray-800">הודעות באתר</span>
+                                        <p className="text-xs text-gray-500">הודעות מהמערכת יופיעו בפעמון באתר</p>
+                                    </div>
+                                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">תמיד פעיל</span>
+                                </label>
+
+                                {/* Email notifications */}
+                                <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:border-blue-300 transition-all">
+                                    <input
+                                        type="checkbox"
+                                        checked={user?.notificationPreferences?.email ?? false}
+                                        onChange={async (e) => {
+                                            if (user) {
+                                                const updatedUser = {
+                                                    ...user,
+                                                    notificationPreferences: {
+                                                        ...user.notificationPreferences,
+                                                        email: e.target.checked
+                                                    }
+                                                } as User;
+                                                await authService.updateUserProfile(user.id, updatedUser);
+                                                updateUserContext(updatedUser);
+                                                setSuccessMessage(e.target.checked ? 'הודעות מייל הופעלו' : 'הודעות מייל כובו');
+                                            }
+                                        }}
+                                        className="w-5 h-5 text-royal-blue rounded border-gray-300 focus:ring-royal-blue"
+                                    />
+                                    <div className="flex-1">
+                                        <span className="font-medium text-gray-800">הודעות במייל</span>
+                                        <p className="text-xs text-gray-500">קבל עדכונים חשובים ישירות למייל</p>
+                                    </div>
+                                    {user?.email && <span className="text-xs text-gray-400 truncate max-w-[150px]">{user.email}</span>}
+                                </label>
+
+                                {/* Coming soon */}
+                                <div className="border-t border-gray-200 pt-3 mt-3">
+                                    <p className="text-xs text-gray-400 mb-2">בקרוב:</p>
+                                    <div className="flex gap-2 flex-wrap">
+                                        <span className="text-xs bg-gray-100 text-gray-400 px-3 py-1.5 rounded-full">וואטסאפ</span>
+                                        <span className="text-xs bg-gray-100 text-gray-400 px-3 py-1.5 rounded-full">צינתוק (SMS)</span>
+                                        <span className="text-xs bg-gray-100 text-gray-400 px-3 py-1.5 rounded-full">Push Notifications</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </fieldset>
 
                         {/* Date Preference */}
                         <fieldset className="p-4 border border-gray-200 rounded-md bg-white">

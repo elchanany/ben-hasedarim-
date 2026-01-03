@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { Page, PageProps } from '../App';
 import { useAuth } from '../hooks/useAuth';
+import { usePaymentSettings } from '../hooks/usePaymentSettings';
 import * as contactService from '../services/contactService'; // Import contact service
 import { UserIcon, BriefcaseIcon, PlusCircleIcon, LoginIcon, BellIcon, SearchIcon, ChatBubbleLeftEllipsisIcon, EnvelopeIcon, ArrowRightIcon, EyeIcon, CogIcon, CalendarDaysIcon, ChevronDownIcon } from './icons';
 import { UserAvatar } from './UserAvatar';
@@ -83,6 +84,7 @@ interface NavbarProps extends Pick<PageProps, 'setCurrentPage'> {
 
 export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) => {
   const { user, logout, totalUnreadCount, adminUnreadContacts, adminPendingReports } = useAuth();
+  const { settings: paymentSettings } = usePaymentSettings();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [isMenuPinned, setIsMenuPinned] = useState(false); // Track if menu was opened by click
@@ -216,7 +218,7 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
                 setIsMenuPinned(true);
               }
             }}
-            className={`flex items-center gap-2 focus:outline-none p-1.5 rounded-full transition-all duration-200 ${userMenuOpen ? 'bg-white/10 ring-2 ring-white/30' : 'hover:bg-white/5'} ${isPro ? 'ring-2 ring-yellow-400/50 bg-gradient-to-r from-yellow-400/10 to-transparent' : ''}`}
+            className={`flex items-center gap-2 focus:outline-none p-1.5 rounded-full transition-all duration-200 ${userMenuOpen ? 'bg-white/10 ring-2 ring-white/30' : 'hover:bg-white/5'} ${isPro && paymentSettings.enableViewerPayment ? 'ring-2 ring-yellow-400/50 bg-gradient-to-r from-yellow-400/10 to-transparent' : ''}`}
             aria-expanded={userMenuOpen}
             aria-haspopup="true"
           >
@@ -227,11 +229,11 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
               <span className="text-sm font-medium">{user.fullName?.split(' ')[0] || 'אורח'}</span>
             </div>
             <div className="relative">
-              <UserAvatar name={user.fullName || 'User'} size="md" className={`shadow-md ${isPro ? 'ring-2 ring-yellow-400' : 'ring-2 ring-white/20'}`} />
+              <UserAvatar name={user.fullName || 'User'} size="md" className={`shadow-md ${isPro && paymentSettings.enableViewerPayment ? 'ring-2 ring-yellow-400' : 'ring-2 ring-white/20'}`} />
               <div className={`absolute -bottom-1 -left-1 bg-white rounded-full p-0.5 text-royal-blue shadow-sm transition-transform duration-300 ${userMenuOpen ? 'rotate-180' : ''}`}>
                 <ChevronDownIcon className="w-3 h-3" />
               </div>
-              {isPro && (
+              {isPro && paymentSettings.enableViewerPayment && (
                 <div className="absolute -top-1 -right-1 bg-yellow-400 text-royal-blue text-[8px] font-bold px-1 rounded-full shadow-sm border border-white">
                   PRO
                 </div>
@@ -274,24 +276,27 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
 
                 <div className="border-t border-gray-100 my-1"></div>
 
-                {isPro ? (
-                  <button
-                    onClick={() => { setCurrentPage('settings'); setUserMenuOpen(false); }}
-                    className="w-full text-right px-5 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 flex items-center transition-colors"
-                    role="menuitem"
-                  >
-                    <BriefcaseIcon className="w-4 h-4 ml-3 text-gray-500" />
-                    ניהול מנוי
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => { setCurrentPage('payment', { type: 'subscription' }); setUserMenuOpen(false); }}
-                    className="w-full text-right px-5 py-3 text-sm text-royal-blue bg-blue-50/50 hover:bg-blue-100 flex items-center transition-colors font-medium "
-                    role="menuitem"
-                  >
-                    <img src="/assets/logo.svg" className="w-4 h-4 ml-3" alt="" />
-                    שדרוג ל-PRO
-                  </button>
+                {/* Show subscription options only if viewer payment is enabled */}
+                {paymentSettings.enableViewerPayment && (
+                  isPro ? (
+                    <button
+                      onClick={() => { setCurrentPage('settings'); setUserMenuOpen(false); }}
+                      className="w-full text-right px-5 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 flex items-center transition-colors"
+                      role="menuitem"
+                    >
+                      <BriefcaseIcon className="w-4 h-4 ml-3 text-gray-500" />
+                      ניהול מנוי
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => { setCurrentPage('payment', { type: 'subscription' }); setUserMenuOpen(false); }}
+                      className="w-full text-right px-5 py-3 text-sm text-royal-blue bg-blue-50/50 hover:bg-blue-100 flex items-center transition-colors font-medium "
+                      role="menuitem"
+                    >
+                      <img src="/assets/logo.svg" className="w-4 h-4 ml-3" alt="" />
+                      שדרוג ל-PRO
+                    </button>
+                  )
                 )}
 
                 <div className="border-t border-gray-100 my-1"></div>
@@ -463,7 +468,7 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
                   <div className="mr-2 rtl:mr-2 text-white">
                     <div className="font-bold text-sm flex items-center">
                       {user.fullName}
-                      {isPro && <span className="mr-2 bg-yellow-400 text-royal-blue text-[10px] font-bold px-1.5 rounded-full">PRO</span>}
+                      {isPro && paymentSettings.enableViewerPayment && <span className="mr-2 bg-yellow-400 text-royal-blue text-[10px] font-bold px-1.5 rounded-full">PRO</span>}
                     </div>
                     <div className="text-[10px] opacity-70 flex items-center">
                       <span className="w-1.5 h-1.5 bg-green-400 rounded-full ml-1 rtl:ml-1"></span>
@@ -537,6 +542,22 @@ export const Navbar: React.FC<NavbarProps> = ({ setCurrentPage, currentPage }) =
                   <PlusCircleIcon className="w-6 h-6 ml-3 transition-transform duration-500 group-hover:rotate-180 group-active:scale-75" />
                   <span className="text-base font-bold text-lg">פרסום עבודה</span>
                 </button>
+
+                {/* Admin Dashboard - Responsive */}
+                {(user?.role === 'admin' || user?.role === 'super_admin' || user?.email?.toLowerCase() === 'eyceyceyc139@gmail.com') && (
+                  <button
+                    onClick={() => { setCurrentPage('admin'); setMobileMenuOpen(false); }}
+                    className="group flex items-center px-4 py-3.5 rounded-xl transition-all duration-300 text-yellow-300 hover:bg-white/10 hover:text-yellow-100"
+                  >
+                    <BriefcaseIcon className="w-5 h-5 ml-3" />
+                    <span className="text-base font-bold">לוח מנהל</span>
+                    {adminUnreadContacts + adminPendingReports > 0 && (
+                      <span className="mr-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                        {adminUnreadContacts + adminPendingReports}
+                      </span>
+                    )}
+                  </button>
+                )}
 
                 {/* Logged out only - explicitly */}
                 {!user && (

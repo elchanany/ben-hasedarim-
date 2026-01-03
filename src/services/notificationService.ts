@@ -5,6 +5,7 @@ import * as RealJobService from './jobService';
 import * as MockJobService from './mock/jobService';
 import { USE_FIREBASE_BACKEND } from '../config';
 import { getTodayGregorianISO } from '../utils/dateConverter';
+import { REGION_MAPPINGS } from '../constants';
 
 // Select the correct service
 const jobService = USE_FIREBASE_BACKEND ? RealJobService : MockJobService;
@@ -76,8 +77,18 @@ const getAllStoredJobAlertPreferences = (): JobAlertPreference[] => {
 // Helper function to check if a job matches an alert preference
 const doesJobMatchAlert = (job: Job, pref: JobAlertPreference): boolean => {
   // Location - empty means any
+  // Location - empty means any
   if (pref.location && pref.location !== '') {
-    if (job.area !== pref.location) return false;
+    // Check if preference location is a region
+    const region = REGION_MAPPINGS.find(r => r.value === pref.location);
+
+    if (region) {
+      // If alert is for a region, match if job is in any city of that region OR matching the region label
+      if (!region.cities.includes(job.area) && job.area !== region.label) return false;
+    } else {
+      // Exact city match
+      if (job.area !== pref.location) return false;
+    }
   }
 
   // Difficulty - empty/undefined means any
@@ -181,11 +192,9 @@ export const checkAllAlertsForNewJob = (newJob: Job): void => {
       // Get existing notifications for this user
       let userNotifications = getStoredNotifications(pref.userId);
 
-      // Check for duplicate - use both jobId AND alertId to prevent duplicates
+      // Check for duplicate using jobId OR link (for backwards compatibility with old notifications without jobId)
       const existingNotification = userNotifications.find(
-        n => n.type === 'job_alert_match' &&
-          n.link === `#/jobDetails?jobId=${newJob.id}` &&
-          n.id.includes(newJob.id) && n.id.includes(pref.id)
+        n => n.type === 'job_alert_match' && (n.jobId === newJob.id || n.link === `#/jobDetails?jobId=${newJob.id}`)
       );
 
       if (!existingNotification) {
@@ -196,6 +205,7 @@ export const checkAllAlertsForNewJob = (newJob: Job): void => {
           title: `משרה חדשה בהתראת '${pref.name}'`,
           message: `"${newJob.title}" באזור ${newJob.area}.`,
           link: `#/jobDetails?jobId=${newJob.id}`,
+          jobId: newJob.id, // Added jobId for direct navigation
           isRead: false,
           createdAt: new Date().toISOString(),
         });
@@ -382,10 +392,13 @@ export const generateJobAlertMatches = async (userId: string): Promise<void> => 
 
     const matchingJobs = allJobs.filter(job => {
       const jobPostedTime = new Date(job.postedDate).getTime();
-      // Use a safety buffer (e.g., 15 minutes) to avoid missing jobs due to latency or varying clock synchronization
-      // Duplicate notifications are prevented by the check 'existingNotification' below.
-      if (jobPostedTime <= lastCheckedTime - 15 * 60 * 1000) return false;
-      // if (job.postedBy.id === userId) return false; // Allowed for testing purposes as per user feedback
+
+      // STRICT CHECK: Only notify for jobs posted AFTER the alert was created/last checked
+      // No buffer - if lastCheckedTime is set, job must be posted strictly AFTER it
+      if (lastCheckedTime > 0 && jobPostedTime <= lastCheckedTime) return false;
+
+      // IMPORTANT: Don't notify the job poster about their own job!
+      if (job.postedBy.id === userId) return false;
 
       let match = true;
 
@@ -482,11 +495,9 @@ export const generateJobAlertMatches = async (userId: string): Promise<void> => 
       // but not used for sending yet.
 
       for (const job of matchingJobs) {
-        // Check for duplicate using both jobId and alertId
+        // Check for duplicate using jobId OR link (for backwards compatibility with old notifications without jobId)
         const existingNotification = userSystemNotifications.find(
-          n => n.type === 'job_alert_match' &&
-            n.link === `#/jobDetails?jobId=${job.id}` &&
-            n.id.includes(job.id) && n.id.includes(pref.id)
+          n => n.type === 'job_alert_match' && (n.jobId === job.id || n.link === `#/jobDetails?jobId=${job.id}`)
         );
         if (!existingNotification) {
           userSystemNotifications.push({
@@ -496,6 +507,7 @@ export const generateJobAlertMatches = async (userId: string): Promise<void> => 
             title: `משרה חדשה בהתראת '${pref.name}'`,
             message: `"${job.title}" באזור ${job.area}.`,
             link: `#/jobDetails?jobId=${job.id}`,
+            jobId: job.id, // Added jobId for direct navigation
             isRead: false,
             createdAt: new Date().toISOString(),
             relatedAlertId: pref.id,

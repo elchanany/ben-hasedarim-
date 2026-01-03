@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback, useRef, useContext } from 'react';
 import { onSnapshot, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Job, PaymentType, JobDifficulty, JobPosterInfo, JobDateType, PaymentMethod } from '../types';
-import { Button } from '../components/Button';
+import { PaymentType, PaymentMethod, JobDifficulty, Job, JobSuitability, JobDateType, PricingModalType } from '../types';
+import { usePaymentSettings } from '../hooks/usePaymentSettings';
+import { REGION_MAPPINGS } from '../constants';
 import type { PageProps } from '../App';
 import { useAuth } from '../hooks/useAuth';
 import { Modal } from '../components/Modal';
@@ -22,6 +23,7 @@ import { AuthContext } from '../contexts/AuthContext';
 // import { PaymentModal } from '../components/PaymentModal'; // Removed
 import { PricingModal } from '../components/PricingModal';
 import { unlockJobForUser, addUserSubscription } from '../services/userService';
+import { usePaymentSettings } from '../hooks/usePaymentSettings';
 
 interface JobDetailsPageProps extends PageProps {
   jobId: string;
@@ -82,6 +84,7 @@ const DetailItem: React.FC<{
 
 export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, pageParams, jobId: propJobId }) => {
   const { user, refreshTotalUnreadCount } = useAuth();
+  const { settings: paymentSettings, loading: loadingPaymentSettings } = usePaymentSettings();
   const authCtx = useContext(AuthContext);
   // jobId is now available as propJobId, but we'll use it in useEffect logic primarily
   // or we can assign it here for convenience if needed later outside useEffect
@@ -218,21 +221,26 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
       return;
     }
 
-    // For testing purposes, we treated admin as regular user if they want to test payment
-    // const isAdmin = user.role === 'admin' || user.role === 'super_admin' || user.email?.toLowerCase() === 'eyceyceyc139@gmail.com';
-    // User requested to remove automatic admin privilege for contact viewing until manually enabled.
+    // Explicitly enabling admin bypass per user request
+    const isAdmin = user.role === 'admin' || user.role === 'super_admin' || user.email?.toLowerCase() === 'eyceyceyc139@gmail.com';
 
-    // Explicitly disabling admin bypass for now
-    const isAdmin = false;
+    // Check centralized payment settings
+    const isPaymentRequired = paymentSettings.masterSwitch && paymentSettings.enableViewerPayment;
 
     const isOwner = user.id === job?.postedBy?.id;
     const hasSingleUnlock = user.unlockedJobs?.includes(jobId);
-    const hasActiveSubscription = user.subscription?.isActive && new Date(user.subscription.expiresAt) > new Date();
 
-    if (isOwner || hasSingleUnlock || hasActiveSubscription) {
-      setShowContactModal(true);
+    // Check for active subscription
+    const hasActiveSubscription = user.subscription?.isActive &&
+      new Date(user.subscription.expiresAt) > new Date();
+
+    // If payment is NOT required (feature disabled), OR user owns job, OR already unlocked, OR has subscription, OR is ADMIN
+    // Then show contact details immediately
+    if (!isPaymentRequired || isOwner || hasSingleUnlock || hasActiveSubscription || isAdmin) {
+      setShowContactDetails(true); // Show inline instead of modal
       handleContactAttempt();
     } else {
+      // Payment IS required and user hasn't paid/subscribed, show pricing modal
       setShowPricingModal(true);
     }
   };
@@ -240,7 +248,9 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
   const handleSelectPlan = (plan: 'single' | 'monthly') => {
     setShowPricingModal(false);
     // Navigate to payment page instead of opening modal
-    const amount = plan === 'single' ? 5 : 15;
+    const amount = plan === 'single'
+      ? (paymentSettings.singleContactPrice || 5)
+      : (paymentSettings.subscriptionPrice || 15);
     const type = plan === 'single' ? 'view_contact' : 'subscription';
 
     setCurrentPage('payment', {
@@ -530,12 +540,56 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                 animationType="default"
               />
               {job.address && (
-                <DetailItem
-                  icon={<MapPinIcon className="w-6 h-6 text-red-500" />}
-                  label="כתובת מדוייקת"
-                  value={job.address}
-                  animationType="default"
-                />
+                <div className="md:col-span-2 p-4 rounded-lg shadow-sm border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:shadow-md transition-all duration-300 hover:scale-[1.02] transform cursor-pointer group">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-start space-x-3 rtl:space-x-reverse">
+                      <div className="flex-shrink-0 text-red-500 pt-1 transition-colors duration-300">
+                        <MapPinIcon className="w-7 h-7" />
+                      </div>
+                      <div>
+                        {/* Resolve Region Label if job.area is a region key */}
+                        {(() => {
+                          const region = REGION_MAPPINGS.find(r => r.value === job.area);
+                          const displayArea = region ? region.label : job.area;
+                          return <h3 className="text-sm font-semibold text-gray-600 mb-1">כתובת מדוייקת ({displayArea})</h3>;
+                        })()}
+                        <p className="text-lg font-medium text-dark-text break-words max-w-[200px] sm:max-w-md">{job.address}</p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Smart Navigation Handler
+
+                        // Resolve Region Label for Navigation Query
+                        const region = REGION_MAPPINGS.find(r => r.value === job.area);
+                        // If it's a region key, use the label (e.g. "Jerusalem Area"), otherwise use the city name directly
+                        const areaForNav = region ? region.label : (job.area || '');
+
+                        const fullAddress = `${job.address || ''}, ${areaForNav}`;
+                        const query = encodeURIComponent(fullAddress);
+
+                        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+                        if (isMobile) {
+                          // Try opening Waze App directly, fallback to web handled by OS usually
+                          window.open(`https://waze.com/ul?q=${query}&navigate=yes`, '_blank');
+                        } else {
+                          // Desktop: Go straight to Google Maps which is much more reliable on PC
+                          window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+                        }
+                      }}
+                      className="flex-shrink-0 flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition-all active:scale-95 whitespace-nowrap mr-2"
+                    >
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                      </svg>
+                      <span className="hidden sm:inline">ניווט</span>
+                      <span className="sm:hidden">נווט</span>
+                    </button>
+                  </div>
+                </div>
               )}
               <DetailItem
                 icon={<CalendarDaysIcon className="w-7 h-7" />}
@@ -834,6 +888,8 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
         isOpen={showPricingModal}
         onClose={() => setShowPricingModal(false)}
         onSelectPlan={handleSelectPlan}
+        singlePrice={paymentSettings.singleContactPrice || 5}
+        subscriptionPrice={paymentSettings.subscriptionPrice || 15}
       />
 
       {/* PaymentModal removed */}

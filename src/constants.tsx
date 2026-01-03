@@ -33,6 +33,40 @@ export const MAJOR_CITIES_NAMES = [
   'חריש'
 ];
 
+// Define Regions
+export const REGION_MAPPINGS = [
+  {
+    label: 'אזור ירושלים והסביבה',
+    value: 'region_jerusalem',
+    cities: ['ירושלים', 'ביתר עילית', 'בית שמש', 'גבעת זאב', 'מבשרת ציון', 'מעלה אדומים', 'צור הדסה', 'אפרת', 'קריית יערים', 'אבו גוש']
+  },
+  {
+    label: 'אזור בני ברק והמרכז',
+    value: 'region_center',
+    cities: ['בני ברק', 'תל אביב-יפו', 'רמת גן', 'גבעתיים', 'פתח תקווה', 'ראש העין', 'אור יהודה', 'יהוד-מונוסון', 'קריית אונו', 'גבעת שמואל']
+  },
+  {
+    label: 'אזור מודיעין, אילת והשפלה',
+    value: 'region_modiin_elad',
+    cities: ['מודיעין עילית', 'מודיעין-מכבים-רעות', 'אלעד', 'לוד', 'רמלה', 'שוהם', 'רחובות', 'ראשון לציון', 'נס ציונה', 'באר יעקב']
+  },
+  {
+    label: 'אזור הצפון',
+    value: 'region_north',
+    cities: ['חיפה', 'טבריה', 'צפת', 'רכסים', 'חריש', 'עפולה', 'נוף הגליל', 'כרמיאל', 'עכו', 'נהריה', 'קריית אתא', 'קריית ביאליק', 'קריית ים', 'קריית מוצקין', 'חצור הגלילית', 'מגדל העמק']
+  },
+  {
+    label: 'אזור הדרום',
+    value: 'region_south',
+    cities: ['באר שבע', 'אשדוד', 'אשקלון', 'נתיבות', 'אופקים', 'שדרות', 'קריית גת', 'קריית מלאכי', 'ערד', 'דימונה', 'ירוחם', 'מצפה רמון', 'אילת']
+  },
+  {
+    label: 'אזור השרון',
+    value: 'region_sharon',
+    cities: ['נתניה', 'חדרה', 'הרצליה', 'רעננה', 'כפר סבא', 'הוד השרון', 'רמת השרון', 'כפר יונה']
+  }
+];
+
 export const getCityOptions = () => {
   const allCities = ISRAELI_CITIES.map(city => ({ value: city.name, label: city.name }));
 
@@ -42,9 +76,15 @@ export const getCityOptions = () => {
   const otherCities = allCities.filter(c => !MAJOR_CITIES_NAMES.includes(c.label))
     .sort((a, b) => a.label.localeCompare(b.label, 'he'));
 
+  const regions = REGION_MAPPINGS.map(r => ({ value: r.value, label: r.label }));
+
   return [
     { value: '', label: 'כל הארץ' },
+    { label: '--- אזורים ---', value: 'disabled_regions', isDisabled: true },
+    ...regions,
+    { label: '--- ערים מרכזיות ---', value: 'disabled_major', isDisabled: true },
     ...majorCities,
+    { label: '--- כל הערים ---', value: 'disabled_all', isDisabled: true },
     ...otherCities
   ];
 };

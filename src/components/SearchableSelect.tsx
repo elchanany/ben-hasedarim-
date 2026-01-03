@@ -87,7 +87,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
             >
                 <div className="flex items-center gap-2 md:gap-3 overflow-hidden">
                     <ChevronDownIcon className={`w-4 h-4 md:w-5 md:h-5 text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
-                    <span className={`truncate text-sm md:text-lg font-medium ${value === '' ? 'text-gray-400' : 'text-gray-900'}`}>
+                    <span className={`truncate text-sm md:text-lg font-medium ${!currentLabel ? 'text-gray-400' : 'text-gray-900'}`}>
                         {currentLabel || placeholder}
                     </span>
                 </div>
@@ -121,21 +121,28 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
                     <div className="py-2 overflow-y-auto max-h-56 custom-scrollbar">
                         {filteredOptions.length > 0 ? (
-                            filteredOptions.map((opt, idx) => (
-                                <div
-                                    key={opt.value + '-' + idx}
-                                    className={`px-4 py-2.5 text-sm font-medium cursor-pointer transition-colors text-right ${value === opt.value
-                                        ? 'bg-royal-blue/5 text-royal-blue'
-                                        : 'text-gray-700 hover:bg-gray-50'
-                                        }`}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleSelect(opt.value);
-                                    }}
-                                >
-                                    {opt.label}
-                                </div>
-                            ))
+                            filteredOptions.map((opt, idx) => {
+                                const isDisabled = (opt as any).isDisabled;
+                                return (
+                                    <div
+                                        key={opt.value + '-' + idx}
+                                        className={`px-4 py-2.5 text-sm font-medium transition-colors text-right ${isDisabled
+                                            ? 'bg-gray-50 text-gray-400 cursor-default border-y border-gray-100 italic'
+                                            : value === opt.value
+                                                ? 'bg-royal-blue/5 text-royal-blue cursor-pointer'
+                                                : 'text-gray-700 hover:bg-gray-50 cursor-pointer'
+                                            }`}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (!isDisabled) {
+                                                handleSelect(opt.value);
+                                            }
+                                        }}
+                                    >
+                                        {opt.label}
+                                    </div>
+                                );
+                            })
                         ) : (
                             <div className="px-4 py-6 text-center text-gray-400 text-sm">
                                 לא נמצאו ערים תואמות

@@ -4,6 +4,7 @@ import * as admin from 'firebase-admin';
 import * as cors from 'cors';
 import { PayPalClient } from './paypal';
 import * as dotenv from 'dotenv';
+import { processEmailNotifications } from './emailNotifications';
 
 // Load environment variables
 dotenv.config();
@@ -12,6 +13,35 @@ admin.initializeApp();
 const db = admin.firestore();
 
 // CORS handler is handled automatically by onCall, but we keep imports if needed for other things.
+
+// ============================================
+// SCHEDULED FUNCTIONS
+// ============================================
+
+/**
+ * Scheduled Cloud Function - runs every hour to send job alert emails
+ * Cron: 0 * * * * (at minute 0 of every hour)
+ */
+export const sendJobAlertEmails = functions
+    .region('europe-west1') // Closest to Israel
+    .pubsub.schedule('0 * * * *')
+    .timeZone('Asia/Jerusalem')
+    .onRun(async (context) => {
+        console.log('[Scheduler] Running hourly job alert email job...');
+
+        try {
+            const result = await processEmailNotifications();
+            console.log(`[Scheduler] Email job completed. Sent: ${result.sent}, Errors: ${result.errors}`);
+        } catch (error) {
+            console.error('[Scheduler] Email job failed:', error);
+        }
+
+        return null;
+    });
+
+// ============================================
+// PAYMENT FUNCTIONS
+// ============================================
 
 // Valid plans and their prices
 const PLANS = {

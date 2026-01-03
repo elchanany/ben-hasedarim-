@@ -9,7 +9,7 @@ import type { PageProps } from '../App';
 import { useAuth } from '../hooks/useAuth';
 import { CustomSelect } from '../components/CustomSelect'; // Import CustomSelect
 import { SearchableSelect } from '../components/SearchableSelect';
-import { ISRAELI_CITIES, DEFAULT_USER_DISPLAY_NAME, getCityOptions } from '../constants';
+import { ISRAELI_CITIES, DEFAULT_USER_DISPLAY_NAME, getCityOptions, useTodayLabel } from '../constants';
 import { Modal } from '../components/Modal';
 import {
   CalendarDaysIcon,
@@ -29,7 +29,7 @@ import { HebrewDatePicker } from '../components/HebrewDatePicker';
 import { getTodayGregorianISO, gregSourceToHebrewString, formatGregorianString } from '../utils/dateConverter';
 import { useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
-import { useTodayLabel } from '../constants';
+import { usePaymentSettings } from '../hooks/usePaymentSettings';
 import * as jobService from '../services/jobService';
 
 // ... (existing helper functions)
@@ -160,7 +160,7 @@ const validateJobForm = (formData: Partial<Job>, userFullName?: string): Record<
   const hasSelectedDirectMethod = formData.preferredContactMethods && (formData.preferredContactMethods.phone || formData.preferredContactMethods.whatsapp || formData.preferredContactMethods.email || formData.preferredContactMethods.allowSiteMessages);
 
   if (!hasSelectedDirectMethod) {
-    errors.preferredContactMethods = "יש לבחור לפחות דרך אחת ליצירת קשר מועדפת (טלפון, וואטסאפ, אימייל או הודעות באתר).";
+    errors.preferredContactMethods = "יש לבחור לפחות דרך אחת ליצירת קשר (טלפון, וואטסאפ, אימייל או הודעות באתר).";
   }
 
   if (formData.contactInfoSource === 'anonymous') {
@@ -194,6 +194,9 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
   const isEditMode = !!editJobId;
   const [submissionCompletedSuccessfully, setSubmissionCompletedSuccessfully] = useState(false);
 
+  // IMPORTANT: All hooks must be called before any early returns
+  const { settings: paymentSettings, loading: loadingPaymentSettings } = usePaymentSettings();
+  const todayLabel = useTodayLabel(); // Custom hook
   const getInitialFormData = useCallback((): Partial<Job> => {
     const defaultPreferredContacts: PreferredContactMethods = { phone: true, whatsapp: false, email: false, allowSiteMessages: true };
     const baseData: Partial<Job> = {
@@ -264,6 +267,9 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
 
   // Address logic
   const [showAddressField, setShowAddressField] = useState(false);
+
+  /* State for notice banner - MUST be before early returns */
+  const [showNoticeBanner, setShowNoticeBanner] = useState(false);
 
   useEffect(() => {
     if ((isEditMode || submissionCompletedSuccessfully) && formData.address) {
@@ -357,6 +363,22 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
     }
   }, [user, formData.contactInfoSource, isEditMode]);
 
+  // Notice banner effect - MUST be before early returns
+  useEffect(() => {
+    // Check local storage for banner status
+    try {
+      const isPermanentlyDismissed = localStorage.getItem('job_post_notice_dismissed');
+      const viewCount = parseInt(localStorage.getItem('job_post_notice_views') || '0', 10);
+
+      if (!isPermanentlyDismissed && viewCount < 5) {
+        setShowNoticeBanner(true);
+        localStorage.setItem('job_post_notice_views', (viewCount + 1).toString());
+      }
+    } catch (error) {
+      console.error("Error accessing localStorage (banner logic):", error);
+    }
+  }, []);
+
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -430,23 +452,22 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
 
   const handlePreferredContactGroupChange = (valueKey: string, checked: boolean) => {
     if (checked && formData.contactInfoSource === 'currentUser') {
-      if (valueKey === 'phone' && !user?.phone) {
-        setContactRedirectMessage("חסר מספר טלפון בפרופיל שלך. האם ברצונך לעבור להגדרות הפרופיל כדי לעדכן אותו?");
+      if (valueKey === 'phone' && (!user?.phone || user.phone.trim() === '')) {
+        setContactRedirectMessage("לא קיים מספר טלפון בפרופיל שלך. האם תרצה לעבור להגדרות הפרופיל כדי להוסיף אותו?");
         setOnContactRedirectConfirm(() => () => setCurrentPage('profile'));
         setShowContactRedirectModal(true);
-        return;
+        // We do NOT return here, we allow the selection but warn the user that it's empty
+        // actually, if it's empty validation will fail later anyway, but let's let them select it so they see independent error if they say "No"
       }
-      if (valueKey === 'whatsapp' && !user?.whatsapp && !user?.phone) {
-        setContactRedirectMessage("חסר מספר וואטסאפ בפרופיל שלך. האם ברצונך לעבור להגדרות הפרופיל כדי לעדכן אותו?");
+      if (valueKey === 'whatsapp' && (!user?.whatsapp || user.whatsapp.trim() === '') && (!user?.phone || user.phone.trim() === '')) {
+        setContactRedirectMessage("לא קיים מספר וואטסאפ (או טלפון) בפרופיל שלך. האם תרצה לעבור להגדרות הפרופיל כדי להוסיף אותו?");
         setOnContactRedirectConfirm(() => () => setCurrentPage('profile'));
         setShowContactRedirectModal(true);
-        return;
       }
-      if (valueKey === 'email' && !user?.email) {
-        setContactRedirectMessage("חסר כתובת אימייל בפרופיל שלך. האם ברצונך לעבור להגדרות הפרופיל כדי לעדכן אותה?");
+      if (valueKey === 'email' && (!user?.email || user.email.trim() === '')) {
+        setContactRedirectMessage("לא קיימת כתובת אימייל בפרופיל שלך. האם תרצה לעבור להגדרות הפרופיל כדי להוסיף אותה?");
         setOnContactRedirectConfirm(() => () => setCurrentPage('profile'));
         setShowContactRedirectModal(true);
-        return;
       }
     }
 
@@ -469,6 +490,33 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
 
     setIsLoading(true);
     setGlobalErrorSummary('');
+
+    // Pre-submission check for missing profile details (triggers modal instead of just error)
+    if (formData.contactInfoSource === 'currentUser') {
+      const methods = formData.preferredContactMethods;
+      if (methods?.phone && (!user.phone || user.phone.trim() === '')) {
+        setIsLoading(false);
+        setContactRedirectMessage("בחרת לפרסם עם טלפון, אך חסר מספר טלפון בפרופיל שלך. האם ברצונך לעבור להגדרות הפרופיל כדי לעדכן אותו?");
+        setOnContactRedirectConfirm(() => () => setCurrentPage('profile'));
+        setShowContactRedirectModal(true);
+        return;
+      }
+      if (methods?.whatsapp && (!user.whatsapp || user.whatsapp.trim() === '') && (!user.phone || user.phone.trim() === '')) {
+        setIsLoading(false);
+        setContactRedirectMessage("בחרת לפרסם עם וואטסאפ, אך חסר מספר בפרופיל שלך. האם ברצונך לעבור להגדרות הפרופיל כדי לעדכן אותו?");
+        setOnContactRedirectConfirm(() => () => setCurrentPage('profile'));
+        setShowContactRedirectModal(true);
+        return;
+      }
+      if (methods?.email && (!user.email || user.email.trim() === '')) {
+        setIsLoading(false);
+        setContactRedirectMessage("בחרת לפרסם עם אימייל, אך חסר כתובת אימייל בפרופיל שלך. האם ברצונך לעבור להגדרות הפרופיל כדי לעדכן אותה?");
+        setOnContactRedirectConfirm(() => () => setCurrentPage('profile'));
+        setShowContactRedirectModal(true);
+        return;
+      }
+    }
+
     const currentErrors = validateJobForm(formData, user.fullName);
     setErrors(currentErrors);
 
@@ -558,6 +606,7 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
         contactWhatsapp: finalContactWhatsapp,
         contactEmail: finalContactEmail,
         preferredContactMethods: finalPreferredContactMethods,
+        address: formData.address,
       };
 
       setLastPostedJobTitle(jobPayload.title || 'עבודה זו');
@@ -570,32 +619,99 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
         setErrors({});
         setGlobalErrorSummary('');
       } else {
-        // For new jobs -> Save Draft & Navigate to Payment Page
         const newJobDataPrePayment = {
           ...jobPayload,
+          title: jobPayload.title || '',
+          area: jobPayload.area || '',
+          description: jobPayload.description || '',
+          suitability: jobPayload.suitability || [],
+          difficulty: jobPayload.difficulty || JobDifficulty.EASY,
           postedBy: jobPosterInfo,
         };
 
-        localStorage.setItem('pendingJobDraft', JSON.stringify(newJobDataPrePayment));
-        setIsLoading(false);
-        setCurrentPage('payment', { type: 'post_job', jobTitle: jobPayload.title, amount: 5 });
-        return;
-      }
+        // Check if payment is required based on centralized settings
+        // Admins and Super Admins bypass payment requirement
+        const isUserAdmin = user.role === 'admin' || user.role === 'super_admin' || user.email?.toLowerCase() === 'eyceyceyc139@gmail.com';
+        const isPaymentRequired = paymentSettings.masterSwitch && paymentSettings.enablePosterPayment && !isUserAdmin;
 
-    } catch (error) {
+        if (!isPaymentRequired) {
+          // Free posting for everyone (or admin bypass)
+          try {
+            const docRef = await jobService.addJob(newJobDataPrePayment);
+            tempJobId = docRef.id;
+            setLastPostedJobId(tempJobId);
+            setShowSuccessModal(true);
+            setErrors({});
+            setGlobalErrorSummary('');
+            setSubmissionCompletedSuccessfully(true);
+          } catch (postError) {
+            console.error('Error posting job (free):', postError);
+            setErrors({ form: 'אירעה שגיאה בפרסום העבודה. נסה שוב.' });
+          } finally {
+            setIsLoading(false);
+          }
+        } else {
+          // Payment required (for everyone, including subscribers)
+          localStorage.setItem('pendingJobDraft', JSON.stringify(newJobDataPrePayment));
+          setIsLoading(false);
+          setCurrentPage('payment', {
+            type: 'post_job',
+            jobTitle: jobPayload.title,
+            amount: paymentSettings.postJobPrice || 10
+          });
+        }
+      }
+      return;
+    }
+
+    catch (error) {
       console.error(`Error ${isEditMode ? 'updating' : 'posting'} job:`, error);
       setErrors({ form: `אירעה שגיאה ב${isEditMode ? 'עדכון' : 'פרסום'} העבודה. נסה שוב.` });
     } finally {
       if (isEditMode) setIsLoading(false);
     }
-
   };
+
+  // --- Persistence Hooks ---
+  // Load saved draft on mount (only for new job)
+  useEffect(() => {
+    if (!isEditMode && !submissionCompletedSuccessfully && !editJobId) {
+      const savedDraft = localStorage.getItem('savedJobPostDraft');
+      if (savedDraft) {
+        try {
+          const parsed = JSON.parse(savedDraft);
+          setFormData(prev => ({ ...prev, ...parsed }));
+        } catch (e) {
+          console.error("Error loading saved draft", e);
+        }
+      }
+    }
+  }, [isEditMode, submissionCompletedSuccessfully, editJobId]);
+
+  // Save draft on change
+  useEffect(() => {
+    if (!isEditMode && !submissionCompletedSuccessfully) {
+      const handler = setTimeout(() => {
+        localStorage.setItem('savedJobPostDraft', JSON.stringify(formData));
+      }, 500);
+      return () => clearTimeout(handler);
+    }
+  }, [formData, isEditMode, submissionCompletedSuccessfully]);
+
+  // Clear draft on success
+  useEffect(() => {
+    if (submissionCompletedSuccessfully) {
+      localStorage.removeItem('savedJobPostDraft');
+    }
+  }, [submissionCompletedSuccessfully]);
+
+
 
   // Removed handlePaymentSuccess - logic moved to PaymentPage
 
   const cityOptions = getCityOptions().filter(opt => opt.value !== '');
   const difficultyOptions = Object.values(JobDifficulty).map(d => ({ value: d, label: d }));
-  const todayLabel = useTodayLabel();
+  // todayLabel is now defined at top of component with other hooks
   const dateTypeOptions = [
     { value: 'today', label: todayLabel },
     { value: 'comingWeek', label: 'בשבוע הקרוב' },
@@ -628,25 +744,7 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
       : 'bg-white text-royal-blue border-gray-300 hover:border-royal-blue hover:shadow-md disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-300 disabled:cursor-not-allowed'
     }`;
 
-
-  /* State for notice banner */
-  const [showNoticeBanner, setShowNoticeBanner] = useState(false);
-
-  useEffect(() => {
-    // Check local storage for banner status
-    try {
-      const isPermanentlyDismissed = localStorage.getItem('job_post_notice_dismissed');
-      const viewCount = parseInt(localStorage.getItem('job_post_notice_views') || '0', 10);
-
-      if (!isPermanentlyDismissed && viewCount < 5) {
-        setShowNoticeBanner(true);
-        localStorage.setItem('job_post_notice_views', (viewCount + 1).toString());
-      }
-    } catch (error) {
-      console.error("Error accessing localStorage (banner logic):", error);
-    }
-  }, []);
-
+  // handleDismissNotice function - not a hook so can be here
   const handleDismissNotice = () => {
     try {
       localStorage.setItem('job_post_notice_dismissed', 'true');

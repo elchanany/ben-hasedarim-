@@ -23,7 +23,7 @@ import {
   QuerySnapshot,
   DocumentSnapshot
 } from 'firebase/firestore';
-import { ISRAELI_CITIES, DEFAULT_USER_DISPLAY_NAME, SortById } from '../constants';
+import { ISRAELI_CITIES, DEFAULT_USER_DISPLAY_NAME, SortById, REGION_MAPPINGS } from '../constants';
 import { getTodayGregorianISO } from '../utils/dateConverter';
 import * as adminLogService from './adminLogService';
 import * as notificationService from './notificationService';
@@ -213,12 +213,25 @@ export const searchJobs = async (criteria: Partial<SearchCriteria>): Promise<Job
     );
   }
 
-  // 2. Location
+  // 2. Location (City or Region)
   if (criteria.location) {
-    const filterLocation = criteria.location.trim();
-    filteredJobs = filteredJobs.filter(job =>
-      job.area && job.area.trim() === filterLocation
-    );
+    const filterLocation = criteria.location.trim(); // This might be 'region_north' or 'Jerusalem'
+
+    // Check if it's a region key
+    const region = REGION_MAPPINGS.find(r => r.value === filterLocation);
+
+    if (region) {
+      // Filter by any city in the region
+      // Also include the region name itself just in case users posted with region name manually (unlikely but possible)
+      filteredJobs = filteredJobs.filter(job =>
+        job.area && (region.cities.includes(job.area) || job.area === region.label)
+      );
+    } else {
+      // Exact city match
+      filteredJobs = filteredJobs.filter(job =>
+        job.area && job.area.trim() === filterLocation
+      );
+    }
   }
 
   // 3. Difficulty

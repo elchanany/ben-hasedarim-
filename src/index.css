@@ -349,13 +349,17 @@ html.font-accessible button {
     height: 20px !important;
   }
 
-  .accessibility-widget-button:hover {
-    width: 40px;
+  @media (hover: hover) {
+    .accessibility-widget-button:hover {
+      width: 40px;
+    }
   }
 }
 
-.accessibility-widget-button:hover {
-  width: 60px;
+@media (hover: hover) {
+  .accessibility-widget-button:hover {
+    width: 60px;
+  }
 }
 
 .accessibility-widget-button.open {

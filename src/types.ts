@@ -32,6 +32,14 @@ export interface User {
     startedAt: any;
     lastPaymentId?: string;
   };
+
+  // Notification preferences
+  notificationPreferences?: {
+    email?: boolean;
+    sms?: boolean;
+    whatsapp?: boolean;
+    push?: boolean;
+  };
 }
 
 export interface PublicProfile {
@@ -171,8 +179,10 @@ export interface Notification {
   link?: string;
   isRead: boolean;
   createdAt: string;
+  timestamp?: any; // Firestore Timestamp or Date string
   relatedAlertId?: string;
   relatedAlertName?: string;
+  jobId?: string; // For job_alert_match
 }
 
 export interface JobAlertDeliveryMethods {

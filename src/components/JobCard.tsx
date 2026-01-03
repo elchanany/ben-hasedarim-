@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { TimeAgo } from './TimeAgo';
+import { REGION_MAPPINGS } from '../constants';
 
 interface JobCardProps {
   job: Job;
@@ -168,10 +169,12 @@ export const JobCard: React.FC<JobCardProps> = ({ job, setCurrentPage, isHotJob 
   const jobTags: TagProps[] = [];
 
   if (job.area) {
+    const region = REGION_MAPPINGS.find(r => r.value === job.area);
+    const displayArea = region ? region.label : job.area;
     jobTags.push({
-      label: job.area,
-      onClick: () => setCurrentPage('searchResults', { location: job.area }),
-      ariaLabel: `סנן לפי אזור: ${job.area}`,
+      label: displayArea,
+      onClick: () => setCurrentPage('searchResults', { location: job.area }), // Keep original value for filter
+      ariaLabel: `סנן לפי אזור: ${displayArea}`,
     });
   }
 
@@ -246,7 +249,10 @@ export const JobCard: React.FC<JobCardProps> = ({ job, setCurrentPage, isHotJob 
           <div className="flex flex-wrap gap-0.5 sm:gap-1.5 mb-2 sm:mb-4">
             <InfoItem
               icon={<MapPinIcon className="w-4 h-4" />}
-              text={job.area}
+              text={(() => {
+                const region = REGION_MAPPINGS.find(r => r.value === job.area);
+                return region ? region.label : job.area;
+              })()}
               iconColor="text-red-500"
               bgColor="bg-red-50"
             />

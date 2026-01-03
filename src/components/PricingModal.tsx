@@ -8,9 +8,11 @@ interface PricingModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSelectPlan: (plan: 'single' | 'monthly') => void;
+    singlePrice: number;
+    subscriptionPrice: number;
 }
 
-export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPlan }) => {
+export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPlan, singlePrice, subscriptionPrice }) => {
     return (
         <Transition appear show={isOpen} as={Fragment}>
             <Dialog as="div" className="relative z-50" onClose={onClose}>
@@ -61,7 +63,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onS
                                         <h4 className="text-xl font-bold text-gray-800 mb-2">משרה בודדת</h4>
                                         <p className="text-gray-500 text-sm mb-6 min-h-[40px]">פתח את פרטי הקשר למשרה ספציפית זו בלבד.</p>
                                         <div className="text-4xl font-extrabold text-royal-blue mb-6">
-                                            ₪5 <span className="text-sm font-normal text-gray-400">/ חד פעמי</span>
+                                            ₪{singlePrice} <span className="text-sm font-normal text-gray-400">/ חד פעמי</span>
                                         </div>
                                         <Button
                                             variant="outline"
@@ -83,7 +85,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onS
                                         <h4 className="text-xl font-bold text-gray-800 mb-2">חופשי-חודשי</h4>
                                         <p className="text-gray-500 text-sm mb-6 min-h-[40px]">גישה מלאה לכל המשרות באתר למשך 30 יום!</p>
                                         <div className="text-4xl font-extrabold text-deep-pink mb-6">
-                                            ₪15 <span className="text-sm font-normal text-gray-400">/ לחודש</span>
+                                            ₪{subscriptionPrice} <span className="text-sm font-normal text-gray-400">/ לחודש</span>
                                         </div>
                                         <Button
                                             variant="primary"
