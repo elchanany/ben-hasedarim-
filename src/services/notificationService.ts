@@ -1,5 +1,5 @@
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, updateDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, updateDoc, setDoc, deleteDoc } from "firebase/firestore";
 import { Notification, NotificationType, JobAlertPreference, JobDifficulty, Job, PaymentType, JobAlertDeliveryMethods, PaymentMethod, JobDateType } from '../types';
 import * as RealJobService from './jobService';
 import * as MockJobService from './mock/jobService';
@@ -322,63 +322,84 @@ const defaultNotificationDays: number[] = [0, 1, 2, 3, 4, 5]; // Sun-Fri
 const defaultDoNotDisturbHours = { start: "22:00", end: "07:00" };
 
 
-export const addJobAlertPreference = (userId: string, preferenceData: Omit<JobAlertPreference, 'id' | 'userId' | 'lastChecked'>): Promise<JobAlertPreference> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const preferences = getStoredJobAlertPreferences(userId);
-      const newPreference: JobAlertPreference = {
-        ...preferenceData,
-        id: `alert_${Date.now()}`,
-        userId: userId,
-        lastChecked: new Date().toISOString(), // Start checking from NOW, ignore old jobs
-        notificationDays: preferenceData.notificationDays || defaultNotificationDays,
-        doNotDisturbHours: preferenceData.doNotDisturbHours || defaultDoNotDisturbHours,
-        deliveryMethods: { site: true, email: false, whatsapp: false, tzintuk: false }, // Force site:true, others false
-        selectedPaymentMethods: new Set(preferenceData.selectedPaymentMethods || []),
-        alertEmail: preferenceData.alertEmail || '',
-        alertWhatsappPhone: preferenceData.alertWhatsappPhone || '',
-        alertTzintukPhone: preferenceData.alertTzintukPhone || '',
-      };
-      preferences.push(newPreference);
-      saveStoredJobAlertPreferences(userId, preferences);
-      resolve(newPreference);
-    }, 100);
-  });
+export const addJobAlertPreference = async (userId: string, preferenceData: Omit<JobAlertPreference, 'id' | 'userId' | 'lastChecked'>): Promise<JobAlertPreference> => {
+  const preferences = getStoredJobAlertPreferences(userId);
+  const newPreference: JobAlertPreference = {
+    ...preferenceData,
+    id: `alert_${Date.now()}`,
+    userId: userId,
+    lastChecked: new Date().toISOString(),
+    notificationDays: preferenceData.notificationDays || defaultNotificationDays,
+    doNotDisturbHours: preferenceData.doNotDisturbHours || defaultDoNotDisturbHours,
+    // CRITICAL FIX: Preserve user's delivery methods instead of forcing email: false
+    deliveryMethods: preferenceData.deliveryMethods || { site: true, email: false, whatsapp: false, tzintuk: false },
+    selectedPaymentMethods: new Set(preferenceData.selectedPaymentMethods || []),
+    alertEmail: preferenceData.alertEmail || '',
+    alertWhatsappPhone: preferenceData.alertWhatsappPhone || '',
+    alertTzintukPhone: preferenceData.alertTzintukPhone || '',
+  };
+  preferences.push(newPreference);
+  saveStoredJobAlertPreferences(userId, preferences);
+
+  // CRITICAL FIX: Sync to Firestore for backend email processing
+  try {
+    const firestoreData = {
+      ...newPreference,
+      selectedPaymentMethods: Array.from(newPreference.selectedPaymentMethods || []),
+    };
+    await setDoc(doc(db, 'users', userId, 'jobAlertPreferences', newPreference.id), firestoreData);
+    console.log('[notificationService] Alert synced to Firestore:', newPreference.id);
+  } catch (error) {
+    console.error('[notificationService] Failed to sync alert to Firestore:', error);
+  }
+
+  return newPreference;
 };
 
-export const updateJobAlertPreference = (userId: string, preferenceId: string, updates: Partial<Omit<JobAlertPreference, 'id' | 'userId' | 'lastChecked'>>): Promise<JobAlertPreference | undefined> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      let preferences = getStoredJobAlertPreferences(userId);
-      const index = preferences.findIndex(p => p.id === preferenceId);
-      if (index !== -1) {
-        preferences[index] = {
-          ...preferences[index],
-          ...updates,
-          deliveryMethods: { site: true, email: false, whatsapp: false, tzintuk: false }, // Force site:true, others false
-          selectedPaymentMethods: new Set(updates.selectedPaymentMethods || preferences[index].selectedPaymentMethods || []),
-          alertEmail: updates.alertEmail !== undefined ? updates.alertEmail : preferences[index].alertEmail,
-          alertWhatsappPhone: updates.alertWhatsappPhone !== undefined ? updates.alertWhatsappPhone : preferences[index].alertWhatsappPhone,
-          alertTzintukPhone: updates.alertTzintukPhone !== undefined ? updates.alertTzintukPhone : preferences[index].alertTzintukPhone,
-        };
-        saveStoredJobAlertPreferences(userId, preferences);
-        resolve(preferences[index]);
-      } else {
-        resolve(undefined);
-      }
-    }, 100);
-  });
+export const updateJobAlertPreference = async (userId: string, preferenceId: string, updates: Partial<Omit<JobAlertPreference, 'id' | 'userId' | 'lastChecked'>>): Promise<JobAlertPreference | undefined> => {
+  let preferences = getStoredJobAlertPreferences(userId);
+  const index = preferences.findIndex(p => p.id === preferenceId);
+  if (index === -1) return undefined;
+
+  preferences[index] = {
+    ...preferences[index],
+    ...updates,
+    // CRITICAL FIX: Preserve user's delivery methods instead of forcing email: false
+    deliveryMethods: updates.deliveryMethods !== undefined ? updates.deliveryMethods : preferences[index].deliveryMethods,
+    selectedPaymentMethods: new Set(updates.selectedPaymentMethods || preferences[index].selectedPaymentMethods || []),
+    alertEmail: updates.alertEmail !== undefined ? updates.alertEmail : preferences[index].alertEmail,
+    alertWhatsappPhone: updates.alertWhatsappPhone !== undefined ? updates.alertWhatsappPhone : preferences[index].alertWhatsappPhone,
+    alertTzintukPhone: updates.alertTzintukPhone !== undefined ? updates.alertTzintukPhone : preferences[index].alertTzintukPhone,
+  };
+  saveStoredJobAlertPreferences(userId, preferences);
+
+  // CRITICAL FIX: Sync to Firestore for backend email processing
+  try {
+    const firestoreData = {
+      ...preferences[index],
+      selectedPaymentMethods: Array.from(preferences[index].selectedPaymentMethods || []),
+    };
+    await setDoc(doc(db, 'users', userId, 'jobAlertPreferences', preferenceId), firestoreData);
+    console.log('[notificationService] Alert updated in Firestore:', preferenceId);
+  } catch (error) {
+    console.error('[notificationService] Failed to update alert in Firestore:', error);
+  }
+
+  return preferences[index];
 };
 
-export const deleteJobAlertPreference = (userId: string, preferenceId: string): Promise<void> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      let preferences = getStoredJobAlertPreferences(userId);
-      preferences = preferences.filter(p => p.id !== preferenceId);
-      saveStoredJobAlertPreferences(userId, preferences);
-      resolve();
-    }, 100);
-  });
+export const deleteJobAlertPreference = async (userId: string, preferenceId: string): Promise<void> => {
+  let preferences = getStoredJobAlertPreferences(userId);
+  preferences = preferences.filter(p => p.id !== preferenceId);
+  saveStoredJobAlertPreferences(userId, preferences);
+
+  // CRITICAL FIX: Delete from Firestore for backend consistency
+  try {
+    await deleteDoc(doc(db, 'users', userId, 'jobAlertPreferences', preferenceId));
+    console.log('[notificationService] Alert deleted from Firestore:', preferenceId);
+  } catch (error) {
+    console.error('[notificationService] Failed to delete alert from Firestore:', error);
+  }
 };
 
 
