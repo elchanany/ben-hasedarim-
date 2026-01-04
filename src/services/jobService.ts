@@ -425,6 +425,7 @@ export const addJob = async (jobData: Omit<Job, 'id' | 'postedDate' | 'views' | 
       contactAttempts: 0,
       isFlagged: false, // Default for new jobs
       flagReason: '',   // Default for new jobs
+      isPosted: true,   // CRITICAL: Required for onJobCreated trigger to process email alerts
     };
     if (jobPayload.dateType === 'today' && !jobPayload.specificDate) {
       jobPayload.specificDate = getTodayGregorianISO();
