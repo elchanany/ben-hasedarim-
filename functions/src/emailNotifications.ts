@@ -35,6 +35,7 @@ interface Job {
     title: string;
     location?: string;
     city?: string;
+    area?: string; // CRITICAL: This is the actual field used in frontend
     difficulty?: string;
     paymentKind?: string;
     hourlyRate?: number;
@@ -197,39 +198,78 @@ export async function processNewJobAlert(jobId: string, jobData: any): Promise<{
         let sentCount = 0;
         let errorCount = 0;
 
-        const usersSnapshot = await db.collection('users')
-            .where('notificationPreferences.email', '==', true)
-            .get();
+        // DEBUG: Get ALL users first to see what we have
+        const usersSnapshot = await db.collection('users').get();
+        console.log(`[EmailNotifications] Found ${usersSnapshot.size} total users in system`);
 
         for (const userDoc of usersSnapshot.docs) {
             const user = userDoc.data();
             const userId = userDoc.id;
 
-            const alertsSnapshot = await db.collection('users').doc(userId)
+            // DEBUG: Log user email preferences
+            const hasEmailPref = user.notificationPreferences?.email === true;
+            console.log(`[EmailNotifications] User ${user.email || userId}: notificationPreferences.email = ${hasEmailPref}`);
+
+            // Skip users without email preference enabled
+            if (!hasEmailPref) {
+                continue;
+            }
+
+            // DEBUG: Get ALL alerts for this user to see what exists
+            const allAlertsSnapshot = await db.collection('users').doc(userId)
                 .collection('jobAlertPreferences')
-                .where('isActive', '==', true)
-                .where('deliveryMethods.email', '==', true)
                 .get();
 
-            for (const alertDoc of alertsSnapshot.docs) {
+            console.log(`[EmailNotifications] User ${user.email}: Found ${allAlertsSnapshot.size} total alerts in Firestore`);
+
+            for (const alertDoc of allAlertsSnapshot.docs) {
                 const alert = alertDoc.data() as JobAlertPreference;
+
+                // DEBUG: Log each alert's settings
+                console.log(`[EmailNotifications] Alert '${alert.name}': isActive=${alert.isActive}, deliveryMethods.email=${alert.deliveryMethods?.email}, emailFrequency=${alert.emailFrequency}`);
+
+                // Check if alert should receive immediate emails
+                if (!alert.isActive) {
+                    console.log(`[EmailNotifications] Skipping alert '${alert.name}': not active`);
+                    continue;
+                }
+                if (!alert.deliveryMethods?.email) {
+                    console.log(`[EmailNotifications] Skipping alert '${alert.name}': email delivery not enabled`);
+                    continue;
+                }
 
                 // Check User Preference
                 // Only send if user explicitly wants 'instant'
                 const userFreq = alert.emailFrequency || 'instant';
+                console.log(`[EmailNotifications] Alert '${alert.name}': emailFrequency=${userFreq}`);
                 if (userFreq !== 'instant') {
+                    console.log(`[EmailNotifications] Skipping alert '${alert.name}': emailFrequency is not instant`);
                     continue;
                 }
 
                 // Basic matching logic repeated here...
-                // In production, matching logic should be extracted to a helper function matching the one in findMatchingJobs
-                // For brevity, we assume strict match logic here as before
-
                 const job: Job = { id: jobId, ...jobData } as Job;
+                console.log(`[EmailNotifications] Job data: id=${job.id}, title=${job.title}, area=${job.area}, city=${job.city}, difficulty=${job.difficulty}`);
+
                 let isMatch = true;
-                if (alert.location && job.city && !job.city.includes(alert.location)) isMatch = false;
-                if (alert.difficulty && job.difficulty && job.difficulty !== alert.difficulty) isMatch = false;
-                if (alert.paymentKind && alert.paymentKind !== 'any' && job.paymentKind !== alert.paymentKind) isMatch = false;
+                // CRITICAL FIX: Check both area and city fields (area is primary in frontend)
+                const jobLocation = job.area || job.city || '';
+                console.log(`[EmailNotifications] Matching: jobLocation='${jobLocation}' vs alertLocation='${alert.location}'`);
+
+                if (alert.location && jobLocation && !jobLocation.includes(alert.location)) {
+                    console.log(`[EmailNotifications] Job ${job.id} - Location mismatch`);
+                    isMatch = false;
+                }
+                if (alert.difficulty && job.difficulty && job.difficulty !== alert.difficulty) {
+                    console.log(`[EmailNotifications] Job ${job.id} - Difficulty mismatch`);
+                    isMatch = false;
+                }
+                if (alert.paymentKind && alert.paymentKind !== 'any' && job.paymentKind !== alert.paymentKind) {
+                    console.log(`[EmailNotifications] Job ${job.id} - Payment kind mismatch`);
+                    isMatch = false;
+                }
+
+                console.log(`[EmailNotifications] Job ${job.id} final isMatch=${isMatch}`);
 
                 if (isMatch) {
                     console.log(`[EmailNotifications] Job ${job.id} matches alert '${alert.name}' for user ${user.email}`);
@@ -319,8 +359,9 @@ async function findMatchingJobs(db: admin.firestore.Firestore, alert: JobAlertPr
     for (const doc of snapshot.docs) {
         const job = { id: doc.id, ...doc.data() } as Job;
 
-        // Apply filters based on alert criteria
-        if (alert.location && job.city && !job.city.includes(alert.location)) {
+        // CRITICAL FIX: Check both area and city fields (area is primary in frontend)
+        const jobLocation = job.area || job.city || '';
+        if (alert.location && jobLocation && !jobLocation.includes(alert.location)) {
             continue;
         }
         if (alert.difficulty && job.difficulty && job.difficulty !== alert.difficulty) {

@@ -43,10 +43,17 @@ export const onJobCreated = functions
         const jobId = context.params.jobId;
         const jobData = snap.data();
 
-        // Only process posted jobs
-        if (!jobData.isPosted) return null;
+        // DEBUG: Log all job data to see what we have
+        console.log(`[Trigger] onJobCreated fired for job ${jobId}`);
+        console.log(`[Trigger] Job data: isPosted=${jobData.isPosted}, title=${jobData.title}, area=${jobData.area}`);
 
-        console.log(`[Trigger] New job created: ${jobId}`);
+        // Only process posted jobs
+        if (!jobData.isPosted) {
+            console.log(`[Trigger] Skipping job ${jobId} - isPosted is ${jobData.isPosted} (falsy)`);
+            return null;
+        }
+
+        console.log(`[Trigger] Processing job ${jobId} - isPosted is TRUE, calling processNewJobAlert`);
         await import('./emailNotifications').then(m =>
             m.processNewJobAlert(jobId, jobData)
         );
