@@ -16,8 +16,10 @@ interface JobAlertProps {
         id: string;
         title: string;
         location: string;
+        area?: string;
         payment: string;
         postedAt: string;
+        difficulty?: string;
     }>;
 }
 
@@ -31,9 +33,11 @@ const styles = {
     text: 'color: #4b5563; font-size: 16px; line-height: 1.5; margin-bottom: 20px;',
     buttonContainer: 'text-align: center; margin: 30px 0;',
     button: 'background-color: #2563eb; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; display: inline-block;',
+    buttonSecondary: 'background-color: #22c55e; color: #ffffff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: bold; display: inline-block; margin-right: 10px;',
     jobCard: 'background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 16px; margin-bottom: 16px;',
     jobTitle: 'color: #2563eb; font-size: 18px; font-weight: bold; margin: 0 0 8px 0; display: block; text-decoration: none;',
     jobDetail: 'color: #6b7280; font-size: 14px; margin: 4px 0;',
+    jobButtons: 'margin-top: 12px; text-align: center;',
     footer: 'background-color: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px;',
     footerLink: 'color: #9ca3af; text-decoration: underline;'
 };
@@ -64,10 +68,10 @@ function wrapHtml(title: string, content: string): string {
             
             <!-- Footer -->
             <div style="${styles.footer}">
-                <p style="margin: 0 0 8px 0;">Jerusalem, Israel</p>
+                <p style="margin: 0 0 8px 0;">בין הסדרים - פלטפורמת המשרות לחיילים משוחררים</p>
                 <p style="margin: 0;">
-                    You received this email because you signed up for Bein Hasdorim.
-                    If this wasn't you, please <a href="#" style="${styles.footerLink}">ignore this email</a>.
+                    קיבלת מייל זה כי יצרת התראה באתר. 
+                    <a href="https://bein-hasdorim.co.il/settings" style="${styles.footerLink}">ניהול התראות</a>
                 </p>
             </div>
         </div>
@@ -102,32 +106,61 @@ export function generateWelcomeEmail({ userName, verificationLink }: WelcomeEmai
     return wrapHtml('ברוכים הבאים - בין הסדרים', content);
 }
 
+// Helper to translate area codes to Hebrew
+function translateArea(area?: string): string {
+    if (!area) return 'לא צוין';
+    const areaMap: Record<string, string> = {
+        'region_jerusalem': 'ירושלים והסביבה',
+        'region_center': 'מרכז',
+        'region_north': 'צפון',
+        'region_south': 'דרום',
+        'region_tel_aviv': 'תל אביב והמרכז',
+        'region_haifa': 'חיפה והצפון',
+        'all_country': 'כל הארץ',
+    };
+    return areaMap[area] || area;
+}
+
 /**
- * Generate Job Alert Email (New Design)
+ * Generate Job Alert Email (Improved Design)
  */
 export function generateJobAlertEmail({ userName, jobs, alertName }: JobAlertProps): string {
-    const jobsHtml = jobs.map(job => `
+    const siteUrl = 'https://bein-hasdorim.co.il';
+
+    const jobsHtml = jobs.map(job => {
+        const location = job.area ? translateArea(job.area) : (job.location || 'לא צוין');
+        const jobUrl = `${siteUrl}/#/jobDetails?jobId=${job.id}`;
+
+        return `
         <div style="${styles.jobCard}">
-            <a href="https://bein-hasdorim.co.il/jobs/${job.id}" style="${styles.jobTitle}">${job.title}</a>
-            <div style="${styles.jobDetail}">📍 ${job.location}</div>
-            <div style="${styles.jobDetail}">💰 ${job.payment}</div>
+            <a href="${jobUrl}" style="${styles.jobTitle}">${job.title}</a>
+            <div style="${styles.jobDetail}">📍 מיקום: ${location}</div>
+            <div style="${styles.jobDetail}">💰 תשלום: ${job.payment}</div>
+            ${job.difficulty ? `<div style="${styles.jobDetail}">📊 רמת קושי: ${job.difficulty}</div>` : ''}
             <div style="${styles.jobDetail}">⏰ פורסם: ${job.postedAt}</div>
+            <div style="${styles.jobButtons}">
+                <a href="${jobUrl}" style="${styles.button}">צפה בעבודה</a>
+            </div>
         </div>
-    `).join('');
+    `}).join('');
+
+    const firstJobTitle = jobs[0]?.title || 'עבודה חדשה';
 
     const content = `
-        <h1 style="${styles.heading}">נמצאו משרות חדשות עבורך! 🔔</h1>
+        <h1 style="${styles.heading}">🔔 התראה חדשה על עבודה!</h1>
         <p style="${styles.text}">שלום ${userName},</p>
         <p style="${styles.text}">
-            בהתאם להתראה שהגדרת <strong>"${alertName}"</strong>, מצאנו ${jobs.length} משרות חדשות שעשויות לעניין אותך:
+            נמצאה עבודה חדשה שמתאימה להתראה <strong>"${alertName}"</strong>:
         </p>
         
         ${jobsHtml}
         
         <div style="${styles.buttonContainer}">
-            <a href="https://bein-hasdorim.co.il/jobs" style="${styles.button}">לכל המשרות החדשות</a>
+            <a href="${siteUrl}/#/jobs" style="${styles.button}">חפש עוד עבודות</a>
         </div>
     `;
 
-    return wrapHtml(`התראת משרות: ${alertName}`, content);
+    // Improved subject line with job title
+    return wrapHtml(`עבודה חדשה: ${firstJobTitle} - בין הסדרים`, content);
 }
+
