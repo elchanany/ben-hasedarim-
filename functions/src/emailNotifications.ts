@@ -40,7 +40,8 @@ interface Job {
     paymentKind?: string;
     hourlyRate?: number;
     globalPayment?: number;
-    createdAt: admin.firestore.Timestamp;
+    createdAt?: admin.firestore.Timestamp;
+    postedDate?: string; // CRITICAL: Frontend uses this ISO string, not createdAt
     isPosted: boolean;
 }
 
@@ -135,7 +136,7 @@ export async function processEmailNotifications(): Promise<{ sent: number; error
                             title: job.title,
                             location: job.location || job.city || 'לא צוין',
                             payment: formatPayment(job),
-                            postedAt: formatDate(job.createdAt),
+                            postedAt: formatDateSafe(job.postedDate, job.createdAt),
                         })),
                     };
 
@@ -282,7 +283,7 @@ export async function processNewJobAlert(jobId: string, jobData: any): Promise<{
                             title: job.title,
                             location: job.location || job.city || 'לא צוין',
                             payment: formatPayment(job),
-                            postedAt: formatDate(job.createdAt),
+                            postedAt: formatDateSafe(job.postedDate, job.createdAt),
                         }],
                     };
 
@@ -391,10 +392,19 @@ function formatPayment(job: Job): string {
 }
 
 /**
- * Format date for display in Hebrew
+ * Format date for display in Hebrew - handles both Timestamp and ISO string
  */
-function formatDate(timestamp: admin.firestore.Timestamp): string {
-    const date = timestamp.toDate();
+function formatDateSafe(postedDate?: string, createdAt?: admin.firestore.Timestamp): string {
+    let date: Date;
+
+    if (postedDate) {
+        date = new Date(postedDate);
+    } else if (createdAt && typeof createdAt.toDate === 'function') {
+        date = createdAt.toDate();
+    } else {
+        return 'לא ידוע';
+    }
+
     return date.toLocaleDateString('he-IL', {
         day: 'numeric',
         month: 'long',

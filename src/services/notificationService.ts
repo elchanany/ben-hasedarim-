@@ -341,17 +341,14 @@ export const addJobAlertPreference = async (userId: string, preferenceData: Omit
   preferences.push(newPreference);
   saveStoredJobAlertPreferences(userId, preferences);
 
-  // CRITICAL FIX: Sync to Firestore for backend email processing
-  try {
-    const firestoreData = {
-      ...newPreference,
-      selectedPaymentMethods: Array.from(newPreference.selectedPaymentMethods || []),
-    };
-    await setDoc(doc(db, 'users', userId, 'jobAlertPreferences', newPreference.id), firestoreData);
-    console.log('[notificationService] Alert synced to Firestore:', newPreference.id);
-  } catch (error) {
-    console.error('[notificationService] Failed to sync alert to Firestore:', error);
-  }
+  // Sync to Firestore in background (fire-and-forget for performance)
+  const firestoreData = {
+    ...newPreference,
+    selectedPaymentMethods: Array.from(newPreference.selectedPaymentMethods || []),
+  };
+  setDoc(doc(db, 'users', userId, 'jobAlertPreferences', newPreference.id), firestoreData)
+    .then(() => console.log('[notificationService] Alert synced to Firestore:', newPreference.id))
+    .catch((error) => console.error('[notificationService] Failed to sync alert to Firestore:', error));
 
   return newPreference;
 };
@@ -373,17 +370,14 @@ export const updateJobAlertPreference = async (userId: string, preferenceId: str
   };
   saveStoredJobAlertPreferences(userId, preferences);
 
-  // CRITICAL FIX: Sync to Firestore for backend email processing
-  try {
-    const firestoreData = {
-      ...preferences[index],
-      selectedPaymentMethods: Array.from(preferences[index].selectedPaymentMethods || []),
-    };
-    await setDoc(doc(db, 'users', userId, 'jobAlertPreferences', preferenceId), firestoreData);
-    console.log('[notificationService] Alert updated in Firestore:', preferenceId);
-  } catch (error) {
-    console.error('[notificationService] Failed to update alert in Firestore:', error);
-  }
+  // Sync to Firestore in background (fire-and-forget for performance)
+  const firestoreData = {
+    ...preferences[index],
+    selectedPaymentMethods: Array.from(preferences[index].selectedPaymentMethods || []),
+  };
+  setDoc(doc(db, 'users', userId, 'jobAlertPreferences', preferenceId), firestoreData)
+    .then(() => console.log('[notificationService] Alert updated in Firestore:', preferenceId))
+    .catch((error) => console.error('[notificationService] Failed to update alert in Firestore:', error));
 
   return preferences[index];
 };
@@ -393,13 +387,10 @@ export const deleteJobAlertPreference = async (userId: string, preferenceId: str
   preferences = preferences.filter(p => p.id !== preferenceId);
   saveStoredJobAlertPreferences(userId, preferences);
 
-  // CRITICAL FIX: Delete from Firestore for backend consistency
-  try {
-    await deleteDoc(doc(db, 'users', userId, 'jobAlertPreferences', preferenceId));
-    console.log('[notificationService] Alert deleted from Firestore:', preferenceId);
-  } catch (error) {
-    console.error('[notificationService] Failed to delete alert from Firestore:', error);
-  }
+  // Delete from Firestore in background (fire-and-forget for performance)
+  deleteDoc(doc(db, 'users', userId, 'jobAlertPreferences', preferenceId))
+    .then(() => console.log('[notificationService] Alert deleted from Firestore:', preferenceId))
+    .catch((error) => console.error('[notificationService] Failed to delete alert from Firestore:', error));
 };
 
 
