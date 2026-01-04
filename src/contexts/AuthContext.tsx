@@ -118,7 +118,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const qNotifs = query(notificationsCol, where("userId", "==", user.id), where("isRead", "==", false));
 
     const unsubscribeNotifs = onSnapshot(qNotifs, (snapshot) => {
-      setSystemUnreadCount(snapshot.size);
+      setFirestoreUnreadCount(snapshot.size);
     }, (error) => {
       if (error.code !== 'permission-denied') { // Ignore initial permission errors if any
         console.error("Error in notification listener:", error);
@@ -166,37 +166,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Combine counts
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
-  const [systemUnreadCount, setSystemUnreadCount] = useState(0);
+  const [firestoreUnreadCount, setFirestoreUnreadCount] = useState(0);
+  const [localUnreadCount, setLocalUnreadCount] = useState(0);
 
   useEffect(() => {
-    setTotalUnreadCount(chatUnreadCount + systemUnreadCount);
-  }, [chatUnreadCount, systemUnreadCount]);
+    setTotalUnreadCount(chatUnreadCount + firestoreUnreadCount + localUnreadCount);
+  }, [chatUnreadCount, firestoreUnreadCount, localUnreadCount]);
 
   const refreshTotalUnreadCount = useCallback(async (currentUserId?: string) => {
-    // This function is called to refresh counts after actions like marking as read.
-    // It generates new job alert matches AND updates the systemUnreadCount with localStorage notifications.
     const userIdToUse = currentUserId || user?.id;
     if (userIdToUse) {
+      // 1. Generate new matches (which saves to localStorage)
       await notificationService.generateJobAlertMatches(userIdToUse);
 
-      // Also update the systemUnreadCount to include localStorage notifications
-      // since Firestore listener only counts Firestore notifications
-      const localUnreadCount = await notificationService.getUnreadNotificationCount(userIdToUse);
-      setSystemUnreadCount(prev => {
-        // We combine the Firestore listener count with local count
-        // But Firestore listener is the source of truth for its own notifications
-        // So we need to be careful not to double count.
-        // Since job_alert_match are ONLY in localStorage, and system_update may be in Firestore,
-        // We can just use local count for localStorage notifications.
-        // The Firestore listener handles Firestore notifications.
-        // So we set systemUnreadCount = localUnreadCount (from localStorage)
-        // and the Firestore listener sets it for Firestore notifications.
-        // PROBLEM: this will override the Firestore count.
-
-        // SOLUTION: Keep a separate state for local notifications count
-        // But for simplicity, let's just re-fetch local and add to total
-        return localUnreadCount; // This is localStorage count
-      });
+      // 2. Read from localStorage
+      const count = await notificationService.getUnreadNotificationCount(userIdToUse);
+      setLocalUnreadCount(count);
     }
   }, [user?.id]);
 
@@ -349,4 +334,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       {children}
     </AuthContext.Provider>
   );
+};
+
+export const useAuth = () => {
+  const context = React.useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };

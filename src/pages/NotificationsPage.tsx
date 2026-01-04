@@ -274,7 +274,7 @@ export const NotificationsPage: React.FC<PageProps> = ({ setCurrentPage, pagePar
         console.error("Error in initial data fetch:", error);
       }
     }
-  }, [user, fetchSystemNotifications, fetchJobAlerts, fetchChatThreads]);
+  }, [user, fetchSystemNotifications, fetchJobAlerts, fetchChatThreads, authCtx?.totalUnreadCount]);
 
   useEffect(() => {
     // Determine active tab from params or defaults

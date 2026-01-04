@@ -227,6 +227,7 @@ export interface JobAlertPreference {
   alertTzintukPhone?: string;
   isActive: boolean;
   lastChecked?: string;
+  emailFrequency?: 'instant' | 'daily' | 'weekly';
 }
 
 export interface JobSearchFilters {

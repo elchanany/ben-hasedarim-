@@ -71,6 +71,7 @@ const initialAlertFormData: Partial<Omit<JobAlertPreference, 'id' | 'userId' | '
     minAge: '',
     maxAge: '',
     frequency: 'instant',
+    emailFrequency: 'instant',
     isActive: true,
     notificationDays: [0, 1, 2, 3, 4, 5],
     doNotDisturbHours: undefined, // Default off
@@ -130,6 +131,7 @@ export const CreateJobAlertPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
                             minAge: alertToEdit.minAge || '',
                             maxAge: alertToEdit.maxAge || '',
                             frequency: alertToEdit.frequency || 'daily',
+                            emailFrequency: alertToEdit.emailFrequency || 'instant',
                             isActive: alertToEdit.isActive === undefined ? true : alertToEdit.isActive,
                             notificationDays: alertToEdit.notificationDays || [0, 1, 2, 3, 4, 5],
                             doNotDisturbHours: alertToEdit.doNotDisturbHours,
@@ -255,10 +257,11 @@ export const CreateJobAlertPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
             minAge: alertFormData.minAge || '',
             maxAge: alertFormData.maxAge || '',
             frequency: alertFormData.frequency || 'instant',
+            emailFrequency: alertFormData.emailFrequency || 'instant',
             isActive: alertFormData.isActive === undefined ? true : alertFormData.isActive,
             notificationDays: alertFormData.notificationDays || [0, 1, 2, 3, 4, 5],
             doNotDisturbHours: doNotDisturbEnabled ? (alertFormData.doNotDisturbHours || { start: "22:00", end: "07:00" }) : undefined,
-            deliveryMethods: { site: true, email: false, whatsapp: false, tzintuk: false },
+            deliveryMethods: alertFormData.deliveryMethods || { site: true, email: false, whatsapp: false, tzintuk: false },
             alertEmail: alertFormData.alertEmail || '',
             alertWhatsappPhone: alertFormData.alertWhatsappPhone || '',
             alertTzintukPhone: alertFormData.alertTzintukPhone || '',
@@ -564,18 +567,36 @@ export const CreateJobAlertPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
                                     </label>
 
                                     {/* Email notifications */}
-                                    <label className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 cursor-pointer hover:border-blue-300 transition-all">
-                                        <input
-                                            type="checkbox"
-                                            checked={alertFormData.deliveryMethods?.email ?? false}
-                                            onChange={(e) => handleValueChange('deliveryMethods', { ...alertFormData.deliveryMethods, email: e.target.checked })}
-                                            className="w-5 h-5 text-royal-blue rounded border-gray-300 focus:ring-royal-blue"
-                                        />
-                                        <div className="flex-1">
-                                            <span className="font-medium text-gray-800">התראה במייל</span>
-                                            <p className="text-xs text-gray-500">נשלח לך מייל כשיש משרות חדשות</p>
+                                    <label className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 cursor-pointer hover:border-blue-300 transition-all flex-wrap">
+                                        <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+                                            <input
+                                                type="checkbox"
+                                                checked={alertFormData.deliveryMethods?.email ?? false}
+                                                onChange={(e) => handleValueChange('deliveryMethods', { ...alertFormData.deliveryMethods, email: e.target.checked })}
+                                                className="w-5 h-5 text-royal-blue rounded border-gray-300 focus:ring-royal-blue"
+                                            />
+                                            <div className="flex-1">
+                                                <span className="font-medium text-gray-800">התראה במייל</span>
+                                                <p className="text-xs text-gray-500">נשלח לך מייל כשיש משרות חדשות</p>
+                                            </div>
                                         </div>
-                                        {user?.email && <span className="text-xs text-gray-400 truncate max-w-[120px]">{user.email}</span>}
+
+                                        {/* Frequency Selector for Email */}
+                                        {alertFormData.deliveryMethods?.email && (
+                                            <div className="mr-auto w-full sm:w-auto animate-fade-in pl-0 sm:pl-2 mt-2 sm:mt-0" onClick={(e) => e.preventDefault()}>
+                                                <select
+                                                    value={alertFormData.emailFrequency || 'instant'}
+                                                    onChange={(e) => handleValueChange('emailFrequency', e.target.value)}
+                                                    className="w-full sm:w-auto text-sm border-gray-300 rounded-md focus:ring-royal-blue bg-gray-50 text-gray-700 py-1.5 px-3 cursor-pointer"
+                                                >
+                                                    <option value="instant">מיידית (ברגע שמתפרסם)</option>
+                                                    <option value="daily">פעם ביום (סיכום)</option>
+                                                    <option value="weekly">פעם בשבוע (סיכום)</option>
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {user?.email && <span className="text-xs text-gray-400 w-full sm:w-auto mt-1 sm:mt-0 text-left sm:text-right px-1">{user.email}</span>}
                                     </label>
 
                                     {/* Coming soon - WhatsApp & SMS */}
