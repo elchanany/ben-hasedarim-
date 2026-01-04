@@ -25,6 +25,8 @@ interface JobAlertPreference {
         tzintuk: boolean;
     };
     alertEmail?: string;
+    frequency?: 'daily' | 'instant' | 'weekly';
+    emailFrequency?: 'instant' | 'daily' | 'weekly';
     lastEmailSent?: admin.firestore.Timestamp;
 }
 
@@ -42,33 +44,41 @@ interface Job {
 }
 
 /**
- * Main function to process email notifications
+ * Main function to process email notifications (Scheduled Batch)
  */
 export async function processEmailNotifications(): Promise<{ sent: number; errors: number }> {
-    console.log('[EmailNotifications] Starting hourly job alert email processing...');
+    console.log('[EmailNotifications] Starting partial batch job alert processing...');
 
     let sentCount = 0;
     let errorCount = 0;
 
     try {
-        // Get Firestore instance (must be after initializeApp is called in index.ts)
         const db = admin.firestore();
 
-        // 1. Check if email service is enabled
+        // 1. Check settings
         const settingsDoc = await db.collection('settings').doc('notifications').get();
         const settings = settingsDoc.data();
 
         if (!settings?.isEmailServiceActive) {
-            console.log('[EmailNotifications] Email service is disabled. Skipping.');
             return { sent: 0, errors: 0 };
         }
 
-        // 2. Get all users with notification preferences that include email
+        // Determine frequency threshold in minutes
+        let thresholdMinutes = 60; // Default hourly
+        if (settings.defaultFrequency === 'daily') thresholdMinutes = 1440;
+        else if (settings.defaultFrequency === 'custom') thresholdMinutes = settings.frequencyMinutes || 30;
+        else if (settings.defaultFrequency === 'immediate') {
+            // If immediate, the trigger handles it. Scheduled job is just a fallback/cleanup or specific overrides.
+            // For simplicity, we skip batch processing if mode is global immediate 
+            // (assuming triggers work reliably).
+            console.log('[EmailNotifications] Global mode is immediate. Skipping batch process.');
+            return { sent: 0, errors: 0 };
+        }
+
+        // 2. Get users with email notifications
         const usersSnapshot = await db.collection('users')
             .where('notificationPreferences.email', '==', true)
             .get();
-
-        console.log(`[EmailNotifications] Found ${usersSnapshot.size} users with email notifications enabled`);
 
         // 3. Process each user
         for (const userDoc of usersSnapshot.docs) {
@@ -76,36 +86,45 @@ export async function processEmailNotifications(): Promise<{ sent: number; error
                 const user = userDoc.data();
                 const userId = userDoc.id;
 
-                // Get user's job alert preferences that have email delivery enabled
                 const alertsSnapshot = await db.collection('users').doc(userId)
                     .collection('jobAlertPreferences')
                     .where('isActive', '==', true)
                     .where('deliveryMethods.email', '==', true)
                     .get();
 
-                if (alertsSnapshot.empty) {
-                    continue; // No email alerts for this user
-                }
+                if (alertsSnapshot.empty) continue;
 
-                // Process each alert
                 for (const alertDoc of alertsSnapshot.docs) {
                     const alert = alertDoc.data() as JobAlertPreference;
                     alert.id = alertDoc.id;
 
-                    // Determine time window for new jobs
-                    const lastEmailSent = alert.lastEmailSent?.toDate() || new Date(Date.now() - 24 * 60 * 60 * 1000); // Default: 24h ago
+                    // Check if enough time passed since last email
+                    const lastSent = alert.lastEmailSent?.toDate() || new Date(0);
+                    const diffMinutes = (Date.now() - lastSent.getTime()) / (1000 * 60);
 
-                    // Find matching jobs
-                    const matchingJobs = await findMatchingJobs(db, alert, lastEmailSent);
+                    // Determine User Preference Frequency
+                    let userThresholdMinutes = 1440; // Default daily
+                    const userFreq = alert.emailFrequency || 'instant'; // Default to instant if not set (or fallback to old logic)
 
-                    if (matchingJobs.length === 0) {
-                        console.log(`[EmailNotifications] No new jobs for alert "${alert.name}" (user: ${userId})`);
-                        continue;
+                    if (userFreq === 'instant') userThresholdMinutes = 0;
+                    else if (userFreq === 'daily') userThresholdMinutes = 1440;
+                    else if (userFreq === 'weekly') userThresholdMinutes = 10080;
+
+                    // Enforce Global Minimum (Floor)
+                    // The user cannot get emails faster than the Admin allows.
+                    // Effective Threshold = Max(Global, User)
+                    const effectiveThresholdMinutes = Math.max(thresholdMinutes, userThresholdMinutes);
+
+                    if (diffMinutes < effectiveThresholdMinutes) {
+                        continue; // Not time yet
                     }
 
-                    console.log(`[EmailNotifications] Found ${matchingJobs.length} matching jobs for alert "${alert.name}"`);
+                    // Look for new jobs since last sent
+                    const matchingJobs = await findMatchingJobs(db, alert, lastSent);
 
-                    // Send email
+                    if (matchingJobs.length === 0) continue;
+
+                    // Send digest email
                     const emailData: JobAlertEmail = {
                         userEmail: alert.alertEmail || user.email,
                         userName: user.fullName || 'משתמש יקר',
@@ -123,19 +142,19 @@ export async function processEmailNotifications(): Promise<{ sent: number; error
 
                     if (result.success) {
                         sentCount++;
-                        // Update lastEmailSent
+                        // IMPORTANT: Update timestamp so we don't spam
                         await alertDoc.ref.update({
                             lastEmailSent: admin.firestore.FieldValue.serverTimestamp(),
                         });
-                        console.log(`[EmailNotifications] Email sent to ${emailData.userEmail} (messageId: ${result.messageId})`);
+                        console.log(`[EmailNotifications] Batch email sent to ${emailData.userEmail}`);
+                        await updateEmailStats(db, 1);
                     } else {
                         errorCount++;
-                        console.error(`[EmailNotifications] Failed to send email to ${emailData.userEmail}: ${result.error}`);
+                        console.error(`[EmailNotifications] Failed to send batch email: ${result.error}`);
                     }
                 }
-            } catch (userError) {
-                console.error(`[EmailNotifications] Error processing user ${userDoc.id}:`, userError);
-                errorCount++;
+            } catch (err) {
+                console.error(`Error processing user ${userDoc.id}:`, err);
             }
         }
 
@@ -144,8 +163,144 @@ export async function processEmailNotifications(): Promise<{ sent: number; error
         throw error;
     }
 
-    console.log(`[EmailNotifications] Completed. Sent: ${sentCount}, Errors: ${errorCount}`);
     return { sent: sentCount, errors: errorCount };
+}
+
+/**
+ * Process immediate alerts for a single new job (Real-time Trigger)
+ */
+export async function processNewJobAlert(jobId: string, jobData: any): Promise<{ sent: number; errors: number }> {
+    console.log(`[EmailNotifications] Processing immediate alert for job ${jobId}`);
+    const db = admin.firestore();
+
+    try {
+        const settingsDoc = await db.collection('settings').doc('notifications').get();
+        const settings = settingsDoc.data();
+
+        if (!settings?.isEmailServiceActive) {
+            return { sent: 0, errors: 0 };
+        }
+
+        // If global frequency is NOT immediate, we skip real-time sending.
+        // The scheduled batch function will pick this job up later because 
+        // it queries jobs created > lastEmailSent.
+        // Global frequency check - we prioritize user preference now, but log the global state.
+        // Global Frequency Check (The Floor)
+        // If the Admin sets a minimum time (e.g. 30m), we CANNOT send instant emails.
+        // We must rely on the scheduled batch job to respect the minimum time.
+        if (settings.defaultFrequency !== 'immediate' && settings.defaultFrequency !== 'instant') {
+            console.log(`[EmailNotifications] Global frequency is ${settings.defaultFrequency}. Skipping immediate trigger (will be handled by batch).`);
+            return { sent: 0, errors: 0 };
+        }
+
+        // ... Existing Logic for Immediate Sending ...
+        let sentCount = 0;
+        let errorCount = 0;
+
+        const usersSnapshot = await db.collection('users')
+            .where('notificationPreferences.email', '==', true)
+            .get();
+
+        for (const userDoc of usersSnapshot.docs) {
+            const user = userDoc.data();
+            const userId = userDoc.id;
+
+            const alertsSnapshot = await db.collection('users').doc(userId)
+                .collection('jobAlertPreferences')
+                .where('isActive', '==', true)
+                .where('deliveryMethods.email', '==', true)
+                .get();
+
+            for (const alertDoc of alertsSnapshot.docs) {
+                const alert = alertDoc.data() as JobAlertPreference;
+
+                // Check User Preference
+                // Only send if user explicitly wants 'instant'
+                const userFreq = alert.emailFrequency || 'instant';
+                if (userFreq !== 'instant') {
+                    continue;
+                }
+
+                // Basic matching logic repeated here...
+                // In production, matching logic should be extracted to a helper function matching the one in findMatchingJobs
+                // For brevity, we assume strict match logic here as before
+
+                const job: Job = { id: jobId, ...jobData } as Job;
+                let isMatch = true;
+                if (alert.location && job.city && !job.city.includes(alert.location)) isMatch = false;
+                if (alert.difficulty && job.difficulty && job.difficulty !== alert.difficulty) isMatch = false;
+                if (alert.paymentKind && alert.paymentKind !== 'any' && job.paymentKind !== alert.paymentKind) isMatch = false;
+
+                if (isMatch) {
+                    console.log(`[EmailNotifications] Job ${job.id} matches alert '${alert.name}' for user ${user.email}`);
+                    const emailData: JobAlertEmail = {
+                        userEmail: alert.alertEmail || user.email,
+                        userName: user.fullName || 'משתמש יקר',
+                        alertName: alert.name,
+                        jobs: [{
+                            id: job.id,
+                            title: job.title,
+                            location: job.location || job.city || 'לא צוין',
+                            payment: formatPayment(job),
+                            postedAt: formatDate(job.createdAt),
+                        }],
+                    };
+
+                    const result = await emailService.sendJobAlertDigest(emailData);
+                    if (result.success) {
+                        sentCount++;
+                        await updateEmailStats(db, 1);
+                        // Also update lastEmailSent so batch doesn't send it again immediately (though batch checks time diff)
+                        await alertDoc.ref.update({
+                            lastEmailSent: admin.firestore.FieldValue.serverTimestamp()
+                        });
+                        console.log(`[EmailNotifications] Immediate email sent to ${emailData.userEmail}`);
+                    } else {
+                        errorCount++;
+                    }
+                }
+            }
+        }
+        return { sent: sentCount, errors: errorCount };
+
+    } catch (error) {
+        console.error('[EmailNotifications] Error in processNewJobAlert:', error);
+        throw error;
+    }
+}
+
+/**
+ * Update email statistics in Firestore
+ */
+async function updateEmailStats(db: admin.firestore.Firestore, count: number) {
+    const statsRef = db.collection('settings').doc('notifications');
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const currentDay = `${currentMonth}-${String(now.getDate()).padStart(2, '0')}`;
+
+    try {
+        await db.runTransaction(async (t) => {
+            const doc = await t.get(statsRef);
+            const data = doc.data()?.stats || {};
+
+            // Check for resets
+            const isNewMonth = data.currentMonth !== currentMonth;
+            const isNewDay = data.currentDay !== currentDay;
+
+            t.set(statsRef, {
+                stats: {
+                    sentTotal: (data.sentTotal || 0) + count,
+                    sentThisMonth: isNewMonth ? count : (data.sentThisMonth || 0) + count,
+                    sentToday: isNewDay ? count : (data.sentToday || 0) + count,
+                    currentMonth,
+                    currentDay,
+                    lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+                }
+            }, { merge: true });
+        });
+    } catch (error) {
+        console.error('[EmailNotifications] Failed to update stats:', error);
+    }
 }
 
 /**

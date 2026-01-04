@@ -153,9 +153,9 @@ class EmailService {
      * Send a job alert digest email
      */
     async sendJobAlertDigest(data: JobAlertEmail): Promise<EmailResult> {
-        const { generateJobAlertEmailTemplate } = await import('./emailTemplate');
+        const { generateJobAlertEmail } = await import('../emailTemplates');
 
-        const html = generateJobAlertEmailTemplate({
+        const html = generateJobAlertEmail({
             userName: data.userName,
             alertName: data.alertName,
             jobs: data.jobs,
@@ -163,7 +163,7 @@ class EmailService {
 
         return this.send({
             to: data.userEmail,
-            subject: `🔔 ${data.jobs.length} משרות חדשות מתאימות להתראה שלך!`,
+            subject: `🔔 ${data.jobs.length} משרות חדשות: ${data.alertName}`,
             html,
         });
     }
@@ -171,24 +171,17 @@ class EmailService {
     /**
      * Send a welcome email
      */
-    async sendWelcomeEmail(userEmail: string, userName: string): Promise<EmailResult> {
-        const html = `
-            <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h1 style="color: #2563eb;">ברוך הבא ל-בין הסדרים!</h1>
-                <p>שלום ${userName},</p>
-                <p>תודה שהצטרפת אלינו! עכשיו אתה יכול:</p>
-                <ul>
-                    <li>לחפש משרות מתאימות</li>
-                    <li>להגדיר התראות אוטומטיות</li>
-                    <li>לפרסם משרות חדשות</li>
-                </ul>
-                <p>בהצלחה!</p>
-            </div>
-        `;
+    async sendWelcomeEmail(userEmail: string, userName: string, verificationLink?: string): Promise<EmailResult> {
+        const { generateWelcomeEmail } = await import('../emailTemplates');
+
+        const html = generateWelcomeEmail({
+            userName,
+            verificationLink
+        });
 
         return this.send({
             to: userEmail,
-            subject: 'ברוכים הבאים ל-בין הסדרים! 🎉',
+            subject: 'ברוכים הבאים ל-בין הסדרים! 👋',
             html,
         });
     }
