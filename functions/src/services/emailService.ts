@@ -37,6 +37,8 @@ export interface JobAlertEmail {
         id: string;
         title: string;
         location: string;
+        area?: string;
+        difficulty?: string;
         payment: string;
         postedAt: string;
     }>;
