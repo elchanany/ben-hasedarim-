@@ -714,7 +714,7 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
 
   // Removed handlePaymentSuccess - logic moved to PaymentPage
 
-  const cityOptions = getCityOptions().filter(opt => opt.value !== '');
+  const cityOptions = getCityOptions(); // Includes "כל הארץ" option
   const difficultyOptions = Object.values(JobDifficulty).map(d => ({ value: d, label: d }));
   // todayLabel is now defined at top of component with other hooks
   const dateTypeOptions = [
@@ -758,7 +758,6 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
       console.error("Error setting localStorage (dismiss banner):", error);
     }
   };
-
 
   return (
     <div className="max-w-3xl mx-auto bg-white p-4 sm:p-8 rounded-xl shadow-2xl my-4 sm:my-8">

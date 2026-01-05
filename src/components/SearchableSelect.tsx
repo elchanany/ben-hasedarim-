@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { SearchIcon, ChevronDownIcon, XIcon } from './icons';
 import { MAJOR_CITIES_NAMES } from '../constants';
 
@@ -17,6 +17,23 @@ interface SearchableSelectProps {
     id?: string;
 }
 
+// Debounce hook for performance
+function useDebounce<T>(value: T, delay: number): T {
+    const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedValue(value);
+        }, delay);
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [value, delay]);
+
+    return debouncedValue;
+}
+
 export const SearchableSelect: React.FC<SearchableSelectProps> = ({
     label,
     options,
@@ -31,20 +48,29 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
+    // Debounce search term for better performance (150ms delay)
+    const debouncedSearchTerm = useDebounce(searchTerm, 150);
+
     // Find current label
     const currentLabel = useMemo(() => {
         const opt = options.find(o => o.value === value);
         return opt ? opt.label : '';
     }, [value, options]);
 
-    // Filter options based on search term
+    // Filter options based on debounced search term - limit to 50 results
     const filteredOptions = useMemo(() => {
-        if (!searchTerm) return options;
-        const lowerSearch = searchTerm.toLowerCase();
-        return options.filter(opt =>
-            opt.label.toLowerCase().includes(lowerSearch)
-        );
-    }, [searchTerm, options]);
+        let result = options;
+
+        if (debouncedSearchTerm) {
+            const lowerSearch = debouncedSearchTerm.toLowerCase();
+            result = options.filter(opt =>
+                opt.label.toLowerCase().includes(lowerSearch)
+            );
+        }
+
+        // Limit results to 50 for performance (prevents rendering 1000+ items)
+        return result.slice(0, 50);
+    }, [debouncedSearchTerm, options]);
 
     // Handle outside click
     useEffect(() => {
@@ -57,18 +83,22 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleSelect = (val: string | number) => {
+    const handleSelect = useCallback((val: string | number) => {
         onChange(val);
         setIsOpen(false);
         setSearchTerm('');
-    };
+    }, [onChange]);
 
-    const handleToggle = () => {
-        setIsOpen(!isOpen);
+    const handleToggle = useCallback(() => {
+        setIsOpen(prev => !prev);
         if (!isOpen) {
             setTimeout(() => inputRef.current?.focus(), 0);
         }
-    };
+    }, [isOpen]);
+
+    const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchTerm(e.target.value);
+    }, []);
 
     return (
         <div className={`relative z-[40] ${className}`} ref={containerRef}>
@@ -104,7 +134,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                                 className="w-full pl-4 pr-10 py-2.5 bg-gray-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-royal-blue/10 focus:bg-white transition-all text-right"
                                 placeholder="הקלד לחיפוש עיר..."
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onChange={handleSearchChange}
                                 onClick={(e) => e.stopPropagation()}
                             />
                             <SearchIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -148,9 +178,15 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                                 לא נמצאו ערים תואמות
                             </div>
                         )}
+                        {filteredOptions.length === 50 && !debouncedSearchTerm && (
+                            <div className="px-4 py-2 text-center text-gray-400 text-xs">
+                                הקלד לחיפוש נוסף...
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
         </div>
     );
 };
+
