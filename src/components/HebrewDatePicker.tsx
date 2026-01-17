@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useContext } from 'react';
+import { ChevronDownIcon } from './icons';
+import { PopoverSelect } from './PopoverSelect';
 
 import {
   gregorianISOToHebrewDateParts,
@@ -30,7 +32,21 @@ interface HebrewDatePickerProps {
 }
 
 const HEBREW_WEEKDAY_SHORT_NAMES = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+const GREGORIAN_WEEKDAY_SHORT_NAMES = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']; // ראשון עד שבת
+const GREGORIAN_MONTH_NAMES = [
+  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'
+];
 const DEFAULT_LABEL_CLASS = 'block text-sm font-medium text-dark-text mb-1 text-right';
+
+const getDaysInGregorianMonth = (month: number, year: number): number => {
+  return new Date(year, month, 0).getDate();
+};
+
+const getFirstDayOfGregorianMonth = (month: number, year: number): number => {
+  // מחזיר את יום השבוע של היום הראשון בחודש (0 = ראשון, 6 = שבת)
+  return new Date(year, month - 1, 1).getDay();
+};
 
 export const HebrewDatePicker: React.FC<HebrewDatePickerProps> = ({
   label,
@@ -44,7 +60,11 @@ export const HebrewDatePicker: React.FC<HebrewDatePickerProps> = ({
   labelClassName
 }) => {
   const authCtx = useContext(AuthContext);
-  const [mode, setMode] = useState<'hebrew' | 'gregorian'>(() => (authCtx?.datePreference || 'hebrew'));
+  const [mode, setMode] = useState<'hebrew' | 'gregorian'>(() => {
+    const pref = authCtx?.datePreference;
+    if (pref === 'hebrew' || pref === 'gregorian') return pref;
+    return 'hebrew'; // default to hebrew if 'both' or undefined
+  });
   const [isOpen, setIsOpen] = useState(false);
   const [tentativeSelectedGregorianISO, setTentativeSelectedGregorianISO] = useState<string | null>(null);
 
@@ -54,8 +74,14 @@ export const HebrewDatePicker: React.FC<HebrewDatePickerProps> = ({
     return hebrewParts ? { getFullYear: () => hebrewParts.year, getMonth: () => hebrewParts.month } : { getFullYear: () => 5784, getMonth: () => 1 };
   }, []);
 
+  // Hebrew display state
   const [displayYear, setDisplayYear] = useState<number>(todayHdGlobal.getFullYear());
   const [displayMonth, setDisplayMonth] = useState<number>(todayHdGlobal.getMonth());
+
+  // Gregorian display state
+  const todayGreg = useMemo(() => new Date(), []);
+  const [gregDisplayYear, setGregDisplayYear] = useState<number>(todayGreg.getFullYear());
+  const [gregDisplayMonth, setGregDisplayMonth] = useState<number>(todayGreg.getMonth() + 1); // 1-12
 
   useEffect(() => {
     const newParts = value ? gregorianISOToHebrewDateParts(value) : null;
@@ -69,6 +95,16 @@ export const HebrewDatePicker: React.FC<HebrewDatePickerProps> = ({
         setDisplayMonth(todayHebrew.month);
       }
     }
+    // Update gregorian display state from value
+    if (value) {
+      const date = new Date(value);
+      setGregDisplayYear(date.getFullYear());
+      setGregDisplayMonth(date.getMonth() + 1);
+    } else {
+      const now = new Date();
+      setGregDisplayYear(now.getFullYear());
+      setGregDisplayMonth(now.getMonth() + 1);
+    }
   }, [value]);
 
   useEffect(() => {
@@ -78,6 +114,16 @@ export const HebrewDatePicker: React.FC<HebrewDatePickerProps> = ({
       if (partsToDisplay) {
         setDisplayYear(partsToDisplay.year);
         setDisplayMonth(partsToDisplay.month);
+      }
+      // Set gregorian display when open
+      if (value) {
+        const date = new Date(value);
+        setGregDisplayYear(date.getFullYear());
+        setGregDisplayMonth(date.getMonth() + 1);
+      } else {
+        const now = new Date();
+        setGregDisplayYear(now.getFullYear());
+        setGregDisplayMonth(now.getMonth() + 1);
       }
     }
   }, [isOpen, value]);
@@ -157,6 +203,109 @@ export const HebrewDatePicker: React.FC<HebrewDatePickerProps> = ({
     setDisplayMonth(newMonth);
   };
 
+  // Gregorian calendar handlers
+  const handleGregDayClick = (day: number) => {
+    const isoString = `${gregDisplayYear}-${gregDisplayMonth.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+    setTentativeSelectedGregorianISO(isoString);
+  };
+
+  const changeGregMonth = (delta: number) => {
+    let newMonth = gregDisplayMonth + delta;
+    let newYear = gregDisplayYear;
+
+    if (newMonth > 12) {
+      newMonth = 1;
+      newYear++;
+    } else if (newMonth < 1) {
+      newMonth = 12;
+      newYear--;
+    }
+
+    setGregDisplayMonth(newMonth);
+    setGregDisplayYear(newYear);
+  };
+
+  const changeGregYear = (delta: number) => {
+    setGregDisplayYear(gregDisplayYear + delta);
+  };
+
+  const renderGregorianCalendarGrid = () => {
+    const daysInMonth = getDaysInGregorianMonth(gregDisplayMonth, gregDisplayYear);
+    const firstDayOfMonth = getFirstDayOfGregorianMonth(gregDisplayMonth, gregDisplayYear);
+    const blanks = Array(firstDayOfMonth).fill(null);
+    const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+    const todayJs = new Date();
+    todayJs.setHours(0, 0, 0, 0);
+
+    const selectedDate = tentativeSelectedGregorianISO ? new Date(tentativeSelectedGregorianISO) : null;
+    if (selectedDate) selectedDate.setHours(0, 0, 0, 0);
+
+    return (
+      <div className="grid grid-cols-7 gap-y-2 gap-x-1 text-center mb-4" role="grid" aria-labelledby={`${id}-month-year-display`}>
+        {GREGORIAN_WEEKDAY_SHORT_NAMES.map((dayName, idx) => (
+          <div key={`${dayName}-${idx}`} className="text-xs font-semibold text-gray-400 py-2">{dayName}</div>
+        ))}
+        {blanks.map((_, i) => <div key={`blank-${i}`} className="p-1"></div>)}
+        {daysArray.map(day => {
+          const cellDate = new Date(gregDisplayYear, gregDisplayMonth - 1, day);
+          cellDate.setHours(0, 0, 0, 0);
+
+          const isPast = cellDate < todayJs;
+          const isSelected = selectedDate &&
+            selectedDate.getFullYear() === gregDisplayYear &&
+            (selectedDate.getMonth() + 1) === gregDisplayMonth &&
+            selectedDate.getDate() === day;
+          const isToday = cellDate.getTime() === todayJs.getTime();
+
+          let dayClass = "w-9 h-9 flex items-center justify-center rounded-full text-sm transition-all duration-200 mx-auto";
+
+          if (isPast) {
+            dayClass += " text-gray-300 cursor-not-allowed";
+            if (isSelected) {
+              dayClass += " bg-gray-100 text-gray-400";
+            }
+          } else {
+            if (isSelected) {
+              dayClass += " bg-royal-blue text-white shadow-md font-semibold transform scale-105";
+            } else if (isToday) {
+              dayClass += " text-royal-blue font-bold ring-1 ring-royal-blue bg-blue-50 hover:bg-blue-100 cursor-pointer";
+            } else {
+              dayClass += " text-gray-700 hover:bg-gray-100 cursor-pointer";
+            }
+          }
+
+          return (
+            <div
+              key={day}
+              className={dayClass}
+              onClick={() => !isPast && handleGregDayClick(day)}
+              aria-disabled={isPast}
+              role="button"
+              tabIndex={isPast ? -1 : 0}
+              aria-label={`בחר ${day} ${GREGORIAN_MONTH_NAMES[gregDisplayMonth - 1]} ${gregDisplayYear} ${isToday ? '(היום)' : ''} ${isPast ? '(לא זמין)' : ''}`}
+              title={isToday ? 'היום' : undefined}
+            >
+              {day}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const gregMonthOptions = useMemo(() => {
+    return GREGORIAN_MONTH_NAMES.map((name, idx) => ({ value: idx + 1, label: name }));
+  }, []);
+
+  const gregYearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 20 }, (_, i) => {
+      const year = currentYear - 5 + i;
+      return { value: year, label: year.toString() };
+    });
+  }, []);
+
   const renderCalendarGrid = () => {
     const daysInMonth = getDaysInHebrewMonth(displayMonth, displayYear);
     // קירוב בסיסי למיקום תחילת החודש (כפי שהיה)
@@ -172,9 +321,9 @@ export const HebrewDatePicker: React.FC<HebrewDatePickerProps> = ({
 
 
     return (
-      <div className="grid grid-cols-7 gap-1 text-center" role="grid" aria-labelledby={`${id}-month-year-display`}>
+      <div className="grid grid-cols-7 gap-y-2 gap-x-1 text-center mb-4" role="grid" aria-labelledby={`${id}-month-year-display`}>
         {HEBREW_WEEKDAY_SHORT_NAMES.map(dayName => (
-          <div key={dayName} className="font-semibold text-sm p-1 text-dark-text">{dayName}</div>
+          <div key={dayName} className="text-xs font-semibold text-gray-400 py-2">{dayName}</div>
         ))}
         {blanks.map((_, i) => <div key={`blank-${i}`} className="p-1"></div>)}
         {daysArray.map(day => {
@@ -188,19 +337,20 @@ export const HebrewDatePicker: React.FC<HebrewDatePickerProps> = ({
           const todayParts = gregorianISOToHebrewDateParts(getTodayGregorianISO());
           const isToday = todayParts && day === todayParts.day && displayMonth === todayParts.month && displayYear === todayParts.year;
 
-          let dayClass = "p-2 rounded-full";
+          let dayClass = "w-9 h-9 flex items-center justify-center rounded-full text-sm transition-all duration-200 mx-auto";
 
           if (isPast) {
-            dayClass += " text-gray-400 cursor-not-allowed";
+            dayClass += " text-gray-300 cursor-not-allowed";
             if (isSelected) {
-              dayClass += " bg-gray-200";
+              dayClass += " bg-gray-100 text-gray-400";
             }
           } else {
-            dayClass += " text-dark-text cursor-pointer hover:bg-light-blue transition-colors";
             if (isSelected) {
-              dayClass = "p-2 cursor-pointer rounded-full bg-royal-blue text-white";
+              dayClass += " bg-royal-blue text-white shadow-md font-semibold transform scale-105";
             } else if (isToday) {
-              dayClass += " ring-2 ring-emerald-500 bg-emerald-100 text-emerald-800";
+              dayClass += " text-royal-blue font-bold ring-1 ring-royal-blue bg-blue-50 hover:bg-blue-100 cursor-pointer";
+            } else {
+              dayClass += " text-gray-700 hover:bg-gray-100 cursor-pointer";
             }
           }
 
@@ -292,46 +442,112 @@ export const HebrewDatePicker: React.FC<HebrewDatePickerProps> = ({
       >
         <div id={`${id}-modal-content`} className="space-y-4 p-2" role="dialog" aria-modal="true" aria-labelledby={modalTitleId}>
           {/* Content is already announced by modal title, h2 below might be redundant for SR but good for visual structure */}
-          <h2 id={`${id}-month-year-display`} className="sr-only">{`${getHebrewMonthsForYear(displayYear).find(m => m.value === displayMonth)?.name || ''} ${gematriya(displayYear)}`}</h2>
-          <div className="flex flex-col sm:flex-row sm:justify-between items-center gap-3 mb-4">
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => changeMonth(-1)} aria-label="חודש קודם">‹</Button>
-              <Select
-                options={monthOptions}
-                value={displayMonth.toString()}
-                onChange={(e) => setDisplayMonth(parseInt(e.target.value))}
-                selectClassName="py-1 text-sm min-w-[120px]"
-                containerClassName="mb-0"
-                aria-label="בחר חודש"
-                id={`${id}-month-select`}
-              />
-              <Button variant="outline" size="sm" onClick={() => changeMonth(1)} aria-label="חודש הבא">›</Button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => changeYear(-1)} aria-label="שנה קודמת">‹</Button>
-              <Select
-                options={yearOptions}
-                value={displayYear.toString()}
-                onChange={(e) => setDisplayYear(parseInt(e.target.value))}
-                selectClassName="py-1 text-sm min-w-[120px]"
-                containerClassName="mb-0"
-                aria-label="בחר שנה"
-                id={`${id}-year-select`}
-              />
-              <Button variant="outline" size="sm" onClick={() => changeYear(1)} aria-label="שנה הבאה">›</Button>
-            </div>
-          </div>
+          <h2 id={`${id}-month-year-display`} className="sr-only">
+            {mode === 'gregorian'
+              ? `${GREGORIAN_MONTH_NAMES[gregDisplayMonth - 1]} ${gregDisplayYear}`
+              : `${getHebrewMonthsForYear(displayYear).find(m => m.value === displayMonth)?.name || ''} ${gematriya(displayYear)}`
+            }
+          </h2>
           {mode === 'gregorian' ? (
-            renderCalendarGrid()
+            // Gregorian mode - show gregorian month/year selectors
+            <div className="flex flex-col sm:flex-row sm:justify-between items-center gap-6 mb-6 px-2">
+              <div className="flex items-center gap-1 justify-center relative bg-white rounded-lg px-2">
+                <Button variant="ghost" size="sm" onClick={() => changeGregMonth(1)} className="text-gray-400 hover:text-royal-blue hover:bg-royal-blue/5 rounded-full w-8 h-8 p-0 flex items-center justify-center transition-all" aria-label="חודש הבא">
+                  <span className="text-2xl leading-none pb-1 relative top-[1px]">›</span>
+                </Button>
+                <div className="mx-1">
+                  <PopoverSelect
+                    options={gregMonthOptions}
+                    value={gregDisplayMonth}
+                    onChange={(val) => setGregDisplayMonth(Number(val))}
+                    buttonClassName="font-bold text-lg text-dark-text py-1 px-2 hover:text-royal-blue"
+                  />
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => changeGregMonth(-1)} className="text-gray-400 hover:text-royal-blue hover:bg-royal-blue/5 rounded-full w-8 h-8 p-0 flex items-center justify-center transition-all" aria-label="חודש קודם">
+                  <span className="text-2xl leading-none pb-1 relative top-[1px]">‹</span>
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-1 justify-center relative bg-white rounded-lg px-2">
+                <Button variant="ghost" size="sm" onClick={() => changeGregYear(1)} className="text-gray-400 hover:text-royal-blue hover:bg-royal-blue/5 rounded-full w-8 h-8 p-0 flex items-center justify-center transition-all" aria-label="שנה הבאה">
+                  <span className="text-2xl leading-none pb-1 relative top-[1px]">›</span>
+                </Button>
+                <div className="mx-1">
+                  <PopoverSelect
+                    options={gregYearOptions}
+                    value={gregDisplayYear}
+                    onChange={(val) => setGregDisplayYear(Number(val))}
+                    buttonClassName="font-bold text-lg text-dark-text py-1 px-2 hover:text-royal-blue"
+                  />
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => changeGregYear(-1)} className="text-gray-400 hover:text-royal-blue hover:bg-royal-blue/5 rounded-full w-8 h-8 p-0 flex items-center justify-center transition-all" aria-label="שנה קודמת">
+                  <span className="text-2xl leading-none pb-1 relative top-[1px]">‹</span>
+                </Button>
+              </div>
+            </div>
+          ) : (
+            // Hebrew mode - show hebrew month/year selectors
+            <div className="flex flex-col sm:flex-row sm:justify-between items-center gap-6 mb-6 px-2">
+              <div className="flex items-center gap-1 justify-center relative bg-white rounded-lg px-2">
+                <Button variant="ghost" size="sm" onClick={() => changeMonth(1)} className="text-gray-400 hover:text-royal-blue hover:bg-royal-blue/5 rounded-full w-8 h-8 p-0 flex items-center justify-center transition-all" aria-label="חודש הבא">
+                  <span className="text-2xl leading-none pb-1 relative top-[1px]">›</span>
+                </Button>
+                <div className="mx-1">
+                  <PopoverSelect
+                    options={monthOptions}
+                    value={displayMonth}
+                    onChange={(val) => setDisplayMonth(Number(val))}
+                    buttonClassName="font-bold text-lg text-dark-text py-1 px-2 hover:text-royal-blue"
+                  />
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => changeMonth(-1)} className="text-gray-400 hover:text-royal-blue hover:bg-royal-blue/5 rounded-full w-8 h-8 p-0 flex items-center justify-center transition-all" aria-label="חודש קודם">
+                  <span className="text-2xl leading-none pb-1 relative top-[1px]">‹</span>
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-1 justify-center relative bg-white rounded-lg px-2">
+                <Button variant="ghost" size="sm" onClick={() => changeYear(1)} className="text-gray-400 hover:text-royal-blue hover:bg-royal-blue/5 rounded-full w-8 h-8 p-0 flex items-center justify-center transition-all" aria-label="שנה הבאה">
+                  <span className="text-2xl leading-none pb-1 relative top-[1px]">›</span>
+                </Button>
+                <div className="mx-1">
+                  <PopoverSelect
+                    options={yearOptions}
+                    value={displayYear}
+                    onChange={(val) => setDisplayYear(Number(val))}
+                    buttonClassName="font-bold text-lg text-dark-text py-1 px-2 hover:text-royal-blue"
+                  />
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => changeYear(-1)} className="text-gray-400 hover:text-royal-blue hover:bg-royal-blue/5 rounded-full w-8 h-8 p-0 flex items-center justify-center transition-all" aria-label="שנה קודמת">
+                  <span className="text-2xl leading-none pb-1 relative top-[1px]">‹</span>
+                </Button>
+              </div>
+            </div>
+          )}
+          {mode === 'gregorian' ? (
+            renderGregorianCalendarGrid()
           ) : (
             renderCalendarGrid()
           )}
           <div className="mt-4 pt-4 border-t space-y-3">
-            <div className="flex justify-center space-x-2 rtl:space-x-reverse">
-              <Button variant="outline" size="sm" onClick={() => handleQuickSelect(0)}>היום</Button>
-              <Button variant="outline" size="sm" onClick={() => handleQuickSelect(1)}>מחר</Button>
-              <Button variant="outline" size="sm" onClick={() => handleQuickSelect(2)}>מחרתיים</Button>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => handleQuickSelect(0)}
+                className="px-3 py-1 text-xs font-medium text-royal-blue bg-blue-50 hover:bg-blue-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-royal-blue"
+              >
+                היום
+              </button>
+              <button
+                onClick={() => handleQuickSelect(1)}
+                className="px-3 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-400"
+              >
+                מחר
+              </button>
+              <button
+                onClick={() => handleQuickSelect(2)}
+                className="px-3 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-400"
+              >
+                מחרתיים
+              </button>
             </div>
             <Button
               variant="primary"

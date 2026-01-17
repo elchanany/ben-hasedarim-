@@ -54,6 +54,14 @@ textarea {
   line-height: inherit;
 }
 
+/* Explicitly target inputs to override potential browser defaults */
+input,
+textarea,
+select {
+  color: var(--color-dark-text) !important;
+  background-color: white !important;
+}
+
 html.font-scale-medium {
   --font-scale: 1.1;
 }

@@ -789,6 +789,19 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
         </div>
       )}
 
+      {/* הודעה על קו טלפוני */}
+      <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl mb-6 flex items-start gap-3">
+        <div className="text-2xl">📞</div>
+        <div>
+          <p className="text-emerald-800 text-sm font-medium">
+            <strong>חדש!</strong> המודעה שלך תפורסם גם בקו הטלפוני שלנו, כך שגם מי שאין לו גישה לאינטרנט יוכל למצוא אותה.
+          </p>
+          <p className="text-emerald-600 text-xs mt-1">
+            ניתן להאזין לעבודות בטלפון: <span className="font-mono font-bold">073-318-2610</span>
+          </p>
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-6" noValidate>
 
         {/* פרטי העבודה הבסיסיים */}

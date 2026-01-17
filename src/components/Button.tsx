@@ -2,7 +2,7 @@
 import React from 'react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger' | 'outline';
+  variant?: 'primary' | 'secondary' | 'danger' | 'outline' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
   icon?: React.ReactNode;
@@ -32,6 +32,9 @@ export const Button: React.FC<ButtonProps> = ({
       break;
     case 'outline':
       variantStyle = 'bg-transparent border-2 border-royal-blue text-royal-blue hover:bg-royal-blue hover:text-white focus-visible:ring-royal-blue';
+      break;
+    case 'ghost':
+      variantStyle = 'bg-transparent text-gray-700 hover:bg-gray-100 focus-visible:ring-gray-400';
       break;
     default:
       variantStyle = 'bg-royal-blue text-white hover:bg-blue-800 focus-visible:ring-royal-blue';

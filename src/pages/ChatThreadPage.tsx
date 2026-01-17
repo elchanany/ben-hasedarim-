@@ -347,13 +347,13 @@ export const ChatThreadPage: React.FC<ChatThreadPageProps> = ({ setCurrentPage, 
       {/* Header */}
       <header className="flex-shrink-0 bg-royal-blue text-white p-2 sm:p-4 flex items-center justify-between shadow-md rounded-t-xl relative z-20">
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
           onClick={() => setCurrentPage('notifications', { tab: 'messages' })}
-          className="!text-white !border-white hover:!bg-light-blue !px-2 !sm:px-2.5 !py-1 !sm:py-1.5 z-10"
+          className="text-white hover:bg-white/20 rounded-full p-2 w-10 h-10 flex items-center justify-center transition-colors"
           aria-label="חזור לרשימת ההודעות"
         >
-          <ArrowRightIcon className="w-5 h-5 transform scale-x-[-1]" />
+          <ArrowRightIcon className="w-6 h-6" />
         </Button>
         <div className="flex-grow text-center mx-1 sm:mx-2 min-w-0">
           <h1 className="text-base sm:text-xl font-semibold truncate leading-tight">

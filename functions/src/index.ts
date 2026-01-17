@@ -2,7 +2,10 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import * as dotenv from 'dotenv';
+import express from 'express';
 import { processEmailNotifications } from './emailNotifications';
+import { router as yemotRouter } from './ivr/yemotRouter';
+import { sendTzintukNotifications } from './ivr/tzintukService';
 
 dotenv.config();
 
@@ -10,6 +13,21 @@ dotenv.config();
 if (admin.apps.length === 0) {
     admin.initializeApp();
 }
+
+// ============================================
+// YEMOT HAMASHIACH IVR ENDPOINT
+// ============================================
+
+const ivrApp = express();
+ivrApp.use(yemotRouter as any);
+
+/**
+ * Yemot HaMashiach IVR Endpoint
+ * This receives calls from Yemot HaMashiach and handles the phone menu
+ */
+export const yemotIVR = functions
+    .region('europe-west1')
+    .https.onRequest(ivrApp);
 
 // ============================================
 // SCHEDULED FUNCTIONS
@@ -35,6 +53,7 @@ export const sendJobAlertEmails = functions
 /**
  * Trigger: When a new job is created
  * Checks if immediate email alerts are enabled and processes them
+ * Also sends tzintuk notifications
  */
 export const onJobCreated = functions
     .region('europe-west1')
@@ -53,10 +72,19 @@ export const onJobCreated = functions
             return null;
         }
 
-        console.log(`[Trigger] Processing job ${jobId} - isPosted is TRUE, calling processNewJobAlert`);
+        console.log(`[Trigger] Processing job ${jobId} - isPosted is TRUE`);
+
+        // Process email notifications
         await import('./emailNotifications').then(m =>
             m.processNewJobAlert(jobId, jobData)
         );
+
+        // Process tzintuk notifications (phone calls)
+        try {
+            await sendTzintukNotifications(jobId, jobData as any);
+        } catch (error) {
+            console.error(`[Trigger] Error sending tzintuk notifications:`, error);
+        }
 
         return null;
     });
