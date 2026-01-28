@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Job, JobDifficulty, PaymentType, JobSuitability, PreferredContactMethods, JobPosterInfo, JobDateType, PaymentMethod } from '../types';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -196,7 +196,10 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
 
   // IMPORTANT: All hooks must be called before any early returns
   const { settings: paymentSettings, loading: loadingPaymentSettings } = usePaymentSettings();
+  /* Memoize city options to prevent unnecessary re-renders in SearchableSelect */
+  const cityOptions = useMemo(() => getCityOptions(), []);
   const todayLabel = useTodayLabel(); // Custom hook
+
   const getInitialFormData = useCallback((): Partial<Job> => {
     const defaultPreferredContacts: PreferredContactMethods = { phone: true, whatsapp: false, email: false, allowSiteMessages: true };
     const baseData: Partial<Job> = {
@@ -714,7 +717,7 @@ export const PostJobPage: React.FC<PageProps> = ({ setCurrentPage, pageParams })
 
   // Removed handlePaymentSuccess - logic moved to PaymentPage
 
-  const cityOptions = getCityOptions(); // Includes "כל הארץ" option
+
   const difficultyOptions = Object.values(JobDifficulty).map(d => ({ value: d, label: d }));
   // todayLabel is now defined at top of component with other hooks
   const dateTypeOptions = [

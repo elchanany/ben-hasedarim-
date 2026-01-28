@@ -161,6 +161,9 @@ export interface Job {
     paidAt: any; // Timestamp or ISO string
     userId: string;
   };
+
+  // Source tracking
+  postedVia?: 'website' | 'phone'; // How the job was posted
 }
 
 export interface City {

@@ -11,6 +11,7 @@ import { handleJobsList } from './handlers/jobsList';
 import { handlePostJob } from './handlers/postJob';
 import { handleSubscribe } from './handlers/subscribe';
 import { handleContact } from './handlers/contact';
+import { AUDIO_FILES, audioFile } from './audioFiles';
 
 // // import { FirestoreCallSession } from './firestoreSession';
 
@@ -43,7 +44,7 @@ const yemotRouter = YemotRouter({
         console.error('=============================');
 
         // Using clean text without special characters just in case
-        await call.id_list_message([{ type: 'text', data: 'אירעה תקלה במערכת אנא נסו שוב מאוחר יותר' }]);
+        await call.id_list_message([audioFile(AUDIO_FILES.SYSTEM_ERROR)]);
         // Don't hangup here manually, let the router handle it or user hangup
     }
 } as any);

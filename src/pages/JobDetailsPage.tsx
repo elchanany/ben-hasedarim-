@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef, useContext } from 'react';
 import { onSnapshot, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { PaymentType, PaymentMethod, JobDifficulty, Job, JobSuitability, JobDateType, PricingModalType } from '../types';
+import { PaymentType, PaymentMethod, JobDifficulty, Job, JobSuitability, JobDateType } from '../types';
 import { usePaymentSettings } from '../hooks/usePaymentSettings';
 import { REGION_MAPPINGS } from '../constants';
 import type { PageProps } from '../App';
@@ -23,6 +23,7 @@ import { TimeAgo } from '../components/TimeAgo';
 import { AuthContext } from '../contexts/AuthContext';
 // import { PaymentModal } from '../components/PaymentModal'; // Removed
 import { PricingModal } from '../components/PricingModal';
+import { PHONE_LINE_NUMBER, getPhoneDialLink } from '../config/siteConfig';
 import { unlockJobForUser, addUserSubscription } from '../services/userService';
 
 interface JobDetailsPageProps extends PageProps {
@@ -124,6 +125,7 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
 
   // Payment Logic State
   const [showPricingModal, setShowPricingModal] = useState(false);
+  const [showPhonePostModal, setShowPhonePostModal] = useState(false); // For phone-posted jobs info
   // const [showPaymentModal, setShowPaymentModal] = useState(false); // Removed
   // const [selectedPlan, setSelectedPlan] = useState<'single' | 'monthly'>('single');
   // const [paymentAmount, setPaymentAmount] = useState(0);
@@ -175,24 +177,30 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
     }
   }, [pageParams]); // Changed dependency to pageParams to catch updates
 
-  // View count logic
+  // View count logic - runs only once per jobId
   useEffect(() => {
     const incrementView = async () => {
-      if (!job) return;
-      if (user && job.postedBy && user.id === job.postedBy.id) return;
+      // Skip if already incremented this session
+      if (hasIncrementedView.current) return;
 
       const viewedJobsKey = 'viewedJobs';
       const viewedJobs = JSON.parse(sessionStorage.getItem(viewedJobsKey) || '[]');
-      if (!viewedJobs.includes(jobId) && !hasIncrementedView.current) {
-        await jobService.incrementJobView(jobId);
-        viewedJobs.push(jobId);
-        sessionStorage.setItem(viewedJobsKey, JSON.stringify(viewedJobs));
-        hasIncrementedView.current = true;
-      }
+
+      // Skip if this job was already viewed in this session
+      if (viewedJobs.includes(jobId)) return;
+
+      // Mark as incrementing to prevent race conditions
+      hasIncrementedView.current = true;
+
+      await jobService.incrementJobView(jobId);
+      viewedJobs.push(jobId);
+      sessionStorage.setItem(viewedJobsKey, JSON.stringify(viewedJobs));
     };
 
-    incrementView();
-  }, [job, user, jobId]);
+    if (jobId) {
+      incrementView();
+    }
+  }, [jobId]); // Only depend on jobId, NOT on job object
 
   // Handle contact attempt with application tracking
   const handleContactAttempt = useCallback(async () => {
@@ -417,18 +425,24 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
   }
 
   const getPaymentInfo = () => {
-    if (job.paymentType === PaymentType.HOURLY && job.hourlyRate) return `₪${job.hourlyRate} לשעה`;
-    if (job.paymentType === PaymentType.GLOBAL && job.globalPayment) return `₪${job.globalPayment} סה"כ`;
+    // Handle both enum values and legacy string values
+    const paymentTypeStr = String(job.paymentType);
+    const isHourly = paymentTypeStr === PaymentType.HOURLY || paymentTypeStr === 'hourly' || paymentTypeStr === 'לפי שעה';
+    const isGlobal = paymentTypeStr === PaymentType.GLOBAL || paymentTypeStr === 'global' || paymentTypeStr === 'גלובלי';
+
+    if (isHourly && job.hourlyRate) return `₪${job.hourlyRate} לשעה`;
+    if (isGlobal && job.globalPayment) return `₪${job.globalPayment} סה"כ`;
     return 'יסוכם עם המעסיק';
   };
 
   const suitabilityParts = [];
-  if (job.suitability?.men) suitabilityParts.push("גברים");
-  if (job.suitability?.women) suitabilityParts.push("נשים");
-  if (job.suitability?.general) suitabilityParts.push("כללי");
-  let suitabilityText = suitabilityParts.join(' / ');
-  if (job.suitability?.minAge) {
-    suitabilityText += `, מגיל ${job.suitability.minAge}`;
+  const suit = job.suitability || { men: false, women: false, general: false };
+  if (suit.men) suitabilityParts.push("גברים");
+  if (suit.women) suitabilityParts.push("נשים");
+  if (suit.general) suitabilityParts.push("כללי");
+  let suitabilityText = suitabilityParts.length > 0 ? suitabilityParts.join(' / ') : 'לכולם';
+  if (suit.minAge) {
+    suitabilityText += `, מגיל ${suit.minAge}`;
   }
 
 
@@ -502,29 +516,43 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
           )}
 
           <div className="space-y-2 text-sm text-gray-600">
-            {/* Hide poster identity when payment is required but not made */}
-            {canViewPosterInfo ? (
-              job.contactInfoSource !== 'anonymous' ? (
-                <p className="flex items-center">
-                  <UserIcon className="w-4 h-4 ml-2 rtl:mr-2 rtl:ml-0 text-gray-400" />
-                  פורסם ע"י <button
-                    onClick={() => setCurrentPage('publicProfile', { userId: job.postedBy?.id || 'unknown' })}
-                    className="mr-1 font-medium text-royal-blue hover:underline focus:outline-none"
-                  >
-                    {job.postedBy?.posterDisplayName || 'משתמש לא ידוע'}
-                  </button>
-                </p>
+            {/* Special display for phone-posted jobs */}
+            {job.postedVia === 'phone' ? (
+              <p className="flex items-center">
+                <PhoneIcon className="w-4 h-4 ml-2 rtl:mr-2 rtl:ml-0 text-green-500" />
+                <span className="mr-1">פורסם בקו הטלפוני על ידי </span>
+                <button
+                  onClick={() => setShowPhonePostModal(true)}
+                  className="font-medium text-green-600 hover:underline focus:outline-none"
+                >
+                  📞 {job.callerPhone || job.contactPhone || 'מפרסם טלפוני'}
+                </button>
+              </p>
+            ) : (
+              /* Regular user display */
+              canViewPosterInfo ? (
+                job.contactInfoSource !== 'anonymous' ? (
+                  <p className="flex items-center">
+                    <UserIcon className="w-4 h-4 ml-2 rtl:mr-2 rtl:ml-0 text-gray-400" />
+                    פורסם ע"י <button
+                      onClick={() => setCurrentPage('publicProfile', { userId: job.postedBy?.id || 'unknown' })}
+                      className="mr-1 font-medium text-royal-blue hover:underline focus:outline-none"
+                    >
+                      {job.postedBy?.posterDisplayName || 'משתמש לא ידוע'}
+                    </button>
+                  </p>
+                ) : (
+                  <p className="flex items-center">
+                    <UserIcon className="w-4 h-4 ml-2 rtl:mr-2 rtl:ml-0 text-gray-400" />
+                    פורסם ע"י <span className="mr-1 font-medium text-gray-500">משתמש אנונימי</span>
+                  </p>
+                )
               ) : (
                 <p className="flex items-center">
                   <UserIcon className="w-4 h-4 ml-2 rtl:mr-2 rtl:ml-0 text-gray-400" />
-                  פורסם ע"י <span className="mr-1 font-medium text-gray-500">משתמש אנונימי</span>
+                  <span className="mr-1 font-medium text-gray-500">פרטי המפרסם יוצגו לאחר תשלום</span>
                 </p>
               )
-            ) : (
-              <p className="flex items-center">
-                <UserIcon className="w-4 h-4 ml-2 rtl:mr-2 rtl:ml-0 text-gray-400" />
-                <span className="mr-1 font-medium text-gray-500">פרטי המפרסם יוצגו לאחר תשלום</span>
-              </p>
             )}
             <p className="flex items-center">
               <ClockIcon className="w-4 h-4 ml-2 rtl:mr-2 rtl:ml-0 text-gray-400" />
@@ -541,7 +569,9 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
           {/* תיאור המשרה */}
           <div className="bg-gradient-to-r from-royal-blue to-deep-pink p-4 sm:p-6 rounded-xl shadow-lg">
             <h2 className="text-xl sm:text-2xl font-bold text-white mb-4">תיאור המשרה</h2>
-            <p className="text-lg text-white/90 whitespace-pre-wrap">{job.description}</p>
+            <p className="text-lg text-white/90 whitespace-pre-wrap">
+              {job.description || (job.postedVia === 'phone' ? '📞 עבודה זו פורסמה באמצעות קו הטלפון של האתר.' : 'לא צוין תיאור.')}
+            </p>
           </div>
 
           {/* פרטי המשרה */}
@@ -728,7 +758,8 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
                     animationType="default"
                   />
                 )}
-                {job.preferredContactMethods?.phone && job.contactPhone && (
+                {/* Show phone if preferredContactMethods.phone is true OR if job was posted via phone */}
+                {(job.preferredContactMethods?.phone || job.postedVia === 'phone') && job.contactPhone && (
                   <DetailItem
                     icon={<PhoneIcon className="w-7 h-7" />}
                     label="טלפון"
@@ -926,6 +957,26 @@ export const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ setCurrentPage, 
       />
 
       {/* PaymentModal removed */}
+
+      {/* Phone Posted Job Info Modal */}
+      <Modal isOpen={showPhonePostModal} onClose={() => setShowPhonePostModal(false)} title="📞 עבודה מקו הטלפון">
+        <div className="text-center space-y-4">
+          <div className="text-6xl">📞</div>
+          <h3 className="text-xl font-bold text-gray-800">עבודה זו פורסמה בקו הטלפון</h3>
+          <p className="text-gray-600">
+            העבודה פורסמה על ידי מפרסם טלפוני במספר:<br />
+            <span className="font-bold text-lg text-royal-blue">{job?.callerPhone || job?.contactPhone || 'לא ידוע'}</span>
+          </p>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <p className="text-green-800 font-medium">רוצה גם לפרסם בקו הטלפון?</p>
+            <p className="text-green-600 text-sm mt-1">
+              התקשר למספר הקו שלנו:
+            </p>
+            <a href={getPhoneDialLink()} className="text-2xl font-bold text-green-700 hover:text-green-800">{PHONE_LINE_NUMBER}</a>
+          </div>
+          <Button onClick={() => setShowPhonePostModal(false)} variant="primary" className="w-full">סגור</Button>
+        </div>
+      </Modal>
     </>
   );
 };

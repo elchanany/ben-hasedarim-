@@ -79,7 +79,7 @@ export const getCityOptions = () => {
   const regions = REGION_MAPPINGS.map(r => ({ value: r.value, label: r.label }));
 
   return [
-    { value: '', label: 'כל הארץ' },
+    { value: 'כל הארץ', label: 'כל הארץ' },
     { label: '--- אזורים ---', value: 'disabled_regions', isDisabled: true },
     ...regions,
     { label: '--- ערים מרכזיות ---', value: 'disabled_major', isDisabled: true },

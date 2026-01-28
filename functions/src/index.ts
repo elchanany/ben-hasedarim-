@@ -5,7 +5,7 @@ import * as dotenv from 'dotenv';
 import express from 'express';
 import { processEmailNotifications } from './emailNotifications';
 import { router as yemotRouter } from './ivr/yemotRouter';
-import { sendTzintukNotifications } from './ivr/tzintukService';
+import { processTzintukNotifications, markJobForTzintuk, setupTzintuk, getTzintukStatus, resetDailyTzintukCounter } from './ivr/tzintukService';
 
 dotenv.config();
 
@@ -53,7 +53,7 @@ export const sendJobAlertEmails = functions
 /**
  * Trigger: When a new job is created
  * Checks if immediate email alerts are enabled and processes them
- * Also sends tzintuk notifications
+ * EFFICIENT: Just marks job for tzintuk, doesn't send per-job
  */
 export const onJobCreated = functions
     .region('europe-west1')
@@ -79,11 +79,12 @@ export const onJobCreated = functions
             m.processNewJobAlert(jobId, jobData)
         );
 
-        // Process tzintuk notifications (phone calls)
+        // EFFICIENT: Just mark for tzintuk - don't send per job!
+        // The batch processor will send one tzintuk for all pending jobs
         try {
-            await sendTzintukNotifications(jobId, jobData as any);
+            await markJobForTzintuk(jobId);
         } catch (error) {
-            console.error(`[Trigger] Error sending tzintuk notifications:`, error);
+            console.error(`[Trigger] Error marking job for tzintuk:`, error);
         }
 
         return null;
@@ -233,3 +234,114 @@ export const getSecureContactDetails = functions.https.onCall(async (data, conte
         throw new functions.https.HttpsError('internal', 'Error fetching details');
     }
 });
+
+// ============================================
+// TZINTUK (ROBOCALL) FUNCTIONS - EFFICIENT!
+// ============================================
+
+/**
+ * SCHEDULED: Process all pending tzintuks in batch
+ * Runs every 5 minutes - ONE function call for ALL users!
+ */
+export const processTzintuks = functions
+    .region('europe-west1')
+    .pubsub.schedule('*/5 * * * *')  // Every 5 minutes
+    .timeZone('Asia/Jerusalem')
+    .onRun(async (context) => {
+        return processTzintukNotifications();
+    });
+
+/**
+ * SCHEDULED: Reset daily tzintuk counter at midnight
+ */
+export const resetTzintukCounter = functions
+    .region('europe-west1')
+    .pubsub.schedule('0 0 * * *')  // Every day at midnight
+    .timeZone('Asia/Jerusalem')
+    .onRun(async (context) => {
+        return resetDailyTzintukCounter();
+    });
+
+/**
+ * Setup Tzintuk (call once to create settings)
+ */
+export const setupTzintukFunc = functions
+    .region('europe-west1')
+    .https.onCall(async (data, context) => {
+        const result = await setupTzintuk();
+        return result;
+    });
+
+/**
+ * Get Tzintuk Statistics
+ */
+export const getTzintukStatusFunc = functions
+    .region('europe-west1')
+    .https.onCall(async (data, context) => {
+        const result = await getTzintukStatus();
+        return result;
+    });
+
+/**
+ * Force Process Tzintuks Now (manual trigger)
+ */
+export const forceTzintukProcess = functions
+    .region('europe-west1')
+    .https.onCall(async (data, context) => {
+        console.log('[forceTzintukProcess] Triggered with data:', data);
+        const bypassChecks = data?.bypassChecks === true;
+        const result = await processTzintukNotifications(bypassChecks);
+        return result;
+    });
+
+// Force Update: Fixed POST logic verified at $(Get-Date)
+
+/**
+ * TEST FUNCTION: Trigger Tzintuk Campaign logic via HTTP
+ * Usage: https://europe-west1-jobs-site-fa310.cloudfunctions.net/testTzintukCampaign?bypass=true
+ */
+export const testTzintukCampaign = functions
+    .region('europe-west1')
+    .https.onRequest(async (req, res) => {
+        // Enable CORS for browser testing
+        res.set('Access-Control-Allow-Origin', '*');
+
+        try {
+            const bypassChecks = req.query.bypass === 'true' || req.query.force === 'true';
+            const targetListId = req.query.listId as string;
+
+            console.log(`[testTzintukCampaign] Triggered with bypass=${bypassChecks}, listId=${targetListId}`);
+
+            // If listId is provided, we need to pass it down. 
+            // However, processTzintukNotifications doesn't take a listId arg yet.
+            // We will modify the SERVICE call directly here for testing purposes if listId is present
+            // OR we rely on the service to have been updated to accept it.
+
+            // To properly test the LIST override, we should call sendTzintukToPhones directly here
+            // because processTzintukNotifications is a batch job logic that gathers default phones.
+
+            if (targetListId) {
+                const db = admin.firestore();
+                const settings = (await db.collection('settings').doc('phoneSettings').get()).data() as any;
+
+                // Import the service dynamically or rely on the imported module
+                const { sendTzintukToPhones } = require('./ivr/tzintukService');
+
+                // Pass the override
+                const result = await sendTzintukToPhones(settings, [`LIST_ID_OVERRIDE:${targetListId}`]);
+
+                res.json({
+                    mode: 'direct_list_test',
+                    listId: targetListId,
+                    result: result
+                });
+                return;
+            }
+
+            const result = await processTzintukNotifications(bypassChecks);
+            res.json(result);
+        } catch (error: any) {
+            console.error('[testTzintukCampaign] Error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    });

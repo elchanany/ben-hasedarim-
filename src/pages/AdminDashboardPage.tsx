@@ -17,6 +17,7 @@ import { AdminLog } from '../types';
 
 import { AdminPaymentTab } from '../components/admin/AdminPaymentTab';
 import NotificationsAdminPanel from '../components/admin/NotificationsAdminPanel';
+import { PhoneSettingsSection } from '../components/PhoneSettingsSection';
 
 interface AdminStats {
   totalJobs: number;
@@ -25,7 +26,7 @@ interface AdminStats {
   totalUsers: number;
 }
 
-type Tab = 'overview' | 'users' | 'jobs' | 'reports' | 'contact' | 'logs' | 'payments' | 'notifications';
+type Tab = 'overview' | 'users' | 'jobs' | 'reports' | 'contact' | 'logs' | 'payments' | 'notifications' | 'phone';
 
 export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pageParams }) => {
   const authCtx = useContext(AuthContext);
@@ -393,7 +394,7 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
       <div className="flex flex-col md:flex-row justify-between items-center border-b pb-4 gap-4">
         <h1 className="text-2xl sm:text-3xl font-bold text-royal-blue">לוח בקרה למנהל</h1>
         <div className="flex bg-white rounded-lg p-1 shadow-sm border text-sm overflow-x-auto w-full md:w-auto no-scrollbar">
-          {(['overview', 'users', 'jobs', 'payments', 'notifications', 'reports', 'contact', 'logs'] as Tab[]).map((tab) => (
+          {(['overview', 'users', 'jobs', 'payments', 'notifications', 'phone', 'reports', 'contact', 'logs'] as Tab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -404,6 +405,7 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
               {tab === 'jobs' && 'משרות'}
               {tab === 'payments' && 'כספים ומנויים'}
               {tab === 'notifications' && 'התראות ומיילים'}
+              {tab === 'phone' && '📞 קו טלפון'}
               {tab === 'reports' && (
                 <>
                   דיווחים
@@ -467,6 +469,11 @@ export const AdminDashboardPage: React.FC<PageProps> = ({ setCurrentPage, pagePa
       {/* NOTIFICATIONS TAB */}
       {activeTab === 'notifications' && (
         <NotificationsAdminPanel />
+      )}
+
+      {/* PHONE SETTINGS TAB */}
+      {activeTab === 'phone' && (
+        <PhoneSettingsSection />
       )}
 
       {/* USERS TAB */}

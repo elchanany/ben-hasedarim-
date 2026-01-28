@@ -1,37 +1,35 @@
 /**
  * Contact Handler
  * 
- * Handles contact options
+ * Handles leaving a voice message for the system administrator
  */
 
 import { Call } from 'yemot-router2';
 import * as admin from 'firebase-admin';
 import { handleMainMenu } from './mainMenu';
+import { AUDIO_FILES, audioFile } from '../audioFiles';
 
 export async function handleContact(call: Call): Promise<any> {
-    const choice = await call.read(
-        [
-            { type: 'text', data: 'יצירת קשר.' },
-            { type: 'text', data: 'להשארת הודעה קולית הקש 1. לשמיעת פרטי יצירת קשר הקש 2. לחזרה הקש כוכבית.' }
-        ],
-        'tap',
-        { val_name: 'contact_choice', max_digits: 1 }
-    );
+    console.log('[IVR] ===== CONTACT/LEAVE MESSAGE =====');
+    console.log(`[IVR] Caller phone: ${call.ApiPhone || 'Unknown'}`);
 
-    if (choice === '1') {
-        // Leave voice message
-        const callerPhone = call.ApiPhone || 'לא ידוע';
+    try {
+        const callerPhone = call.ApiPhone || 'Unknown';
+
+        console.log('[IVR] Prompting user to leave voice message...');
 
         const message = await call.read(
-            [{ type: 'text', data: 'השאר הודעה לאחר הצפצוף. לסיום הקש סולמית.' }],
+            [audioFile(AUDIO_FILES.LEAVE_MESSAGE_INTRO)],
             'record',
             { val_name: 'voice_message' }
         );
 
         if (message) {
+            console.log(`[IVR] Voice message recorded: ${message}`);
+
             try {
                 const db = admin.firestore();
-                await db.collection('contactMessages').add({
+                const docRef = await db.collection('contactMessages').add({
                     phone: callerPhone,
                     messageRef: message,
                     createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -39,20 +37,40 @@ export async function handleContact(call: Call): Promise<any> {
                     source: 'phone'
                 });
 
+                console.log(`[IVR] Message saved to Firestore: ${docRef.id}`);
+
                 await call.id_list_message([
-                    { type: 'text', data: 'ההודעה נשמרה. נחזור אליך בהקדם.' }
-                ]);
+                    audioFile(AUDIO_FILES.MESSAGE_SAVED_THANKS)
+                ], { prependToNextAction: true });
+
             } catch (error) {
-                console.error('[IVR] Error saving message:', error);
+                console.error('[IVR] Error saving message to Firestore:', error);
+                console.error('[IVR] Error details:', {
+                    name: (error as Error).name,
+                    message: (error as Error).message,
+                    stack: (error as Error).stack
+                });
+
+                // Still thank the user even if save failed
+                await call.id_list_message([
+                    audioFile(AUDIO_FILES.MESSAGE_SAVED_THANKS)
+                ], { prependToNextAction: true });
             }
+        } else {
+            console.log('[IVR] No message recorded');
         }
 
-    } else if (choice === '2') {
-        await call.id_list_message([
-            { type: 'text', data: 'פרטי יצירת קשר.' },
-            { type: 'text', data: 'אתר האינטרנט: בין הסדרים נקודה קום.' }
-        ]);
-    }
+        console.log('[IVR] Returning to main menu');
+        return handleMainMenu(call);
 
-    return handleMainMenu(call);
+    } catch (error) {
+        console.error('[IVR] Error in contact handler:', error);
+        console.error('[IVR] Error details:', {
+            name: (error as Error).name,
+            message: (error as Error).message,
+            stack: (error as Error).stack
+        });
+        throw error;
+    }
 }
+

@@ -121,15 +121,16 @@ export const JobCard: React.FC<JobCardProps> = ({ job, setCurrentPage, isHotJob 
   };
 
   const formatSuitability = () => {
+    const suit = job.suitability || { men: false, women: false, general: false };
     const parts = [];
-    if (job.suitability.men) parts.push("גברים");
-    if (job.suitability.women) parts.push("נשים");
-    if (job.suitability.general) parts.push("כללי");
+    if (suit.men) parts.push("גברים");
+    if (suit.women) parts.push("נשים");
+    if (suit.general) parts.push("כללי");
 
     let suitabilityText = parts.join('/');
-    if (parts.length === 0 && job.suitability.minAge) suitabilityText = `מגיל ${job.suitability.minAge}`;
-    else if (parts.length > 0 && job.suitability.minAge) suitabilityText += `, מגיל ${job.suitability.minAge}`;
-    else if (parts.length === 0) suitabilityText = 'לא צוין';
+    if (parts.length === 0 && suit.minAge) suitabilityText = `מגיל ${suit.minAge}`;
+    else if (parts.length > 0 && suit.minAge) suitabilityText += `, מגיל ${suit.minAge}`;
+    else if (parts.length === 0) suitabilityText = 'לכולם';
 
     return suitabilityText;
   }
@@ -137,8 +138,9 @@ export const JobCard: React.FC<JobCardProps> = ({ job, setCurrentPage, isHotJob 
   const formatPeopleNeeded = () => {
     if (!job.numberOfPeopleNeeded || job.numberOfPeopleNeeded <= 0) return '';
 
+    const suit = job.suitability || { men: false, women: false, general: false };
     // Gender logic for "Required"
-    if (job.suitability.women && !job.suitability.men && !job.suitability.general) {
+    if (suit.women && !suit.men && !suit.general) {
       return `דרושות ${job.numberOfPeopleNeeded} עובדות`;
     }
     return `דרושים ${job.numberOfPeopleNeeded} עובדים`;
@@ -193,10 +195,18 @@ export const JobCard: React.FC<JobCardProps> = ({ job, setCurrentPage, isHotJob 
   }
 
   if (job.paymentType) {
+    // Translate payment type to Hebrew - handle both enum values and legacy values
+    const paymentTypeStr = String(job.paymentType);
+    let paymentTypeHebrew = paymentTypeStr;
+    if (paymentTypeStr === 'hourly' || paymentTypeStr === PaymentType.HOURLY) {
+      paymentTypeHebrew = 'לשעה';
+    } else if (paymentTypeStr === 'global' || paymentTypeStr === PaymentType.GLOBAL) {
+      paymentTypeHebrew = 'גלובלי';
+    }
     jobTags.push({
-      label: job.paymentType,
+      label: paymentTypeHebrew,
       onClick: () => setCurrentPage('searchResults', { paymentKind: job.paymentType }),
-      ariaLabel: `סנן לפי סוג תשלום: ${job.paymentType}`
+      ariaLabel: `סנן לפי סוג תשלום: ${paymentTypeHebrew}`
     });
   }
 
@@ -220,23 +230,26 @@ export const JobCard: React.FC<JobCardProps> = ({ job, setCurrentPage, isHotJob 
     });
   }
 
-  if (job.suitability.men && !job.suitability.women && !job.suitability.general) {
+  // Safe check for suitability - handle undefined
+  const suitability = job.suitability || { men: false, women: false, general: false };
+
+  if (suitability.men && !suitability.women && !suitability.general) {
     jobTags.push({
       label: "לגברים",
       onClick: () => setCurrentPage('searchResults', { suitabilityFor: 'men' }),
       ariaLabel: `סנן למתאימים לגברים`
     });
-  } else if (job.suitability.women && !job.suitability.men && !job.suitability.general) {
+  } else if (suitability.women && !suitability.men && !suitability.general) {
     jobTags.push({
       label: "לנשים",
       onClick: () => setCurrentPage('searchResults', { suitabilityFor: 'women' }),
       ariaLabel: `סנן למתאימים לנשים`
     });
-  } else if (job.suitability.general) {
+  } else if (suitability.general || (suitability.men && suitability.women)) {
     jobTags.push({
-      label: "לכללי",
+      label: "לכולם",
       onClick: () => setCurrentPage('searchResults', { suitabilityFor: 'general' }),
-      ariaLabel: `סנן למתאימים לכללי`
+      ariaLabel: `סנן למתאימים לכולם`
     });
   }
 
