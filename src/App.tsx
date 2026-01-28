@@ -146,7 +146,16 @@ const App: React.FC = () => {
 
 
   if (loadingAuth) {
-    return <div role="alert" aria-live="assertive" className="flex justify-center items-center h-screen bg-royal-blue text-white text-2xl">טוען...</div>;
+    return (
+      <div role="alert" aria-live="assertive" className="flex flex-col justify-center items-center h-screen bg-royal-blue">
+        <img
+          src="/assets/logo.svg"
+          alt="טוען..."
+          className="w-32 h-32 animate-logo-loading"
+        />
+        <p className="text-white text-xl mt-6 opacity-80">טוען...</p>
+      </div>
+    );
   }
 
   const renderPage = () => {

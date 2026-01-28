@@ -1,0 +1,25 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle for contrast -->
+  <circle cx="100" cy="100" r="90" fill="white" opacity="0.15"/>
+  
+  <!-- Handle: White with blue outline -->
+  <path d="M78 55H122C128 55 133 60 133 67V80H67V67C67 60 72 55 78 55Z" 
+        stroke="white" stroke-width="8" fill="none"/>
+  <path d="M78 55H122C128 55 133 60 133 67V80H67V67C67 60 72 55 78 55Z" 
+        stroke="#0A2463" stroke-width="3" fill="none"/>
+  
+  <!-- Left Page (White with blue outline) -->
+  <path d="M100 90V170C100 170 70 180 35 170V90C35 90 65 100 100 100Z" 
+        fill="white" stroke="#0A2463" stroke-width="3"/>
+  
+  <!-- Right Page (Pink) -->
+  <path d="M100 90V170C100 170 130 180 165 170V90C165 90 135 100 100 100Z" 
+        fill="#D81E5B" stroke="#0A2463" stroke-width="3"/>
+  
+  <!-- Spine/Center Line -->
+  <rect x="97" y="90" width="6" height="85" fill="#0A2463"/>
+  
+  <!-- Inner page details -->
+  <path d="M50 105V165" stroke="#0A2463" stroke-width="2" opacity="0.3"/>
+  <path d="M150 105V165" stroke="white" stroke-width="2" opacity="0.6"/>
+</svg>

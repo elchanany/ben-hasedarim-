@@ -615,3 +615,34 @@ html.high-contrast .accessibility-panel hr {
 .animate-fade-in-up {
   animation: fade-in-up 0.3s ease-out;
 }
+
+/* Logo Loading Animation */
+@keyframes logo-bounce {
+
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    transform: translateY(-20px) scale(1.05);
+  }
+}
+
+@keyframes logo-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.8;
+    transform: scale(0.95);
+  }
+}
+
+.animate-logo-loading {
+  animation: logo-bounce 1.5s ease-in-out infinite, logo-pulse 2s ease-in-out infinite;
+}
